@@ -1,0 +1,155 @@
+"use client";
+
+import { useState } from "react";
+
+interface FiltersProps {
+  onApply: (filters: { vendor: string; product: string; cwe: string; since: string }) => void;
+  initialFilters?: { vendor: string; product: string; cwe: string; since: string };
+}
+
+const QUICK_DATES = [
+  { label: "24h", days: 1 },
+  { label: "7d", days: 7 },
+  { label: "30d", days: 30 },
+  { label: "90d", days: 90 },
+  { label: "1y", days: 365 },
+];
+
+export default function Filters({ onApply, initialFilters }: FiltersProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [vendor, setVendor] = useState(initialFilters?.vendor || "");
+  const [product, setProduct] = useState(initialFilters?.product || "");
+  const [cwe, setCwe] = useState(initialFilters?.cwe || "");
+  const [since, setSince] = useState(initialFilters?.since || "");
+
+  const handleApply = () => {
+    onApply({ vendor, product, cwe, since });
+  };
+
+  const handleClear = () => {
+    setVendor("");
+    setProduct("");
+    setCwe("");
+    setSince("");
+    onApply({ vendor: "", product: "", cwe: "", since: "" });
+  };
+
+  const setQuickDate = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const formatted = date.toISOString().split("T")[0];
+    setSince(formatted);
+  };
+
+  const hasFilters = vendor || product || cwe || since;
+
+  return (
+    <div className="w-full">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+          hasFilters
+            ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400"
+            : "border-white/[0.08] bg-white/[0.03] text-gray-400 hover:bg-white/[0.06] hover:text-white"
+        }`}
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+          />
+        </svg>
+        Filters
+        {hasFilters && (
+          <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-xs font-bold text-black">
+            {[vendor, product, cwe, since].filter(Boolean).length}
+          </span>
+        )}
+        <svg
+          className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">Vendor</label>
+              <input
+                type="text"
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+                placeholder="e.g. microsoft"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">Product</label>
+              <input
+                type="text"
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                placeholder="e.g. windows"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">CWE</label>
+              <input
+                type="text"
+                value={cwe}
+                onChange={(e) => setCwe(e.target.value)}
+                placeholder="e.g. CWE-79"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">Since</label>
+              <input
+                type="date"
+                value={since}
+                onChange={(e) => setSince(e.target.value)}
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 [color-scheme:dark]"
+              />
+              <div className="mt-2 flex flex-wrap gap-1">
+                {QUICK_DATES.map((d) => (
+                  <button
+                    key={d.label}
+                    type="button"
+                    onClick={() => setQuickDate(d.days)}
+                    className="rounded-md bg-white/[0.05] px-2 py-0.5 text-xs text-gray-400 transition-colors hover:bg-white/[0.1] hover:text-white"
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleApply}
+              className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-cyan-500/20 transition-all hover:from-cyan-500 hover:to-blue-500"
+            >
+              Apply Filters
+            </button>
+            {hasFilters && (
+              <button
+                onClick={handleClear}
+                className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
