@@ -181,3 +181,54 @@ export interface ProjectRecord {
   updatedAt: string;
   items: ProjectItem[];
 }
+
+export interface AIContextCluster {
+  canonicalId: string;
+  sourceIds: string[];
+  relatedIds: string[];
+  summary: string;
+}
+
+export interface AITriageRecommendation {
+  priority: "critical" | "high" | "medium" | "low";
+  status: "new" | "investigating" | "mitigated" | "accepted" | "closed";
+  rationale: string;
+  nextSteps: string[];
+}
+
+export interface AICveInsight {
+  summary: string;
+  triage: AITriageRecommendation;
+  remediation: string[];
+  cluster: AIContextCluster;
+}
+
+export interface AISearchInterpretation {
+  query: string;
+  vendor: string;
+  product: string;
+  cwe: string;
+  since: string;
+  minSeverity: SearchSeverityFilter;
+  sort: SearchSortOption;
+  explanation: string;
+}
+
+export interface AIDigestSection {
+  title: string;
+  body: string;
+  items: string[];
+}
+
+export interface AIDigest {
+  headline: string;
+  sections: AIDigestSection[];
+}
+
+export type AIProvider = "heuristic" | "openai" | "anthropic";
+
+export interface AISettings {
+  provider: AIProvider;
+  model: string;
+  apiKey: string;
+}
