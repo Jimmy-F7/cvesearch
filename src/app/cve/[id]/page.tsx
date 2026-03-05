@@ -15,6 +15,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import BookmarkButton from "@/components/BookmarkButton";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import TriagePanel from "@/components/TriagePanel";
+import ProjectPickerButton from "@/components/ProjectPickerButton";
 
 export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -113,6 +114,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-2xl font-bold text-white sm:text-3xl">{cveId}</h1>
           <BookmarkButton cveId={cveId} />
+          <ProjectPickerButton cveId={cveId} />
           <CopyLinkButton href={`/cve/${encodeURIComponent(cveId)}`} />
           {cvssInfo && (
             <SeverityBadge

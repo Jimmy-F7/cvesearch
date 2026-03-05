@@ -30,6 +30,7 @@ A fast web interface for searching and exploring CVE (Common Vulnerabilities and
 - **Local watchlist** — Bookmark CVEs or advisories and revisit them on a dedicated watchlist page
 - **Local alerts** — Save alert rules from the current search and review matching CVEs in a notification center
 - **Local triage workflow** — Track CVE status, owner, tags, and notes from the detail page and watchlist
+- **Server-persisted projects** — Group CVEs into shared project buckets stored in the app workspace
 - **Analyst dashboard** — Start from curated views like latest critical, highest CVSS, and recent high-impact vulnerabilities
 - **Richer result cards** — See affected-product hints and copy deep links directly from search results
 - **Export actions** — Download the currently visible result set as CSV or JSON
@@ -45,7 +46,7 @@ A fast web interface for searching and exploring CVE (Common Vulnerabilities and
 - Saved views, watchlist, alerts, and triage state are browser-local only. They are not synced across devices or users.
 - CWE enrichment and linked-vulnerability rendering are still partial.
 - The proxy now uses path allowlisting, timeout handling, and response validation, but it still does not include retries, rate limits, or richer observability.
-- OpenCVE-style email notifications, server-side projects, team assignments, and scheduled reports are not implemented yet.
+- OpenCVE-style email notifications, team assignments, and scheduled reports are not implemented yet.
 
 ## Quick Start
 
@@ -110,6 +111,7 @@ src/
 │   ├── cve/[id]/page.tsx     # CVE detail page
 │   ├── layout.tsx            # Root layout with dark theme
 │   ├── page.tsx              # Server-rendered home page entry
+│   ├── projects/page.tsx     # Projects route
 │   ├── watchlist/page.tsx    # Watchlist route
 │   └── globals.css           # Global styles
 ├── components/
@@ -119,6 +121,8 @@ src/
 │   ├── DashboardPanel.tsx    # Homepage analyst dashboard sections
 │   ├── HomePageClient.tsx    # Client shell for URL-driven search interactions
 │   ├── Header.tsx            # Navigation header
+│   ├── ProjectPickerButton.tsx # Add CVEs to persisted projects
+│   ├── ProjectsPageClient.tsx # Projects page client UI
 │   ├── SavedViewsPanel.tsx   # Local saved views UI
 │   ├── SearchBar.tsx         # Search input
 │   ├── Filters.tsx           # Product/vendor/CWE/date filters
@@ -134,6 +138,8 @@ src/
     ├── alerts.ts             # Browser-local alert rules
     ├── search.ts             # Canonical search state + URL param helpers
     ├── server-api.ts         # Server-side data fetching helpers
+    ├── projects-api.ts       # Client-side project API calls
+    ├── projects-store.ts     # Server-side project persistence
     ├── saved-views.ts        # Browser-local saved views
     ├── triage.ts             # Browser-local triage state
     ├── types.ts              # TypeScript type definitions
@@ -143,6 +149,7 @@ src/
 
 tests/
 ├── alerts.test.ts            # Alert/search normalization tests
+├── projects-store.test.ts    # Project helper tests
 ├── search.test.ts            # Search-state and validation tests
 ├── triage.test.ts            # Triage helper tests
 ├── validation.test.ts        # Response validation tests

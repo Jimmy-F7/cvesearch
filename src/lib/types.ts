@@ -164,3 +164,18 @@ export interface HomeDashboardData {
   highestCvss: CVESummary[];
   recentHighImpact: CVESummary[];
 }
+
+export interface ProjectItem {
+  cveId: string;
+  note?: string;
+  addedAt: string;
+}
+
+export interface ProjectRecord {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  items: ProjectItem[];
+}

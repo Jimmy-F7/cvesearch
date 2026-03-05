@@ -14,6 +14,7 @@ import SeverityBadge from "./SeverityBadge";
 import BookmarkButton from "./BookmarkButton";
 import CopyLinkButton from "./CopyLinkButton";
 import TriageBadge from "./TriageBadge";
+import ProjectPickerButton from "./ProjectPickerButton";
 import { readTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 import { useEffect, useState } from "react";
 
@@ -61,6 +62,7 @@ export default function CVECard({ cve }: CVECardProps) {
           </p>
         </Link>
         <div className="flex items-center gap-2 self-start">
+          <ProjectPickerButton cveId={cveId} />
           <CopyLinkButton href={href} size="sm" />
           <BookmarkButton cveId={cveId} size="sm" />
         </div>

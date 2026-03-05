@@ -12,6 +12,7 @@ export default function Header() {
   const isHome = pathname === "/";
   const isWatchlist = pathname === "/watchlist";
   const isAlerts = pathname === "/alerts";
+  const isProjects = pathname === "/projects";
   const [watchlistCount, setWatchlistCount] = useState(0);
   const [alertRuleCount, setAlertRuleCount] = useState(0);
   const [investigatingCount, setInvestigatingCount] = useState(0);
@@ -114,6 +115,16 @@ export default function Header() {
                 {alertRuleCount}
               </span>
             )}
+          </Link>
+          <Link
+            href="/projects"
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isProjects
+                ? "bg-white/[0.08] text-white"
+                : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
+            }`}
+          >
+            Projects
           </Link>
           <a
             href="https://vulnerability.circl.lu"
