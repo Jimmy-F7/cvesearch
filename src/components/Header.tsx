@@ -1,11 +1,22 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { readWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
 
 export default function Header() {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const isWatchlist = pathname === "/watchlist";
+  const [watchlistCount, setWatchlistCount] = useState(0);
+
+  useEffect(() => {
+    const sync = () => setWatchlistCount(readWatchlist().length);
+    sync();
+    window.addEventListener(WATCHLIST_UPDATED_EVENT, sync);
+    return () => window.removeEventListener(WATCHLIST_UPDATED_EVENT, sync);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
@@ -46,6 +57,21 @@ export default function Header() {
             }`}
           >
             Search
+          </Link>
+          <Link
+            href="/watchlist"
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isWatchlist
+                ? "bg-white/[0.08] text-white"
+                : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
+            }`}
+          >
+            Watchlist
+            {watchlistCount > 0 && (
+              <span className="ml-2 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] text-amber-300">
+                {watchlistCount}
+              </span>
+            )}
           </Link>
           <a
             href="https://vulnerability.circl.lu"

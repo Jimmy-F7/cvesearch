@@ -12,6 +12,7 @@ import {
   formatDate,
 } from "@/lib/utils";
 import SeverityBadge from "@/components/SeverityBadge";
+import BookmarkButton from "@/components/BookmarkButton";
 
 export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -99,6 +100,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-2xl font-bold text-white sm:text-3xl">{cveId}</h1>
+          <BookmarkButton cveId={cveId} />
           {cvssInfo && (
             <SeverityBadge
               severity={cvssInfo.severity}

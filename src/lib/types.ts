@@ -121,8 +121,12 @@ export interface SearchFilters {
   product: string;
   cwe: string;
   since: string;
+  minSeverity: SearchSeverityFilter;
+  sort: SearchSortOption;
   page: number;
   perPage: number;
 }
 
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" | "UNKNOWN";
+export type SearchSeverityFilter = "ANY" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc";

@@ -28,6 +28,9 @@ This backlog turns the improvement plan into implementation-ready tasks. It is o
 | BL-012 | P1 | Improve result cards with active filter chips, better metadata, and export actions | 1 day | BL-011 | Search results become easier to scan and share |
 | BL-013 | P1 | Render CWE details, linked vulnerabilities, comments, and CAPEC on the detail page | 2 days | BL-006 | Detail pages become genuinely useful for analysis |
 | BL-014 | P1 | Add schema validation for upstream CIRCL responses | 1 day | BL-005 | Safer handling of upstream API changes |
+| BL-014A | P1 | Add OpenCVE-inspired saved views for reusable searches | 1 day | BL-003 | Users can store and re-run common search workflows |
+| BL-014B | P1 | Add a local watchlist with bookmark actions and a watchlist page | 1.5 days | BL-003 | Users can track high-interest CVEs between sessions |
+| BL-014C | P1 | Add stronger prioritization controls such as severity threshold and sort modes | 1 day | BL-011 | Analysts can rank and triage results faster |
 | BL-015 | P2 | Add saved searches and watchlists | 2 days | BL-003, BL-007 | The app becomes useful for repeat monitoring |
 | BL-016 | P2 | Add alert and digest primitives for critical or high-EPSS findings | 2 days | BL-015 | Users can monitor instead of manually rechecking |
 | BL-017 | P2 | Add enrichment sources such as KEV or additional advisory context | 2 days | BL-013, BL-014 | Better prioritization and differentiated value |
@@ -71,9 +74,13 @@ Turn the MVP into a credible analyst tool for day-to-day use.
 4. `BL-011` Add richer filters and sorting
 5. `BL-012` Improve result cards and export actions
 6. `BL-014` Add upstream schema validation
+7. `BL-014A` Add saved views
+8. `BL-014B` Add local watchlist
+9. `BL-014C` Add prioritization controls
 
 ## Notes
 
 - Estimates assume one experienced engineer working with the current codebase.
 - `P0` should be treated as the minimum foundation before expanding the product surface.
 - If time is tight, do not cut tests and URL-state work to make room for more UI. That trade is usually a trap.
+- OpenCVE-inspired features should be implemented honestly. Frontend-only versions are fine, but they should not pretend to be multi-user or notification-backed features if that backend does not exist.

@@ -9,6 +9,7 @@ import {
   truncate,
 } from "@/lib/utils";
 import SeverityBadge from "./SeverityBadge";
+import BookmarkButton from "./BookmarkButton";
 
 interface CVECardProps {
   cve: CVESummary;
@@ -22,12 +23,9 @@ export default function CVECard({ cve }: CVECardProps) {
   const severity = getSeverityFromScore(score);
 
   return (
-    <Link
-      href={`/cve/${encodeURIComponent(cveId)}`}
-      className="group block rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]"
-    >
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
+        <Link href={`/cve/${encodeURIComponent(cveId)}`} className="group min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-mono text-base font-semibold text-white group-hover:text-cyan-400 transition-colors">
               {cveId}
@@ -44,10 +42,14 @@ export default function CVECard({ cve }: CVECardProps) {
           <p className="mt-2 text-sm leading-relaxed text-gray-400">
             {truncate(description, 250)}
           </p>
+        </Link>
+        <div className="self-start">
+          <BookmarkButton cveId={cveId} size="sm" />
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+      <Link href={`/cve/${encodeURIComponent(cveId)}`} className="mt-3 block">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
         {published && (
           <span className="flex items-center gap-1">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -69,7 +71,8 @@ export default function CVECard({ cve }: CVECardProps) {
             {cve.cwe}
           </span>
         )}
-      </div>
-    </Link>
+        </div>
+      </Link>
+    </div>
   );
 }

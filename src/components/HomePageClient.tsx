@@ -4,6 +4,7 @@ import { useCallback, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CVESummary } from "@/lib/types";
 import {
+  applySearchResultPreferences,
   buildSearchParams,
   DEFAULT_PAGE,
   getSearchSummary,
@@ -16,6 +17,7 @@ import SearchBar from "@/components/SearchBar";
 import Filters from "@/components/Filters";
 import CVEList from "@/components/CVEList";
 import Pagination from "@/components/Pagination";
+import SavedViewsPanel from "@/components/SavedViewsPanel";
 
 interface HomePageClientProps {
   initialState: SearchState;
@@ -33,6 +35,7 @@ export default function HomePageClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const state = useMemo(() => normalizeSearchState(initialState), [initialState]);
+  const visibleCves = useMemo(() => applySearchResultPreferences(cves, state), [cves, state]);
 
   const navigate = useCallback(
     (nextState: SearchState) => {
@@ -60,7 +63,14 @@ export default function HomePageClient({
   );
 
   const handleFilters = useCallback(
-    (filters: { vendor: string; product: string; cwe: string; since: string }) => {
+    (filters: {
+      vendor: string;
+      product: string;
+      cwe: string;
+      since: string;
+      minSeverity: SearchState["minSeverity"];
+      sort: SearchState["sort"];
+    }) => {
       navigate(
         normalizeSearchState({
           ...state,
@@ -111,8 +121,11 @@ export default function HomePageClient({
             product: state.product,
             cwe: state.cwe,
             since: state.since,
+            minSeverity: state.minSeverity,
+            sort: state.sort,
           }}
         />
+        <SavedViewsPanel search={state} />
       </div>
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -120,7 +133,7 @@ export default function HomePageClient({
           <span>{getSearchSummary(state)}</span>
           {totalHint && <span className="text-gray-600">&middot; {totalHint}</span>}
         </div>
-        <div className="text-sm text-gray-600">{cves.length} shown</div>
+        <div className="text-sm text-gray-600">{visibleCves.length} shown</div>
       </div>
 
       {hasActiveFilters(state) && (
@@ -137,6 +150,12 @@ export default function HomePageClient({
           {state.since && (
             <FilterChip label={`Since: ${state.since}`} />
           )}
+          {state.minSeverity !== "ANY" && (
+            <FilterChip label={`Min severity: ${state.minSeverity}`} />
+          )}
+          {state.sort !== "published_desc" && (
+            <FilterChip label={`Sort: ${formatSortLabel(state.sort)}`} />
+          )}
         </div>
       )}
 
@@ -146,9 +165,9 @@ export default function HomePageClient({
         </div>
       )}
 
-      <CVEList cves={cves} loading={isPending} />
+      <CVEList cves={visibleCves} loading={isPending} />
 
-      {cves.length > 0 && !error && (
+      {visibleCves.length > 0 && !error && (
         <div className="mt-6">
           <Pagination
             page={state.page}
@@ -168,4 +187,17 @@ function FilterChip({ label }: { label: string }) {
       {label}
     </span>
   );
+}
+
+function formatSortLabel(sort: SearchState["sort"]): string {
+  switch (sort) {
+    case "published_asc":
+      return "Oldest first";
+    case "cvss_desc":
+      return "Highest CVSS";
+    case "cvss_asc":
+      return "Lowest CVSS";
+    default:
+      return "Newest first";
+  }
 }

@@ -4,6 +4,17 @@
 
 Make the app trustworthy, shareable, fast, and operationally sound before expanding it into a richer vulnerability research workflow.
 
+## Competitive Benchmark
+
+OpenCVE is now the reference benchmark for missing product surface. See `docs/opencve-benchmark.md`.
+
+The near-term implementation target is not full parity. The goal is to ship the highest-value OpenCVE-inspired features that fit a stateless Next.js app:
+
+- saved views
+- watchlist workflow
+- stronger prioritization controls
+- better analyst navigation
+
 ## Guiding Principles
 
 - Correctness before cosmetics
@@ -142,6 +153,13 @@ Make the app trustworthy, shareable, fast, and operationally sound before expand
 - Add better summary cards with affected products, CWE labels, and more visible recency/severity cues.
 - Add export and copy-link actions.
 - Improve empty states and result count messaging.
+
+### Task 5.5: Add OpenCVE-inspired analyst workflow primitives
+
+- Add saved views for reusable searches.
+- Add a local watchlist for bookmarked CVEs.
+- Add a watchlist page and header navigation.
+- Add stronger result prioritization controls such as severity thresholds and sort modes.
 
 ### Definition of done
 

@@ -22,6 +22,8 @@ test("parseSearchState trims values and applies defaults", () => {
     product: "",
     cwe: "",
     since: "",
+    minSeverity: "ANY",
+    sort: "published_desc",
     page: 3,
     perPage: 20,
   });
@@ -37,6 +39,17 @@ test("buildSearchParams omits empty values and default page", () => {
   );
 
   assert.equal(params.toString(), "query=openssl&cwe=CWE-79");
+});
+
+test("buildSearchParams includes non-default prioritization controls", () => {
+  const params = buildSearchParams(
+    normalizeSearchState({
+      minSeverity: "HIGH",
+      sort: "cvss_desc",
+    })
+  );
+
+  assert.equal(params.toString(), "minSeverity=HIGH&sort=cvss_desc");
 });
 
 test("isCveIdQuery matches CVE identifiers case-insensitively", () => {

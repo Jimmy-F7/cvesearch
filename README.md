@@ -14,8 +14,11 @@ A fast web interface for searching and exploring CVE (Common Vulnerabilities and
 
 - **URL-driven search state** — Search query, filters, and pagination are encoded in the URL for shareable result pages
 - **Keyword and CVE lookup** — Search by product keyword or jump directly to a CVE ID such as `CVE-2024-1234`
-- **Filterable result sets** — Filter by product, vendor/product pair, CWE, and published-since date
+- **Filterable result sets** — Filter by product, vendor/product pair, CWE, published-since date, and minimum severity
+- **Prioritization controls** — Sort by newest, oldest, highest CVSS, or lowest CVSS
 - **Server-rendered homepage results** — Initial search results are resolved on the server for faster first paint
+- **Saved views** — Save reusable searches locally, inspired by OpenCVE views
+- **Local watchlist** — Bookmark CVEs or advisories and revisit them on a dedicated watchlist page
 - **Detailed CVE views** — Review CVSS scores, EPSS exploit probability when a CVE ID exists, affected products, references, and raw source data
 - **Severity indicators** — Color-coded CVSS severity badges
 - **Paginated results** — Navigate through large result sets
@@ -26,8 +29,10 @@ A fast web interface for searching and exploring CVE (Common Vulnerabilities and
 
 - Vendor-only filtering is intentionally blocked. The current data flow only supports a trustworthy vendor filter when paired with a product.
 - Vendor and product autocomplete are not implemented yet.
+- Saved views and watchlist are browser-local only. They are not synced across devices or users.
 - CWE enrichment and linked-vulnerability rendering are still partial.
 - The proxy is functional but not yet fully hardened with allowlists, timeout policy, and response validation.
+- OpenCVE-style notifications, projects, tags, dashboards, assignments, and reports are not implemented yet.
 
 ## Quick Start
 
@@ -90,22 +95,28 @@ src/
 │   ├── cve/[id]/page.tsx     # CVE detail page
 │   ├── layout.tsx            # Root layout with dark theme
 │   ├── page.tsx              # Server-rendered home page entry
+│   ├── watchlist/page.tsx    # Watchlist route
 │   └── globals.css           # Global styles
 ├── components/
+│   ├── BookmarkButton.tsx    # Local watchlist toggle
 │   ├── HomePageClient.tsx    # Client shell for URL-driven search interactions
 │   ├── Header.tsx            # Navigation header
+│   ├── SavedViewsPanel.tsx   # Local saved views UI
 │   ├── SearchBar.tsx         # Search input
 │   ├── Filters.tsx           # Product/vendor/CWE/date filters
 │   ├── CVEList.tsx           # CVE results list
 │   ├── CVECard.tsx           # Individual CVE summary card
 │   ├── SeverityBadge.tsx     # CVSS severity color badge
+│   ├── WatchlistPageClient.tsx # Watchlist page client UI
 │   └── Pagination.tsx        # Page navigation
 └── lib/
     ├── api.ts                # API client functions
     ├── search.ts             # Canonical search state + URL param helpers
     ├── server-api.ts         # Server-side data fetching helpers
+    ├── saved-views.ts        # Browser-local saved views
     ├── types.ts              # TypeScript type definitions
-    └── utils.ts              # Utility functions
+    ├── utils.ts              # Utility functions
+    └── watchlist.ts          # Browser-local watchlist helpers
 
 tests/
 ├── search.test.ts            # Search-state and validation tests
@@ -137,6 +148,7 @@ Planning and backlog docs live in [`docs/`](./docs):
 - `docs/review-findings.md`
 - `docs/improvement-plan.md`
 - `docs/execution-backlog.md`
+- `docs/opencve-benchmark.md`
 
 ## Tech Stack
 

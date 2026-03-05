@@ -1,10 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { SearchSeverityFilter, SearchSortOption } from "@/lib/types";
 
 interface FiltersProps {
-  onApply: (filters: { vendor: string; product: string; cwe: string; since: string }) => void;
-  initialFilters?: { vendor: string; product: string; cwe: string; since: string };
+  onApply: (filters: {
+    vendor: string;
+    product: string;
+    cwe: string;
+    since: string;
+    minSeverity: SearchSeverityFilter;
+    sort: SearchSortOption;
+  }) => void;
+  initialFilters?: {
+    vendor: string;
+    product: string;
+    cwe: string;
+    since: string;
+    minSeverity: SearchSeverityFilter;
+    sort: SearchSortOption;
+  };
 }
 
 const QUICK_DATES = [
@@ -21,9 +36,11 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
   const [product, setProduct] = useState(initialFilters?.product || "");
   const [cwe, setCwe] = useState(initialFilters?.cwe || "");
   const [since, setSince] = useState(initialFilters?.since || "");
+  const [minSeverity, setMinSeverity] = useState<SearchSeverityFilter>(initialFilters?.minSeverity || "ANY");
+  const [sort, setSort] = useState<SearchSortOption>(initialFilters?.sort || "published_desc");
 
   const handleApply = () => {
-    onApply({ vendor, product, cwe, since });
+    onApply({ vendor, product, cwe, since, minSeverity, sort });
   };
 
   const handleClear = () => {
@@ -31,7 +48,9 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
     setProduct("");
     setCwe("");
     setSince("");
-    onApply({ vendor: "", product: "", cwe: "", since: "" });
+    setMinSeverity("ANY");
+    setSort("published_desc");
+    onApply({ vendor: "", product: "", cwe: "", since: "", minSeverity: "ANY", sort: "published_desc" });
   };
 
   const setQuickDate = (days: number) => {
@@ -41,7 +60,7 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
     setSince(formatted);
   };
 
-  const hasFilters = vendor || product || cwe || since;
+  const hasFilters = vendor || product || cwe || since || minSeverity !== "ANY" || sort !== "published_desc";
 
   return (
     <div className="w-full">
@@ -63,7 +82,7 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
         Filters
         {hasFilters && (
           <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-xs font-bold text-black">
-            {[vendor, product, cwe, since].filter(Boolean).length}
+            {[vendor, product, cwe, since, minSeverity !== "ANY" ? minSeverity : "", sort !== "published_desc" ? sort : ""].filter(Boolean).length}
           </span>
         )}
         <svg
@@ -79,7 +98,7 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
 
       {isOpen && (
         <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-400">Vendor</label>
               <input
@@ -130,6 +149,33 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
                   </button>
                 ))}
               </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">Min Severity</label>
+              <select
+                value={minSeverity}
+                onChange={(event) => setMinSeverity(event.target.value as SearchSeverityFilter)}
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              >
+                <option value="ANY">Any</option>
+                <option value="LOW">Low+</option>
+                <option value="MEDIUM">Medium+</option>
+                <option value="HIGH">High+</option>
+                <option value="CRITICAL">Critical only</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">Sort</label>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SearchSortOption)}
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              >
+                <option value="published_desc">Newest first</option>
+                <option value="published_asc">Oldest first</option>
+                <option value="cvss_desc">Highest CVSS</option>
+                <option value="cvss_asc">Lowest CVSS</option>
+              </select>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-3">
