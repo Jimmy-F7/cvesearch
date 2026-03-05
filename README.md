@@ -1,6 +1,6 @@
 # CVE Search
 
-A fast, modern web interface for searching and exploring CVE (Common Vulnerabilities and Exposures) records. Built with Next.js and powered by the [CIRCL vulnerability-lookup API](https://vulnerability.circl.lu/).
+A fast web interface for searching and exploring CVE (Common Vulnerabilities and Exposures) records. Built with Next.js and powered by the [CIRCL vulnerability-lookup API](https://vulnerability.circl.lu/).
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
@@ -12,15 +12,22 @@ A fast, modern web interface for searching and exploring CVE (Common Vulnerabili
 
 ## Features
 
-- **Full-text search** — Search CVEs by product name or CVE ID (e.g. `CVE-2024-1234`)
-- **Advanced filters** — Filter by vendor, product, CWE, and date range
-- **Vendor/product browsing** — Browse vulnerabilities by vendor and product
-- **Detailed CVE views** — CVSS scores, EPSS exploit probability, CWE details, references, and linked vulnerabilities
-- **Severity indicators** — Color-coded CVSS severity badges (Critical, High, Medium, Low)
+- **URL-driven search state** — Search query, filters, and pagination are encoded in the URL for shareable result pages
+- **Keyword and CVE lookup** — Search by product keyword or jump directly to a CVE ID such as `CVE-2024-1234`
+- **Filterable result sets** — Filter by product, vendor/product pair, CWE, and published-since date
+- **Server-rendered homepage results** — Initial search results are resolved on the server for faster first paint
+- **Detailed CVE views** — Review CVSS scores, EPSS exploit probability when a CVE ID exists, affected products, references, and raw source data
+- **Severity indicators** — Color-coded CVSS severity badges
 - **Paginated results** — Navigate through large result sets
-- **Dark theme** — Easy on the eyes for security researchers
-- **Responsive design** — Works on desktop and mobile
-- **Server-side API proxy** — Avoids CORS issues and caches upstream responses
+- **Responsive dark UI** — Works on desktop and mobile
+- **Server-side API proxy** — Avoids browser CORS issues and caches upstream responses
+
+## Current Limitations
+
+- Vendor-only filtering is intentionally blocked. The current data flow only supports a trustworthy vendor filter when paired with a product.
+- Vendor and product autocomplete are not implemented yet.
+- CWE enrichment and linked-vulnerability rendering are still partial.
+- The proxy is functional but not yet fully hardened with allowlists, timeout policy, and response validation.
 
 ## Quick Start
 
@@ -38,12 +45,41 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Scripts
+
+```bash
+# Start the local dev server
+npm run dev
+
+# Lint the codebase
+npm run lint
+
+# Run unit tests
+npm test
+
+# Build for production
+npm run build
+
+# Start the production server
+npm start
+```
+
 ### Production Build
 
 ```bash
 npm run build
 npm start
 ```
+
+## Testing
+
+The project includes lightweight TypeScript unit tests for:
+
+- search-state parsing and URL param generation
+- CVE ID detection and search validation rules
+- core CVSS and description extraction helpers
+
+GitHub Actions runs `lint`, `test`, and `build` on pushes and pull requests.
 
 ## Project Structure
 
@@ -53,20 +89,27 @@ src/
 │   ├── api/proxy/route.ts    # API proxy to CIRCL backend
 │   ├── cve/[id]/page.tsx     # CVE detail page
 │   ├── layout.tsx            # Root layout with dark theme
-│   ├── page.tsx              # Home page with search + filters
+│   ├── page.tsx              # Server-rendered home page entry
 │   └── globals.css           # Global styles
 ├── components/
+│   ├── HomePageClient.tsx    # Client shell for URL-driven search interactions
 │   ├── Header.tsx            # Navigation header
-│   ├── SearchBar.tsx         # Search input with CVE ID detection
-│   ├── Filters.tsx           # Vendor/product/CWE/date filters
+│   ├── SearchBar.tsx         # Search input
+│   ├── Filters.tsx           # Product/vendor/CWE/date filters
 │   ├── CVEList.tsx           # CVE results list
 │   ├── CVECard.tsx           # Individual CVE summary card
 │   ├── SeverityBadge.tsx     # CVSS severity color badge
 │   └── Pagination.tsx        # Page navigation
 └── lib/
     ├── api.ts                # API client functions
+    ├── search.ts             # Canonical search state + URL param helpers
+    ├── server-api.ts         # Server-side data fetching helpers
     ├── types.ts              # TypeScript type definitions
     └── utils.ts              # Utility functions
+
+tests/
+├── search.test.ts            # Search-state and validation tests
+└── utils.test.ts             # Utility function tests
 ```
 
 ## API
@@ -87,13 +130,20 @@ This app uses a server-side proxy (`/api/proxy`) to communicate with the [CIRCL 
 
 All requests go through `/api/proxy?path=<encoded_path>` which forwards to `https://vulnerability.circl.lu/api`.
 
+## Roadmap Docs
+
+Planning and backlog docs live in [`docs/`](./docs):
+
+- `docs/review-findings.md`
+- `docs/improvement-plan.md`
+- `docs/execution-backlog.md`
+
 ## Tech Stack
 
 - **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
 - **UI:** [React 19](https://react.dev/)
 - **Language:** [TypeScript 5](https://www.typescriptlang.org/)
 - **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
-- **Font:** [Geist](https://vercel.com/font)
 - **Data Source:** [CIRCL vulnerability-lookup](https://vulnerability.circl.lu/)
 
 ## License
