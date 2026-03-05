@@ -1,4 +1,4 @@
-import { CVEDetail, CVESummary, EPSSData } from "./types";
+import { CVEDetail, CVESummary, CWEData, EPSSData } from "./types";
 
 async function fetchAPI<T>(path: string): Promise<T> {
   const res = await fetch(`/api/proxy?path=${encodeURIComponent(path)}`, {
@@ -83,7 +83,7 @@ export async function getEPSS(cveId: string): Promise<EPSSData | null> {
   }
 }
 
-export async function getCWE(cweId: string): Promise<{ id: string; name: string; description: string } | null> {
+export async function getCWE(cweId: string): Promise<CWEData | null> {
   try {
     return await fetchAPI(`/cwe/${encodeURIComponent(cweId)}`);
   } catch {

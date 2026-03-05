@@ -52,6 +52,12 @@ export interface CVEDetail {
     dateUpdated?: string;
     dateReserved?: string;
   };
+  taxonomy?: {
+    cwe?: {
+      id?: string;
+      description?: string;
+    };
+  };
 }
 
 export interface AffectedProduct {
@@ -113,6 +119,12 @@ export interface EPSSData {
   epss: number;
   percentile: number;
   date?: string;
+}
+
+export interface CWEData {
+  id: string;
+  name?: string;
+  description?: string;
 }
 
 export interface SearchFilters {

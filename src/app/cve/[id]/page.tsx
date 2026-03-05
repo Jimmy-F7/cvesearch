@@ -2,8 +2,8 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { CVEDetail, EPSSData } from "@/lib/types";
-import { getCVEById, getEPSS } from "@/lib/api";
+import { CVEDetail, CWEData, EPSSData } from "@/lib/types";
+import { getCVEById, getCWE, getEPSS } from "@/lib/api";
 import { isCveIdQuery } from "@/lib/search";
 import {
   extractDescription,
@@ -18,6 +18,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const [cve, setCve] = useState<CVEDetail | null>(null);
   const [epss, setEpss] = useState<EPSSData | null>(null);
+  const [cweDetail, setCweDetail] = useState<CWEData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +29,14 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
         const decodedId = decodeURIComponent(id);
         const cveData = await getCVEById(decodedId);
         const epssTarget = getEPSSLookupId(cveData);
-        const epssData = epssTarget ? await getEPSS(epssTarget) : null;
+        const cweId = getPrimaryCweId(cveData);
+        const [epssData, cweData] = await Promise.all([
+          epssTarget ? getEPSS(epssTarget) : Promise.resolve(null),
+          cweId ? getCWE(cweId) : Promise.resolve(null),
+        ]);
         setCve(cveData);
         setEpss(epssData);
+        setCweDetail(cweData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load CVE");
       } finally {
@@ -80,6 +86,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
   const affected = cve.containers?.cna?.affected || [];
   const problemTypes = cve.containers?.cna?.problemTypes || [];
   const metrics = cve.containers?.cna?.metrics || [];
+  const aliases = cve.aliases?.filter((alias) => alias !== cveId) ?? [];
 
   // Extract CVSS details from metrics
   const cvssDetail = metrics.length > 0
@@ -150,6 +157,18 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
         <Section title="Description">
           <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{description}</p>
         </Section>
+
+        {aliases.length > 0 && (
+          <Section title="Aliases">
+            <div className="flex flex-wrap gap-2">
+              {aliases.map((alias) => (
+                <span key={alias} className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-sm text-gray-300">
+                  {alias}
+                </span>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* CVSS Details */}
         {cvssDetail && (
@@ -273,6 +292,14 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                 {cve.cwe}
               </span>
             )}
+            {cweDetail && (
+              <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 p-4">
+                <div className="text-sm font-medium text-white">{cweDetail.name || cweDetail.id}</div>
+                {cweDetail.description && (
+                  <p className="mt-2 text-sm leading-relaxed text-gray-400">{cweDetail.description}</p>
+                )}
+              </div>
+            )}
           </Section>
         )}
 
@@ -333,6 +360,22 @@ function getEPSSLookupId(cve: CVEDetail): string | null {
 
   const alias = cve.aliases?.find((item) => isCveIdQuery(item));
   return alias ? alias.toUpperCase() : null;
+}
+
+function getPrimaryCweId(cve: CVEDetail): string | null {
+  const fromProblemTypes = cve.containers?.cna?.problemTypes
+    ?.flatMap((item) => item.descriptions)
+    .find((description) => description.cweId)?.cweId;
+
+  if (fromProblemTypes) {
+    return fromProblemTypes;
+  }
+
+  if (cve.cwe && /^CWE-\d+$/i.test(cve.cwe)) {
+    return cve.cwe.toUpperCase();
+  }
+
+  return null;
 }
 
 function normalizeReferences(cve: CVEDetail): Array<{ url: string; tags?: string[] }> {
