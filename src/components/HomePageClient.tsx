@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CVESummary } from "@/lib/types";
+import { CVESummary, HomeDashboardData } from "@/lib/types";
 import {
   applySearchResultPreferences,
   buildSearchParams,
@@ -19,10 +19,12 @@ import CVEList from "@/components/CVEList";
 import Pagination from "@/components/Pagination";
 import SavedViewsPanel from "@/components/SavedViewsPanel";
 import ExportResultsButtons from "@/components/ExportResultsButtons";
+import DashboardPanel from "@/components/DashboardPanel";
 
 interface HomePageClientProps {
   initialState: SearchState;
   cves: CVESummary[];
+  dashboard: HomeDashboardData | null;
   error: string | null;
   totalHint: string;
 }
@@ -30,6 +32,7 @@ interface HomePageClientProps {
 export default function HomePageClient({
   initialState,
   cves,
+  dashboard,
   error,
   totalHint,
 }: HomePageClientProps) {
@@ -128,6 +131,8 @@ export default function HomePageClient({
         />
         <SavedViewsPanel search={state} />
       </div>
+
+      {dashboard && !error && <DashboardPanel dashboard={dashboard} />}
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">

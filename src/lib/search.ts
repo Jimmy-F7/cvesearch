@@ -1,11 +1,12 @@
 import { SearchFilters } from "./types";
 import { CVESummary, SearchSeverityFilter } from "./types";
-import { extractPublishedDate, getSeverityFromScore } from "./utils";
+import { extractModifiedDate, extractPublishedDate, getSeverityFromScore } from "./utils";
 
 export const DEFAULT_PAGE = 1;
 export const PER_PAGE = 20;
 export const DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
 export const DEFAULT_SORT = "published_desc";
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export type SearchState = SearchFilters;
 
@@ -105,6 +106,22 @@ export function applySearchResultPreferences(cves: CVESummary[], state: SearchSt
   return filtered.sort((left, right) => compareCVEs(left, right, state.sort));
 }
 
+export function buildPresetHref(state: Partial<SearchState>): string {
+  const params = buildSearchParams(state);
+  return params.toString() ? `/?${params.toString()}` : "/";
+}
+
+export function wasPublishedWithinDays(cve: CVESummary, days: number, now = Date.now()): boolean {
+  const published = publishedForSort(cve);
+  if (!published) return false;
+
+  return now - published <= days * DAY_IN_MS;
+}
+
+export function sortByModifiedDesc(cves: CVESummary[]): CVESummary[] {
+  return [...cves].sort((left, right) => modifiedForSort(right) - modifiedForSort(left));
+}
+
 function matchesSeverityFilter(cve: CVESummary, minSeverity: SearchSeverityFilter): boolean {
   if (minSeverity === "ANY") return true;
 
@@ -143,6 +160,14 @@ function publishedForSort(cve: CVESummary): number {
   if (!published) return 0;
 
   const parsed = new Date(published).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function modifiedForSort(cve: CVESummary): number {
+  const modified = extractModifiedDate(cve);
+  if (!modified) return 0;
+
+  const parsed = new Date(modified).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 }
 

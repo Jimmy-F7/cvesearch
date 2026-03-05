@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildPresetHref,
   buildSearchParams,
   getSearchSummary,
   getSearchValidationError,
   isCveIdQuery,
   normalizeSearchState,
   parseSearchState,
+  wasPublishedWithinDays,
 } from "../src/lib/search";
 
 test("parseSearchState trims values and applies defaults", () => {
@@ -52,6 +54,17 @@ test("buildSearchParams includes non-default prioritization controls", () => {
   assert.equal(params.toString(), "minSeverity=HIGH&sort=cvss_desc");
 });
 
+test("buildPresetHref returns a shareable preset URL", () => {
+  const href = buildPresetHref(
+    normalizeSearchState({
+      since: "2026-03-01",
+      minSeverity: "CRITICAL",
+    })
+  );
+
+  assert.equal(href, "/?since=2026-03-01&minSeverity=CRITICAL");
+});
+
 test("isCveIdQuery matches CVE identifiers case-insensitively", () => {
   assert.equal(isCveIdQuery("CVE-2024-1234"), true);
   assert.equal(isCveIdQuery("cve-2024-1234"), true);
@@ -75,4 +88,30 @@ test("getSearchSummary reflects query and filter states", () => {
   assert.equal(getSearchSummary(normalizeSearchState({})), "Latest vulnerabilities");
   assert.equal(getSearchSummary(normalizeSearchState({ cwe: "CWE-79" })), "Filtered vulnerabilities");
   assert.equal(getSearchSummary(normalizeSearchState({ query: "openssl" })), 'Results for "openssl"');
+});
+
+test("wasPublishedWithinDays matches recent publication windows", () => {
+  assert.equal(
+    wasPublishedWithinDays(
+      {
+        id: "CVE-2026-0001",
+        published: "2026-03-03T00:00:00.000Z",
+      },
+      7,
+      new Date("2026-03-05T00:00:00.000Z").getTime()
+    ),
+    true
+  );
+
+  assert.equal(
+    wasPublishedWithinDays(
+      {
+        id: "CVE-2026-0002",
+        published: "2026-02-01T00:00:00.000Z",
+      },
+      7,
+      new Date("2026-03-05T00:00:00.000Z").getTime()
+    ),
+    false
+  );
 });

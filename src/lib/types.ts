@@ -142,3 +142,25 @@ export interface SearchFilters {
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" | "UNKNOWN";
 export type SearchSeverityFilter = "ANY" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc";
+
+export interface DashboardPreset {
+  title: string;
+  description: string;
+  href: string;
+  accentClassName: string;
+}
+
+export interface DashboardSummary {
+  sampledCount: number;
+  criticalCount: number;
+  highOrAboveCount: number;
+  publishedThisWeekCount: number;
+}
+
+export interface HomeDashboardData {
+  summary: DashboardSummary;
+  presets: DashboardPreset[];
+  latestCritical: CVESummary[];
+  highestCvss: CVESummary[];
+  recentHighImpact: CVESummary[];
+}

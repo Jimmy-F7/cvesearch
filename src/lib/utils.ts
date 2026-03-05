@@ -110,6 +110,13 @@ export function extractPublishedDate(cve: CVEDetail | CVESummary): string | unde
   return cve.published;
 }
 
+export function extractModifiedDate(cve: CVEDetail | CVESummary): string | undefined {
+  if ("cveMetadata" in cve && cve.cveMetadata?.dateUpdated) {
+    return cve.cveMetadata.dateUpdated;
+  }
+  return cve.modified;
+}
+
 export function extractCVEId(cve: CVEDetail | CVESummary): string {
   if ("cveMetadata" in cve && cve.cveMetadata?.cveId) {
     return cve.cveMetadata.cveId;
