@@ -14,6 +14,7 @@ import {
 import SeverityBadge from "@/components/SeverityBadge";
 import BookmarkButton from "@/components/BookmarkButton";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import TriagePanel from "@/components/TriagePanel";
 
 export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -162,6 +163,8 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
         <Section title="Description">
           <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{description}</p>
         </Section>
+
+        <TriagePanel cveId={cveId} />
 
         {aliases.length > 0 && (
           <Section title="Aliases">

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { CVESummary } from "@/lib/types";
 import {
@@ -11,12 +13,16 @@ import {
 import SeverityBadge from "./SeverityBadge";
 import BookmarkButton from "./BookmarkButton";
 import CopyLinkButton from "./CopyLinkButton";
+import TriageBadge from "./TriageBadge";
+import { readTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { useEffect, useState } from "react";
 
 interface CVECardProps {
   cve: CVESummary;
 }
 
 export default function CVECard({ cve }: CVECardProps) {
+  const [triageStatus, setTriageStatus] = useState<ReturnType<typeof readTriageRecord>["status"]>("new");
   const cveId = extractCVEId(cve);
   const description = extractDescription(cve);
   const published = extractPublishedDate(cve);
@@ -24,6 +30,13 @@ export default function CVECard({ cve }: CVECardProps) {
   const severity = getSeverityFromScore(score);
   const href = `/cve/${encodeURIComponent(cveId)}`;
   const affectedProducts = (cve.vulnerable_product ?? []).slice(0, 3);
+
+  useEffect(() => {
+    const sync = () => setTriageStatus(readTriageRecord(cveId).status);
+    sync();
+    window.addEventListener(TRIAGE_UPDATED_EVENT, sync);
+    return () => window.removeEventListener(TRIAGE_UPDATED_EVENT, sync);
+  }, [cveId]);
 
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]">
@@ -41,6 +54,7 @@ export default function CVECard({ cve }: CVECardProps) {
                 {cve.state}
               </span>
             )}
+            <TriageBadge status={triageStatus} />
           </div>
           <p className="mt-2 text-sm leading-relaxed text-gray-400">
             {truncate(description, 250)}

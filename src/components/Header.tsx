@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { readWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
 import { ALERT_RULES_UPDATED_EVENT, readAlertRules } from "@/lib/alerts";
+import { readTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 export default function Header() {
   const pathname = usePathname();
@@ -13,6 +14,7 @@ export default function Header() {
   const isAlerts = pathname === "/alerts";
   const [watchlistCount, setWatchlistCount] = useState(0);
   const [alertRuleCount, setAlertRuleCount] = useState(0);
+  const [investigatingCount, setInvestigatingCount] = useState(0);
 
   useEffect(() => {
     const sync = () => setWatchlistCount(readWatchlist().length);
@@ -26,6 +28,16 @@ export default function Header() {
     sync();
     window.addEventListener(ALERT_RULES_UPDATED_EVENT, sync);
     return () => window.removeEventListener(ALERT_RULES_UPDATED_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => {
+      const triage = Object.values(readTriageMap());
+      setInvestigatingCount(triage.filter((item) => item.status === "investigating").length);
+    };
+    sync();
+    window.addEventListener(TRIAGE_UPDATED_EVENT, sync);
+    return () => window.removeEventListener(TRIAGE_UPDATED_EVENT, sync);
   }, []);
 
   return (
@@ -80,6 +92,11 @@ export default function Header() {
             {watchlistCount > 0 && (
               <span className="ml-2 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] text-amber-300">
                 {watchlistCount}
+              </span>
+            )}
+            {investigatingCount > 0 && (
+              <span className="ml-2 rounded-full bg-yellow-400/20 px-2 py-0.5 text-[11px] text-yellow-300">
+                {investigatingCount} active
               </span>
             )}
           </Link>
