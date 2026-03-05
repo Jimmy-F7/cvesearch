@@ -16,6 +16,7 @@ import BookmarkButton from "@/components/BookmarkButton";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import TriagePanel from "@/components/TriagePanel";
 import ProjectPickerButton from "@/components/ProjectPickerButton";
+import AICveInsightPanel from "@/components/AICveInsightPanel";
 
 export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -165,6 +166,8 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
         <Section title="Description">
           <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{description}</p>
         </Section>
+
+        <AICveInsightPanel cveId={cveId} />
 
         <TriagePanel cveId={cveId} />
 

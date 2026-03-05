@@ -7,6 +7,7 @@ import { CVEDetail, CVESummary } from "@/lib/types";
 import { readWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
 import { readTriageMap, TRIAGE_UPDATED_EVENT, TriageStatus } from "@/lib/triage";
 import CVEList from "@/components/CVEList";
+import AIDigestPanel from "@/components/AIDigestPanel";
 
 export default function WatchlistPageClient() {
   const [items, setItems] = useState<CVESummary[]>([]);
@@ -119,6 +120,10 @@ export default function WatchlistPageClient() {
           active={statusFilter === "closed"}
           onClick={() => setStatusFilter("closed")}
         />
+      </div>
+
+      <div className="mb-6">
+        <AIDigestPanel />
       </div>
 
       <CVEList cves={filteredItems} loading={loading} />

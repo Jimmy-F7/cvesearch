@@ -21,6 +21,8 @@ import SavedViewsPanel from "@/components/SavedViewsPanel";
 import ExportResultsButtons from "@/components/ExportResultsButtons";
 import DashboardPanel from "@/components/DashboardPanel";
 import AlertRulesPanel from "@/components/AlertRulesPanel";
+import AISearchAssistantPanel from "@/components/AISearchAssistantPanel";
+import AIDigestPanel from "@/components/AIDigestPanel";
 
 interface HomePageClientProps {
   initialState: SearchState;
@@ -65,6 +67,26 @@ export default function HomePageClient({
       );
     },
     [navigate, state]
+  );
+
+  const handleAISearchApply = useCallback(
+    (next: Partial<SearchState>) => {
+      navigate(
+        normalizeSearchState({
+          query: "",
+          vendor: "",
+          product: "",
+          cwe: "",
+          since: "",
+          minSeverity: "ANY",
+          sort: "published_desc",
+          perPage: state.perPage,
+          ...next,
+          page: DEFAULT_PAGE,
+        })
+      );
+    },
+    [navigate, state.perPage]
   );
 
   const handleFilters = useCallback(
@@ -112,6 +134,7 @@ export default function HomePageClient({
       </div>
 
       <div className="mb-6 space-y-4">
+        <AISearchAssistantPanel onApply={handleAISearchApply} />
         <SearchBar
           key={state.query}
           onSearch={handleSearch}
@@ -135,6 +158,7 @@ export default function HomePageClient({
       </div>
 
       {dashboard && !error && <DashboardPanel dashboard={dashboard} />}
+      {!error && <div className="mb-6"><AIDigestPanel /></div>}
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
