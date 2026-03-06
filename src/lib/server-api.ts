@@ -1,4 +1,4 @@
-import { CVEDetail, CVESummary, HomeDashboardData } from "./types";
+import { CVEDetail, CVESummary, EPSSData, HomeDashboardData } from "./types";
 import { SearchState } from "./search";
 import {
   applySearchResultPreferences,
@@ -9,7 +9,7 @@ import {
   matchesSearchState,
   wasPublishedWithinDays,
 } from "./search";
-import { parseCVEDetail, parseCVESummaryList } from "./validation";
+import { parseCVEDetail, parseCVESummaryList, parseEPSSResponse } from "./validation";
 
 const API_BASE = "https://vulnerability.circl.lu/api";
 type NextFetchOptions = RequestInit & { next?: { revalidate: number } };
@@ -64,6 +64,15 @@ export async function getCVEByIdServer(id: string): Promise<CVEDetail> {
     `/vulnerability/${encodeURIComponent(id)}?with_meta=true&with_linked=true&with_comments=true`
   );
   return parseCVEDetail(data);
+}
+
+export async function getEPSSServer(cveId: string): Promise<EPSSData | null> {
+  try {
+    const data = await fetchUpstream<unknown>(`/epss/${encodeURIComponent(cveId)}`);
+    return parseEPSSResponse(data);
+  } catch {
+    return null;
+  }
 }
 
 export async function searchByVendorProductServer(

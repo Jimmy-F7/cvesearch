@@ -2,12 +2,15 @@ import {
   AICveInsight,
   AIDigest,
   AIFeature,
+  AITriageContextSnapshot,
+  AITriageSignal,
   AIProvider,
   AISearchAppliedFilter,
   AISearchFilterField,
   AISearchInterpretation,
   AISearchToolTrace,
   CVEDetail,
+  EPSSData,
   ProjectRecord,
   SearchSeverityFilter,
   SearchSortOption,
@@ -26,6 +29,13 @@ export interface DigestInput {
   watchlist: Array<{ id: string; summary?: string; severity?: string }>;
   alerts: Array<{ name: string; unread: number; topMatches: string[] }>;
   projects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[];
+}
+
+export interface CveInsightInput {
+  detail: CVEDetail;
+  epss: EPSSData | null;
+  triage: AITriageContextSnapshot | null;
+  relatedProjects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[];
 }
 
 export interface ServerAIConfigurationSummary {
@@ -112,17 +122,17 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
   };
 }
 
-export async function generateCveInsight(detail: CVEDetail): Promise<AICveInsight> {
+export async function generateCveInsight(input: CveInsightInput): Promise<AICveInsight> {
   return executeStructuredTask({
     feature: "cve_insight",
     prompt: [
       "You are a security analyst assistant.",
       "Return only valid JSON matching this TypeScript shape:",
-      '{"summary":"string","triage":{"priority":"critical|high|medium|low","status":"new|investigating|mitigated|accepted|closed","rationale":"string","nextSteps":["string"]},"remediation":["string"],"cluster":{"canonicalId":"string","sourceIds":["string"],"relatedIds":["string"],"summary":"string"}}',
-      "Base your answer only on this CVE detail JSON:",
-      JSON.stringify(detail),
+      '{"summary":"string","triage":{"priority":"critical|high|medium|low","status":"new|investigating|mitigated|accepted|closed","confidence":"high|medium|low","ownerRecommendation":"string","rationale":"string","nextSteps":["string"],"signals":[{"label":"string","value":"string","level":"high|medium|low","rationale":"string"}]},"remediation":["string"],"cluster":{"canonicalId":"string","sourceIds":["string"],"relatedIds":["string"],"summary":"string"},"projectContext":{"projectCount":0,"projectNames":["string"],"summary":"string"}}',
+      "Base your answer only on this triage input JSON:",
+      JSON.stringify(input),
     ].join("\n"),
-    fallback: () => buildHeuristicCveInsight(detail),
+    fallback: () => buildHeuristicCveInsight(input),
     sanitize: sanitizeInsight,
   });
 }
@@ -176,7 +186,9 @@ export async function generateDigest(input: DigestInput): Promise<AIDigest> {
   });
 }
 
-export function buildHeuristicCveInsight(detail: CVEDetail): AICveInsight {
+export function buildHeuristicCveInsight(input: CVEDetail | CveInsightInput): AICveInsight {
+  const normalized = normalizeCveInsightInput(input);
+  const { detail, epss, triage, relatedProjects } = normalized;
   const id = extractCVEId(detail);
   const severityScore = detail.cvss3 ?? detail.cvss;
   const severity = getSeverityFromScore(severityScore);
@@ -184,27 +196,32 @@ export function buildHeuristicCveInsight(detail: CVEDetail): AICveInsight {
   const affected = detail.containers?.cna?.affected?.slice(0, 3) ?? [];
   const aliases = detail.aliases ?? [];
   const relatedIds = extractRelatedIds(detail);
-  const priority = severity === "CRITICAL" ? "critical" : severity === "HIGH" ? "high" : severity === "MEDIUM" ? "medium" : "low";
-  const status = priority === "critical" || priority === "high" ? "investigating" : "new";
+  const referenceSummary = summarizeReferences(detail);
+  const projectContext = buildProjectContext(relatedProjects);
+  const signals = buildTriageSignals({ severity, severityScore, epss, referenceSummary, triage, projectContext, affected });
+  const priority = derivePriority(severity, epss, referenceSummary, projectContext.projectCount);
+  const status = deriveStatus(priority, triage?.status);
+  const confidence = deriveConfidence(severityScore, epss, referenceSummary);
 
   return {
     summary: `${id} is a ${severity.toLowerCase()} severity vulnerability${affected.length ? ` affecting ${affected.map((item) => item.product || item.vendor).filter(Boolean).join(", ")}` : ""}. ${truncateSentence(description)}`,
     triage: {
       priority,
       status,
+      confidence,
+      ownerRecommendation: triage?.owner ? `Keep ${triage.owner} as the current owner unless product ownership has changed.` : projectContext.projectCount > 0 ? "Assign the owning engineering or service team tied to the impacted project." : "Assign a security or service owner before remediation work begins.",
       rationale:
-        priority === "critical" || priority === "high"
-          ? "High severity and affected product exposure suggest immediate analyst review."
-          : "The record is lower severity or missing severity context, so review is still useful but less urgent.",
+        buildTriageRationale({ priority, epss, referenceSummary, projectContext, triage }),
       nextSteps: [
         "Confirm whether the affected product or version exists in your environment.",
-        "Review upstream references for patches, advisories, or mitigation guidance.",
-        "Track ownership and remediation notes in triage before closing the issue.",
+        referenceSummary.patchCount > 0 ? "Review the available patch or advisory references and determine the rollout path." : "Review upstream references for patches, advisories, or mitigation guidance.",
+        projectContext.projectCount > 0 ? "Coordinate remediation with the linked project owners and track the rollout decision." : "Track ownership and remediation notes in triage before closing the issue.",
       ],
+      signals,
     },
     remediation: [
       "Identify exposed versions and compare them against vendor-fixed releases.",
-      "Apply patches or compensating controls where an immediate upgrade is not possible.",
+      referenceSummary.patchCount > 0 ? "Apply the vendor patch path first, then fall back to compensating controls where rollout timing is constrained." : "Apply patches or compensating controls where an immediate upgrade is not possible.",
       "Validate remediation with version checks, changelog confirmation, or environment-specific testing.",
     ],
     cluster: {
@@ -216,7 +233,191 @@ export function buildHeuristicCveInsight(detail: CVEDetail): AICveInsight {
           ? "This issue appears alongside linked advisories or aliases and should be reviewed as part of a broader context cluster."
           : "This issue currently stands alone in the available alias and linked-vulnerability context.",
     },
+    projectContext,
   };
+}
+
+function normalizeCveInsightInput(input: CVEDetail | CveInsightInput): CveInsightInput {
+  if ("detail" in input) {
+    return input;
+  }
+
+  return {
+    detail: input,
+    epss: null,
+    triage: null,
+    relatedProjects: [],
+  };
+}
+
+function summarizeReferences(detail: CVEDetail): {
+  totalCount: number;
+  exploitCount: number;
+  patchCount: number;
+} {
+  const urls = [
+    ...(detail.references ?? []),
+    ...((detail.containers?.cna?.references ?? []).flatMap((reference) => (typeof reference.url === "string" ? [reference.url] : []))),
+  ];
+  const tags = (detail.containers?.cna?.references ?? []).flatMap((reference) =>
+    Array.isArray(reference.tags) ? reference.tags.filter((tag): tag is string => typeof tag === "string") : []
+  );
+  const combined = [...urls, ...tags].map((value) => value.toLowerCase());
+
+  return {
+    totalCount: urls.length,
+    exploitCount: combined.filter((value) => /exploit|proof|poc|weapon/i.test(value)).length,
+    patchCount: combined.filter((value) => /patch|fix|release|advisory|mitigation/i.test(value)).length,
+  };
+}
+
+function buildProjectContext(projects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[]): AICveInsight["projectContext"] {
+  const projectNames = projects.map((project) => project.name).slice(0, 5);
+
+  return {
+    projectCount: projects.length,
+    projectNames,
+    summary:
+      projects.length > 0
+        ? `This CVE is already tracked in ${projects.length} project${projects.length === 1 ? "" : "s"}: ${projectNames.join(", ")}.`
+        : "This CVE is not currently linked to any tracked project.",
+  };
+}
+
+function buildTriageSignals(input: {
+  severity: ReturnType<typeof getSeverityFromScore>;
+  severityScore?: number;
+  epss: EPSSData | null;
+  referenceSummary: { totalCount: number; exploitCount: number; patchCount: number };
+  triage: AITriageContextSnapshot | null;
+  projectContext: AICveInsight["projectContext"];
+  affected: Array<{ vendor?: string; product?: string }>;
+}): AITriageSignal[] {
+  const signals: AITriageSignal[] = [];
+
+  signals.push({
+    label: "Severity",
+    value: input.severityScore ? `${input.severity} (${input.severityScore.toFixed(1)})` : input.severity,
+    level: input.severity === "CRITICAL" || input.severity === "HIGH" ? "high" : input.severity === "MEDIUM" ? "medium" : "low",
+    rationale: "Severity is derived from the best available CVSS score.",
+  });
+
+  if (input.epss) {
+    signals.push({
+      label: "EPSS",
+      value: `${(input.epss.epss * 100).toFixed(2)}% (${(input.epss.percentile * 100).toFixed(1)} percentile)`,
+      level: input.epss.percentile >= 0.9 ? "high" : input.epss.percentile >= 0.5 ? "medium" : "low",
+      rationale: "EPSS indicates the relative likelihood of exploitation in the wild.",
+    });
+  }
+
+  if (input.referenceSummary.totalCount > 0) {
+    signals.push({
+      label: "References",
+      value: `${input.referenceSummary.totalCount} refs / ${input.referenceSummary.patchCount} patch-like / ${input.referenceSummary.exploitCount} exploit-like`,
+      level: input.referenceSummary.exploitCount > 0 ? "high" : input.referenceSummary.patchCount > 0 ? "medium" : "low",
+      rationale: "Reference quality helps distinguish active exploitation discussion from routine disclosure metadata.",
+    });
+  }
+
+  if (input.projectContext.projectCount > 0) {
+    signals.push({
+      label: "Project impact",
+      value: `${input.projectContext.projectCount} linked project${input.projectContext.projectCount === 1 ? "" : "s"}`,
+      level: input.projectContext.projectCount >= 2 ? "high" : "medium",
+      rationale: "Existing project linkage suggests known internal relevance and active tracking.",
+    });
+  }
+
+  if (input.triage) {
+    signals.push({
+      label: "Analyst workflow",
+      value: `${input.triage.status}${input.triage.owner ? ` • ${input.triage.owner}` : ""}`,
+      level: input.triage.status === "investigating" ? "high" : input.triage.status === "new" ? "medium" : "low",
+      rationale: "Current analyst workflow state should shape the next recommended action instead of overwriting it blindly.",
+    });
+  }
+
+  if (input.affected.length > 0) {
+    signals.push({
+      label: "Affected products",
+      value: input.affected
+        .map((item) => [item.vendor, item.product].filter(Boolean).join("/"))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(", "),
+      level: "medium",
+      rationale: "Affected product metadata indicates where to validate exposure first.",
+    });
+  }
+
+  return signals.slice(0, 5);
+}
+
+function derivePriority(
+  severity: ReturnType<typeof getSeverityFromScore>,
+  epss: EPSSData | null,
+  referenceSummary: { totalCount: number; exploitCount: number; patchCount: number },
+  projectCount: number
+): AICveInsight["triage"]["priority"] {
+  if (severity === "CRITICAL") return "critical";
+  if (severity === "HIGH" || (epss?.percentile ?? 0) >= 0.9 || referenceSummary.exploitCount > 0) return "high";
+  if (severity === "MEDIUM" || (epss?.percentile ?? 0) >= 0.5 || projectCount > 0 || referenceSummary.patchCount > 0) return "medium";
+  return "low";
+}
+
+function deriveStatus(
+  priority: AICveInsight["triage"]["priority"],
+  existingStatus?: AITriageContextSnapshot["status"]
+): AICveInsight["triage"]["status"] {
+  if (existingStatus && existingStatus !== "new") {
+    return existingStatus;
+  }
+
+  return priority === "critical" || priority === "high" ? "investigating" : existingStatus ?? "new";
+}
+
+function deriveConfidence(
+  severityScore: number | undefined,
+  epss: EPSSData | null,
+  referenceSummary: { totalCount: number; exploitCount: number; patchCount: number }
+): AICveInsight["triage"]["confidence"] {
+  const evidenceCount = Number(Boolean(severityScore)) + Number(Boolean(epss)) + Number(referenceSummary.totalCount > 0);
+  if (evidenceCount >= 3) return "high";
+  if (evidenceCount === 2) return "medium";
+  return "low";
+}
+
+function buildTriageRationale(input: {
+  priority: AICveInsight["triage"]["priority"];
+  epss: EPSSData | null;
+  referenceSummary: { totalCount: number; exploitCount: number; patchCount: number };
+  projectContext: AICveInsight["projectContext"];
+  triage: AITriageContextSnapshot | null;
+}): string {
+  const reasons: string[] = [];
+
+  reasons.push(`The recommendation is ${input.priority} priority based on the available severity and exploitation signals.`);
+
+  if (input.epss) {
+    reasons.push(`EPSS is ${(input.epss.epss * 100).toFixed(2)}% at the ${(input.epss.percentile * 100).toFixed(1)} percentile.`);
+  }
+
+  if (input.referenceSummary.exploitCount > 0) {
+    reasons.push("Reference metadata includes exploit-like indicators, which raises urgency.");
+  } else if (input.referenceSummary.patchCount > 0) {
+    reasons.push("Patch or advisory references are already available, which improves remediation readiness.");
+  }
+
+  if (input.projectContext.projectCount > 0) {
+    reasons.push(input.projectContext.summary);
+  }
+
+  if (input.triage?.owner) {
+    reasons.push(`The current workflow already names ${input.triage.owner} as owner, so the recommendation preserves that context.`);
+  }
+
+  return reasons.join(" ");
 }
 
 export function interpretSearchPromptHeuristically(prompt: string): AISearchInterpretation {
@@ -611,6 +812,7 @@ function sanitizeInsight(value: unknown): AICveInsight {
     triage: sanitizeTriage(record.triage, fallback.triage),
     remediation: Array.isArray(record.remediation) ? record.remediation.filter((item): item is string => typeof item === "string").slice(0, 6) : fallback.remediation,
     cluster: sanitizeCluster(record.cluster, fallback.cluster),
+    projectContext: sanitizeProjectContext(record.projectContext, fallback.projectContext),
   };
 }
 
@@ -692,10 +894,37 @@ function sanitizeTriage(value: unknown, fallback: AICveInsight["triage"]): AICve
       record.status === "new" || record.status === "investigating" || record.status === "mitigated" || record.status === "accepted" || record.status === "closed"
         ? record.status
         : fallback.status,
+    confidence: record.confidence === "high" || record.confidence === "medium" || record.confidence === "low" ? record.confidence : fallback.confidence,
+    ownerRecommendation: typeof record.ownerRecommendation === "string" ? record.ownerRecommendation : fallback.ownerRecommendation,
     rationale: typeof record.rationale === "string" ? record.rationale : fallback.rationale,
     nextSteps: Array.isArray(record.nextSteps)
       ? record.nextSteps.filter((item): item is string => typeof item === "string").slice(0, 6)
       : fallback.nextSteps,
+    signals: Array.isArray(record.signals)
+      ? record.signals
+          .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+          .flatMap((item) => {
+            const label = item.label;
+            const value = item.value;
+            const level = item.level;
+            const rationale = item.rationale;
+            return typeof label === "string" && typeof value === "string" && (level === "high" || level === "medium" || level === "low") && typeof rationale === "string"
+              ? [{ label, value, level, rationale }]
+              : [];
+          })
+      : fallback.signals,
+  };
+}
+
+function sanitizeProjectContext(value: unknown, fallback: AICveInsight["projectContext"]): AICveInsight["projectContext"] {
+  if (!value || typeof value !== "object") return fallback;
+  const record = value as Record<string, unknown>;
+  return {
+    projectCount: typeof record.projectCount === "number" && Number.isFinite(record.projectCount) ? record.projectCount : fallback.projectCount,
+    projectNames: Array.isArray(record.projectNames)
+      ? record.projectNames.filter((item): item is string => typeof item === "string").slice(0, 8)
+      : fallback.projectNames,
+    summary: typeof record.summary === "string" ? record.summary : fallback.summary,
   };
 }
 

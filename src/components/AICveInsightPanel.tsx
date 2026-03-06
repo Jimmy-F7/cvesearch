@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AICveInsight } from "@/lib/types";
+import { readTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 export default function AICveInsightPanel({ cveId }: { cveId: string }) {
   const [insight, setInsight] = useState<AICveInsight | null>(null);
@@ -19,7 +20,7 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
         const res = await fetch(`/api/ai/cve/${encodeURIComponent(cveId)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ triage: readTriageRecord(cveId) }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -41,8 +42,10 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
     }
 
     load();
+    window.addEventListener(TRIAGE_UPDATED_EVENT, load);
     return () => {
       cancelled = true;
+      window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
     };
   }, [cveId]);
 
@@ -72,8 +75,26 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
               <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-gray-300">
                 {insight.triage.status}
               </span>
+              <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-300">
+                confidence: {insight.triage.confidence}
+              </span>
             </div>
             <p className="mt-2 text-sm text-gray-300">{insight.triage.rationale}</p>
+            <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-gray-300">
+              <span className="font-medium text-white">Owner recommendation:</span> {insight.triage.ownerRecommendation}
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {insight.triage.signals.map((signal) => (
+                <div key={`${signal.label}-${signal.value}`} className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">{signal.label}</span>
+                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-gray-300">{signal.level}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-white">{signal.value}</p>
+                  <p className="mt-1 text-xs text-gray-400">{signal.rationale}</p>
+                </div>
+              ))}
+            </div>
             <ul className="mt-3 space-y-2 text-sm text-gray-300">
               {insight.triage.nextSteps.map((step) => (
                 <li key={step} className="rounded-lg bg-white/[0.03] px-3 py-2">
@@ -81,6 +102,20 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Project Context</h3>
+            <p className="mt-2 text-sm text-gray-300">{insight.projectContext.summary}</p>
+            {insight.projectContext.projectNames.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {insight.projectContext.projectNames.map((project) => (
+                  <span key={project} className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
+                    Project: {project}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </section>
 
           <section>

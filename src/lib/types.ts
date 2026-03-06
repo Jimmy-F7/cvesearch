@@ -182,6 +182,14 @@ export interface ProjectRecord {
   items: ProjectItem[];
 }
 
+export interface AITriageContextSnapshot {
+  status: "new" | "investigating" | "mitigated" | "accepted" | "closed";
+  owner: string;
+  notes: string;
+  tags: string[];
+  updatedAt: string;
+}
+
 export interface AIContextCluster {
   canonicalId: string;
   sourceIds: string[];
@@ -189,11 +197,27 @@ export interface AIContextCluster {
   summary: string;
 }
 
+export interface AITriageSignal {
+  label: string;
+  value: string;
+  level: "high" | "medium" | "low";
+  rationale: string;
+}
+
 export interface AITriageRecommendation {
   priority: "critical" | "high" | "medium" | "low";
   status: "new" | "investigating" | "mitigated" | "accepted" | "closed";
+  confidence: "high" | "medium" | "low";
+  ownerRecommendation: string;
   rationale: string;
   nextSteps: string[];
+  signals: AITriageSignal[];
+}
+
+export interface AIProjectContext {
+  projectCount: number;
+  projectNames: string[];
+  summary: string;
 }
 
 export interface AICveInsight {
@@ -201,6 +225,7 @@ export interface AICveInsight {
   triage: AITriageRecommendation;
   remediation: string[];
   cluster: AIContextCluster;
+  projectContext: AIProjectContext;
 }
 
 export type AISearchFilterField = "query" | "vendor" | "product" | "cwe" | "since" | "minSeverity" | "sort";

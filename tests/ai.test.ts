@@ -39,8 +39,56 @@ test("buildHeuristicCveInsight produces triage and remediation guidance", () => 
   });
 
   assert.equal(result.triage.priority, "critical");
+  assert.equal(result.triage.confidence, "low");
   assert.equal(result.cluster.canonicalId, "CVE-2026-1111");
   assert.equal(result.remediation.length > 0, true);
+  assert.equal(result.triage.signals.some((signal) => signal.label === "Severity"), true);
+  assert.equal(result.projectContext.projectCount, 0);
+});
+
+test("buildHeuristicCveInsight incorporates epss triage workflow and project context", () => {
+  const result = buildHeuristicCveInsight({
+    detail: {
+      id: "CVE-2026-2222",
+      cvss3: 7.8,
+      summary: "High-severity issue in a web edge component",
+      references: ["https://vendor.example/advisory", "https://research.example/exploit-poc"],
+      containers: {
+        cna: {
+          affected: [{ vendor: "acme", product: "edge-proxy" }],
+          references: [{ url: "https://vendor.example/patch", tags: ["patch", "vendor-advisory"] }],
+        },
+      },
+    },
+    epss: {
+      cve: "CVE-2026-2222",
+      epss: 0.83,
+      percentile: 0.96,
+    },
+    triage: {
+      status: "investigating",
+      owner: "edge-platform",
+      notes: "Internet-facing service",
+      tags: ["internet-facing"],
+      updatedAt: "2026-03-06T10:00:00.000Z",
+    },
+    relatedProjects: [
+      {
+        name: "Edge Platform",
+        updatedAt: "2026-03-06T10:00:00.000Z",
+        items: [{ cveId: "CVE-2026-2222", addedAt: "2026-03-06T09:00:00.000Z" }],
+      },
+    ],
+  });
+
+  assert.equal(result.triage.priority, "high");
+  assert.equal(result.triage.status, "investigating");
+  assert.equal(result.triage.confidence, "high");
+  assert.match(result.triage.ownerRecommendation, /edge-platform/i);
+  assert.equal(result.triage.signals.some((signal) => signal.label === "EPSS"), true);
+  assert.equal(result.triage.signals.some((signal) => signal.label === "Project impact"), true);
+  assert.equal(result.projectContext.projectCount, 1);
+  assert.deepEqual(result.projectContext.projectNames, ["Edge Platform"]);
 });
 
 test("buildHeuristicDigest summarizes watchlist, alerts, and projects", () => {
