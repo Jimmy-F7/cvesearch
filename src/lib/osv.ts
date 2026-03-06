@@ -17,7 +17,7 @@ interface OSVBatchResponse {
   results: { vulns?: OSVVulnerability[] }[];
 }
 
-const fetchOSV = async <T>(path: string, body: unknown): Promise<T> => {
+const fetchOSVPost = async <T>(path: string, body: unknown): Promise<T> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -48,6 +48,76 @@ const fetchOSV = async <T>(path: string, body: unknown): Promise<T> => {
   }
 };
 
+const fetchOSVGet = async <T>(path: string): Promise<T> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${OSV_API_BASE}${path}`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "CVESearch-WebApp/1.0",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`OSV API error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("OSV API request timed out");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+export const fetchVulnerabilityById = async (
+  vulnId: string
+): Promise<OSVVulnerability | null> => {
+  try {
+    return await fetchOSVGet<OSVVulnerability>(`/vulns/${encodeURIComponent(vulnId)}`);
+  } catch {
+    return null;
+  }
+};
+
+const ENRICHMENT_CONCURRENCY = 5;
+
+const enrichMatches = async (
+  matches: VulnerabilityMatch[]
+): Promise<VulnerabilityMatch[]> => {
+  const uniqueVulnIds = [...new Set(matches.map((m) => m.vulnerability.id))];
+
+  const detailMap = new Map<string, OSVVulnerability>();
+
+  for (let offset = 0; offset < uniqueVulnIds.length; offset += ENRICHMENT_CONCURRENCY) {
+    const chunk = uniqueVulnIds.slice(offset, offset + ENRICHMENT_CONCURRENCY);
+    const results = await Promise.all(chunk.map(fetchVulnerabilityById));
+
+    results.forEach((detail, index) => {
+      if (detail) {
+        detailMap.set(chunk[index], detail);
+      }
+    });
+  }
+
+  return matches.map((match) => {
+    const detail = detailMap.get(match.vulnerability.id);
+    if (!detail) return match;
+
+    return {
+      ...match,
+      vulnerability: detail,
+      cveIds: extractCveIds(detail),
+    };
+  });
+};
+
 export const queryOSVBatch = async (
   dependencies: ParsedDependency[]
 ): Promise<VulnerabilityMatch[]> => {
@@ -64,7 +134,7 @@ export const queryOSVBatch = async (
       version: dep.version,
     }));
 
-    const response = await fetchOSV<OSVBatchResponse>("/querybatch", { queries });
+    const response = await fetchOSVPost<OSVBatchResponse>("/querybatch", { queries });
 
     response.results.forEach((result, index) => {
       if (!result.vulns || result.vulns.length === 0) return;
@@ -85,7 +155,7 @@ export const queryOSVBatch = async (
     });
   }
 
-  return matches;
+  return enrichMatches(matches);
 };
 
 export const queryOSVSingle = async (
@@ -93,7 +163,7 @@ export const queryOSVSingle = async (
   packageName: string,
   version: string
 ): Promise<OSVVulnerability[]> => {
-  const response = await fetchOSV<{ vulns?: OSVVulnerability[] }>("/query", {
+  const response = await fetchOSVPost<{ vulns?: OSVVulnerability[] }>("/query", {
     package: { name: packageName, ecosystem },
     version,
   });
