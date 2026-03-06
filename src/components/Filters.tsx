@@ -274,6 +274,7 @@ export default function Filters({ onApply, initialFilters }: FiltersProps) {
                 onChange={(event) => setSort(event.target.value as SearchSortOption)}
                 className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
               >
+                <option value="risk_desc">Highest risk</option>
                 <option value="published_desc">Newest first</option>
                 <option value="published_asc">Oldest first</option>
                 <option value="cvss_desc">Highest CVSS</option>

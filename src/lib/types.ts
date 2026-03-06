@@ -14,6 +14,7 @@ export interface CVESummary {
   references?: string[];
   vulnerable_product?: string[];
   state?: string;
+  kev?: KnownExploitedVulnerability;
 }
 
 export interface CVEDetail {
@@ -60,6 +61,21 @@ export interface CVEDetail {
       description?: string;
     };
   };
+  kev?: KnownExploitedVulnerability;
+}
+
+export interface KnownExploitedVulnerability {
+  cveID: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction: string;
+  dueDate: string;
+  knownRansomwareCampaignUse?: string;
+  notes?: string;
+  cwes?: string[];
 }
 
 export interface AffectedProduct {
@@ -143,7 +159,7 @@ export interface SearchFilters {
 
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" | "UNKNOWN";
 export type SearchSeverityFilter = "ANY" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc";
+export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc" | "risk_desc";
 
 export interface DashboardPreset {
   title: string;
@@ -157,13 +173,14 @@ export interface DashboardSummary {
   criticalCount: number;
   highOrAboveCount: number;
   publishedThisWeekCount: number;
+  knownExploitedCount: number;
 }
 
 export interface HomeDashboardData {
   summary: DashboardSummary;
   presets: DashboardPreset[];
   latestCritical: CVESummary[];
-  highestCvss: CVESummary[];
+  highestRisk: CVESummary[];
   recentHighImpact: CVESummary[];
 }
 

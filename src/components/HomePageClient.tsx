@@ -224,6 +224,8 @@ function FilterChip({ label }: { label: string }) {
 
 function formatSortLabel(sort: SearchState["sort"]): string {
   switch (sort) {
+    case "risk_desc":
+      return "Highest risk";
     case "published_asc":
       return "Oldest first";
     case "cvss_desc":

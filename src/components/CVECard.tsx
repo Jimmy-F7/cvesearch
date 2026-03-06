@@ -11,6 +11,7 @@ import {
   extractSourceId,
   truncate,
 } from "@/lib/utils";
+import { getExploitReferenceCount } from "@/lib/search";
 import SeverityBadge from "./SeverityBadge";
 import BookmarkButton from "./BookmarkButton";
 import CopyLinkButton from "./CopyLinkButton";
@@ -33,6 +34,7 @@ export default function CVECard({ cve }: CVECardProps) {
   const severity = getSeverityFromScore(score);
   const href = `/cve/${encodeURIComponent(cveId)}`;
   const affectedProducts = (cve.vulnerable_product ?? []).slice(0, 3);
+  const exploitReferenceCount = getExploitReferenceCount(cve);
 
   useEffect(() => {
     const sync = () => setTriageStatus(readTriageRecord(cveId).status);
@@ -56,6 +58,26 @@ export default function CVECard({ cve }: CVECardProps) {
             )}
             {score !== undefined && score !== null && (
               <SeverityBadge severity={severity} score={score} size="sm" />
+            )}
+            {cve.kev && (
+              <span className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-300">
+                KEV
+              </span>
+            )}
+            {cve.kev?.knownRansomwareCampaignUse === "Known" && (
+              <span className="rounded-md border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-0.5 text-[11px] text-fuchsia-300">
+                Ransomware
+              </span>
+            )}
+            {typeof cve.epss === "number" && cve.epss >= 0.2 && (
+              <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-200">
+                EPSS {(cve.epss * 100).toFixed(0)}%
+              </span>
+            )}
+            {exploitReferenceCount > 0 && (
+              <span className="rounded-md border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-[11px] text-orange-200">
+                {exploitReferenceCount} exploit ref{exploitReferenceCount === 1 ? "" : "s"}
+              </span>
             )}
             {cve.state && cve.state !== "PUBLISHED" && (
               <span className="rounded-md bg-gray-500/15 px-2 py-0.5 text-xs text-gray-400 border border-gray-500/30">

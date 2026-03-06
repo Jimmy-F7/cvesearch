@@ -194,7 +194,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
         "Convert this vulnerability search request into structured filters.",
         "Return only valid JSON with keys query, vendor, product, cwe, since, minSeverity, sort, explanation, assumptions, appliedFilters, needsClarification, clarificationQuestion.",
         'Allowed minSeverity: "ANY" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL".',
-        'Allowed sort: "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc".',
+        'Allowed sort: "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc" | "risk_desc".',
         "Tool outputs:",
         JSON.stringify(plan.outputs),
         `Request: ${prompt}`,
@@ -612,13 +612,14 @@ function inspectAvailableFilters(): SearchFilterCatalog {
   return {
     fields: ["query", "vendor", "product", "cwe", "since", "minSeverity", "sort"],
     minSeverity: ["ANY", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
-    sort: ["published_desc", "published_asc", "cvss_desc", "cvss_asc"],
+    sort: ["published_desc", "published_asc", "cvss_desc", "cvss_asc", "risk_desc"],
   };
 }
 
 function extractPromptSignals(context: SearchToolContext): ExtractedPromptSignals {
   const cveMatch = context.prompt.match(/CVE-\d{4}-\d+/i);
   const cweMatch = context.prompt.match(/CWE-\d+/i);
+  const prefersRiskSort = /exploit|exploited|kev|ransomware|epss/i.test(context.lower);
   const minSeverity = context.lower.includes("critical")
     ? "CRITICAL"
     : context.lower.includes("high")
@@ -651,7 +652,7 @@ function extractPromptSignals(context: SearchToolContext): ExtractedPromptSignal
     query,
     cwe: cweMatch?.[0].toUpperCase() ?? "",
     minSeverity,
-    sort: minSeverity === "ANY" ? SEARCH_DEFAULT_SORT : "cvss_desc",
+    sort: prefersRiskSort ? "risk_desc" : minSeverity === "ANY" ? SEARCH_DEFAULT_SORT : "cvss_desc",
     assumptions,
   };
 }

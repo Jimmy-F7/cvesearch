@@ -11,10 +11,11 @@ interface DashboardPanelProps {
 export default function DashboardPanel({ dashboard }: DashboardPanelProps) {
   return (
     <section className="mb-8 space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryTile label="Critical in sample" value={dashboard.summary.criticalCount} />
         <SummaryTile label="High or above" value={dashboard.summary.highOrAboveCount} />
         <SummaryTile label="Published this week" value={dashboard.summary.publishedThisWeekCount} />
+        <SummaryTile label="Known exploited" value={dashboard.summary.knownExploitedCount} />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
@@ -37,9 +38,9 @@ export default function DashboardPanel({ dashboard }: DashboardPanelProps) {
           cves={dashboard.latestCritical}
         />
         <DashboardColumn
-          title="Highest CVSS"
-          description="The scariest scores at the top of the current feed."
-          cves={dashboard.highestCvss}
+          title="Highest Risk"
+          description="KEV, EPSS, exploit signals, and severity combined into one view."
+          cves={dashboard.highestRisk}
         />
         <DashboardColumn
           title="Recent High Impact"

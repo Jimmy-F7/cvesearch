@@ -1,4 +1,4 @@
-import { CVEDetail, CVESummary, CWEData, EPSSData } from "./types";
+import { CVEDetail, CVESummary, CWEData, EPSSData, KnownExploitedVulnerability } from "./types";
 
 export function parseCVESummaryList(value: unknown): CVESummary[] {
   if (!Array.isArray(value)) {
@@ -82,6 +82,21 @@ export function parseCWEData(value: unknown): CWEData {
   return record as unknown as CWEData;
 }
 
+export function parseKnownExploitedCatalog(value: unknown): KnownExploitedVulnerability[] {
+  const record = getRecord(value, "Unexpected response format: expected a KEV catalog object");
+  if (!Array.isArray(record.vulnerabilities)) {
+    throw new Error("Unexpected response format: KEV catalog is missing vulnerabilities");
+  }
+
+  return record.vulnerabilities.flatMap((item) => {
+    try {
+      return [parseKnownExploitedVulnerability(item)];
+    } catch {
+      return [];
+    }
+  });
+}
+
 function parseCVESummary(value: unknown): CVESummary {
   const record = getRecord(value, "Unexpected response format: expected a CVE summary object");
   const normalizedId = getPreferredIdentifier(record);
@@ -91,6 +106,37 @@ function parseCVESummary(value: unknown): CVESummary {
   }
 
   return normalizeRecordIdentifiers(record, normalizedId) as unknown as CVESummary;
+}
+
+function parseKnownExploitedVulnerability(value: unknown): KnownExploitedVulnerability {
+  const record = getRecord(value, "Unexpected response format: expected a KEV vulnerability object");
+
+  if (
+    typeof record.cveID !== "string" ||
+    typeof record.vendorProject !== "string" ||
+    typeof record.product !== "string" ||
+    typeof record.vulnerabilityName !== "string" ||
+    typeof record.dateAdded !== "string" ||
+    typeof record.shortDescription !== "string" ||
+    typeof record.requiredAction !== "string" ||
+    typeof record.dueDate !== "string"
+  ) {
+    throw new Error("Unexpected response format: KEV vulnerability is missing required fields");
+  }
+
+  return {
+    cveID: record.cveID,
+    vendorProject: record.vendorProject,
+    product: record.product,
+    vulnerabilityName: record.vulnerabilityName,
+    dateAdded: record.dateAdded,
+    shortDescription: record.shortDescription,
+    requiredAction: record.requiredAction,
+    dueDate: record.dueDate,
+    knownRansomwareCampaignUse: typeof record.knownRansomwareCampaignUse === "string" ? record.knownRansomwareCampaignUse : undefined,
+    notes: typeof record.notes === "string" ? record.notes : undefined,
+    cwes: Array.isArray(record.cwes) ? record.cwes.filter((item): item is string => typeof item === "string") : undefined,
+  };
 }
 
 function getRecord(value: unknown, message: string): Record<string, unknown> {

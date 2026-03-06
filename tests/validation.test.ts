@@ -5,6 +5,7 @@ import {
   parseCVESummaryList,
   parseCWEData,
   parseEPSSResponse,
+  parseKnownExploitedCatalog,
   parseStringList,
 } from "../src/lib/validation";
 
@@ -78,4 +79,31 @@ test("parseEPSSResponse parses numeric strings", () => {
 
 test("parseCWEData requires an id", () => {
   assert.throws(() => parseCWEData({ description: "No id" }), /missing an id/);
+});
+
+test("parseKnownExploitedCatalog parses KEV entries", () => {
+  const data = parseKnownExploitedCatalog({
+    catalogVersion: "2026.03.06",
+    dateReleased: "2026-03-06T00:00:00.000Z",
+    count: 1,
+    vulnerabilities: [
+      {
+        cveID: "CVE-2026-9999",
+        vendorProject: "Acme",
+        product: "Edge Gateway",
+        vulnerabilityName: "Remote Code Execution",
+        dateAdded: "2026-03-06",
+        shortDescription: "Known exploited vulnerability",
+        requiredAction: "Apply the vendor patch.",
+        dueDate: "2026-03-20",
+        knownRansomwareCampaignUse: "Known",
+        cwes: ["CWE-94"],
+      },
+    ],
+  });
+
+  assert.equal(data.length, 1);
+  assert.equal(data[0].cveID, "CVE-2026-9999");
+  assert.equal(data[0].knownRansomwareCampaignUse, "Known");
+  assert.deepEqual(data[0].cwes, ["CWE-94"]);
 });

@@ -1,4 +1,4 @@
-import { CVEDetail, CVESummary, EPSSData, HomeDashboardData } from "./types";
+import { CVEDetail, CVESummary, EPSSData, HomeDashboardData, KnownExploitedVulnerability } from "./types";
 import { SearchState } from "./search";
 import {
   applySearchResultPreferences,
@@ -9,9 +9,11 @@ import {
   matchesSearchState,
   wasPublishedWithinDays,
 } from "./search";
-import { parseCVEDetail, parseCVESummaryList, parseEPSSResponse } from "./validation";
+import { extractCVEId } from "./utils";
+import { parseCVEDetail, parseCVESummaryList, parseEPSSResponse, parseKnownExploitedCatalog } from "./validation";
 
 const API_BASE = "https://vulnerability.circl.lu/api";
+const KEV_CATALOG_URL = "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json";
 type NextFetchOptions = RequestInit & { next?: { revalidate: number } };
 
 async function fetchUpstream<T>(path: string): Promise<T> {
@@ -35,7 +37,7 @@ export async function getLatestCVEsServer(page: number, perPage: number): Promis
   const data = await fetchUpstream<unknown>(
     `/vulnerability/?per_page=${perPage}&page=${page}&sort_order=desc&date_sort=published`
   );
-  return parseCVESummaryList(data);
+  return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 
 export async function searchCVEsServer(params: {
@@ -56,14 +58,16 @@ export async function searchCVEsServer(params: {
   searchParams.set("date_sort", "published");
 
   const data = await fetchUpstream<unknown>(`/vulnerability/?${searchParams.toString()}`);
-  return parseCVESummaryList(data);
+  return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 
 export async function getCVEByIdServer(id: string): Promise<CVEDetail> {
   const data = await fetchUpstream<unknown>(
     `/vulnerability/${encodeURIComponent(id)}?with_meta=true&with_linked=true&with_comments=true`
   );
-  return parseCVEDetail(data);
+  const detail = parseCVEDetail(data);
+  const kev = await getKnownExploitedVulnerabilityById(extractCVEId(detail));
+  return kev ? { ...detail, kev } : detail;
 }
 
 export async function getEPSSServer(cveId: string): Promise<EPSSData | null> {
@@ -84,7 +88,7 @@ export async function searchByVendorProductServer(
   const data = await fetchUpstream<unknown>(
     `/vulnerability/search/${encodeURIComponent(vendor)}/${encodeURIComponent(product)}?page=${page}&per_page=${perPage}`
   );
-  return parseCVESummaryList(data);
+  return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 
 export async function getHomePageResults(state: SearchState): Promise<{
@@ -168,17 +172,17 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
       minSeverity: "CRITICAL",
       sort: "published_desc",
     }).slice(0, 5);
-    const highestCvss = applySearchResultPreferences(latest, {
+    const highestRisk = applySearchResultPreferences(latest, {
       ...state,
       minSeverity: "HIGH",
-      sort: "cvss_desc",
+      sort: "risk_desc",
     }).slice(0, 5);
     const recentHighImpact = applySearchResultPreferences(
       latest.filter((cve) => wasPublishedWithinDays(cve, 7)),
       {
         ...state,
         minSeverity: "HIGH",
-        sort: "published_desc",
+        sort: "risk_desc",
       }
     ).slice(0, 5);
 
@@ -196,6 +200,7 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
           sort: "published_desc",
         }).length,
         publishedThisWeekCount: latest.filter((cve) => wasPublishedWithinDays(cve, 7)).length,
+        knownExploitedCount: latest.filter((cve) => Boolean(cve.kev)).length,
       },
       presets: [
         {
@@ -205,9 +210,9 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
           accentClassName: "border-red-500/25 bg-red-500/10 text-red-200",
         },
         {
-          title: "Highest CVSS",
-          description: "Sort the feed by highest severity score first.",
-          href: buildPresetHref({ minSeverity: "HIGH", sort: "cvss_desc" }),
+          title: "Highest Risk",
+          description: "Prioritize KEV, EPSS, exploit-like references, and severity together.",
+          href: buildPresetHref({ minSeverity: "HIGH", sort: "risk_desc" }),
           accentClassName: "border-orange-500/25 bg-orange-500/10 text-orange-200",
         },
         {
@@ -218,7 +223,7 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
         },
       ],
       latestCritical,
-      highestCvss,
+      highestRisk,
       recentHighImpact,
     };
   } catch {
@@ -230,4 +235,43 @@ function isoDateDaysAgo(days: number): string {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() - days);
   return date.toISOString().slice(0, 10);
+}
+
+async function enrichCVEsWithKev<T extends CVESummary>(cves: T[]): Promise<T[]> {
+  if (cves.length === 0) {
+    return cves;
+  }
+
+  const kevMap = await getKnownExploitedMap();
+  return cves.map((cve) => {
+    const kev = kevMap.get(extractCVEId(cve).toUpperCase());
+    return kev ? ({ ...cve, kev } satisfies T) : cve;
+  });
+}
+
+async function getKnownExploitedVulnerabilityById(cveId: string): Promise<KnownExploitedVulnerability | undefined> {
+  const kevMap = await getKnownExploitedMap();
+  return kevMap.get(cveId.toUpperCase());
+}
+
+async function getKnownExploitedMap(): Promise<Map<string, KnownExploitedVulnerability>> {
+  try {
+    const options: NextFetchOptions = {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "CVESearch-WebApp/1.0",
+      },
+      next: { revalidate: 3600 },
+    };
+    const res = await fetch(KEV_CATALOG_URL, options);
+
+    if (!res.ok) {
+      throw new Error(`KEV catalog error: ${res.status}`);
+    }
+
+    const data = parseKnownExploitedCatalog(await res.json());
+    return new Map(data.map((item) => [item.cveID.toUpperCase(), item]));
+  } catch {
+    return new Map();
+  }
 }
