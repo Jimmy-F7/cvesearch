@@ -18,18 +18,30 @@ const getGitHubToken = (): string => {
   return token;
 };
 
-const fetchGitHub = async <T>(path: string): Promise<T> => {
+interface FetchGitHubOptions {
+  method?: string;
+  body?: unknown;
+}
+
+export const fetchGitHub = async <T>(
+  path: string,
+  options?: FetchGitHubOptions
+): Promise<T> => {
   const token = getGitHubToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const method = options?.method ?? "GET";
 
   try {
     const response = await fetch(`${GITHUB_API_BASE}${path}`, {
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
         "User-Agent": "CVESearch-WebApp/1.0",
       },
+      body: options?.body ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });
 
@@ -152,6 +164,40 @@ export const fetchRepoDependencyFiles = async (
 
 export const isGitHubTokenConfigured = (): boolean => {
   return !!process.env.GITHUB_TOKEN;
+};
+
+export const searchRepoFiles = async (
+  fullName: string,
+  query: string,
+  maxResults = 5
+): Promise<string[]> => {
+  try {
+    const searchQuery = encodeURIComponent(`${query} repo:${fullName}`);
+    const data = await fetchGitHub<{
+      items?: { path: string }[];
+    }>(`/search/code?q=${searchQuery}&per_page=${maxResults}`);
+    return (data.items ?? []).map((item) => item.path);
+  } catch {
+    return [];
+  }
+};
+
+export const getFileSha = async (
+  fullName: string,
+  filePath: string,
+  branch?: string
+): Promise<string | null> => {
+  const ref = branch ? `?ref=${encodeURIComponent(branch)}` : "";
+  const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+
+  try {
+    const data = await fetchGitHub<{ sha?: string }>(
+      `/repos/${fullName}/contents/${encodedPath}${ref}`
+    );
+    return data.sha ?? null;
+  } catch {
+    return null;
+  }
 };
 
 export const fetchTokenScopes = async (): Promise<{

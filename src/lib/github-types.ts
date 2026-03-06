@@ -5,6 +5,7 @@ export interface GitHubRepo {
   name: string;
   full_name: string;
   private: boolean;
+  archived: boolean;
   html_url: string;
   default_branch: string;
   language: string | null;
@@ -79,4 +80,35 @@ export interface DependencyScanResult {
 export interface RepoFileContent {
   path: string;
   content: string;
+}
+
+export interface FixFileChange {
+  path: string;
+  content: string;
+  description: string;
+}
+
+export interface AIFixResult {
+  analysis: string;
+  fileChanges: FixFileChange[];
+  prTitle: string;
+  prBody: string;
+}
+
+export interface FixRequestPayload {
+  repoFullName: string;
+  vulnerability: OSVVulnerability;
+  matchedDependency: ParsedDependency;
+  aiSettings?: {
+    provider?: string;
+    model?: string;
+    apiKey?: string;
+  };
+}
+
+export interface FixResponse {
+  prUrl: string;
+  analysis: string;
+  fileChanges: FixFileChange[];
+  branchName: string;
 }

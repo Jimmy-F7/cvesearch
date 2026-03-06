@@ -67,9 +67,13 @@ export const updateLastScan = async (
   await writeMonitoredRepos(repos);
 };
 
-export const getMonitoredRepo = async (repoId: string): Promise<MonitoredRepo | null> => {
+export const getMonitoredRepo = async (repoIdOrFullName: string): Promise<MonitoredRepo | null> => {
   const repos = await readMonitoredRepos();
-  return repos.find((repo) => repo.id === repoId) ?? null;
+  return (
+    repos.find((repo) => repo.id === repoIdOrFullName) ??
+    repos.find((repo) => repo.fullName === repoIdOrFullName) ??
+    null
+  );
 };
 
 const readMonitoredRepos = async (): Promise<MonitoredRepo[]> => {
