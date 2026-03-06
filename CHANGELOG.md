@@ -2,9 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is inspired by Keep a Changelog, and this project follows a simple date-based release history.
+The format is inspired by Keep a Changelog.
 
-## [2026-03-05] - AI Workflows Release
+## [v1.0.0] - 2026-03-05
 
 ### Added
 
@@ -16,10 +16,11 @@ The format is inspired by Keep a Changelog, and this project follows a simple da
 - Heuristic fallback behavior so AI features still work without a configured model provider
 - AI API routes for CVE insights, digests, and search interpretation
 - Automated tests for AI heuristics and interpretation logic
+- Fresh README screenshots for the search workspace, CVE detail page, and AI settings
 
 ### Changed
 
-- README updated to reflect the AI feature set and settings workflow
+- README updated to reflect the AI feature set, settings workflow, and current UI
 - Header navigation updated with a dedicated settings route
 - Homepage and watchlist surfaces now include AI workflow entry points
 
