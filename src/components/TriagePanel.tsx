@@ -100,6 +100,22 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
           Last updated {new Date(record.updatedAt).toLocaleString("en-US")}
         </p>
       )}
+
+      {record.activity.length > 0 && (
+        <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">Recent activity</h3>
+          <div className="mt-3 space-y-2">
+            {record.activity.slice(0, 6).map((entry) => (
+              <div key={entry.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                <p className="text-sm text-gray-300">{entry.summary}</p>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  {new Date(entry.createdAt).toLocaleString("en-US")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

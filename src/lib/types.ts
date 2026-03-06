@@ -190,6 +190,13 @@ export interface ProjectItem {
   addedAt: string;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  summary: string;
+  createdAt: string;
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;
@@ -197,6 +204,7 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
   items: ProjectItem[];
+  activity: AuditLogEntry[];
 }
 
 export interface AITriageContextSnapshot {

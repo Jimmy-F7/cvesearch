@@ -121,6 +121,22 @@ export default function ProjectsPageClient() {
                 </div>
               )}
 
+              {project.activity.length > 0 && (
+                <div className="mb-4 rounded-xl border border-white/[0.06] bg-black/10 p-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">Recent activity</h3>
+                  <div className="mt-3 space-y-2">
+                    {project.activity.slice(0, 5).map((entry) => (
+                      <div key={entry.id} className="flex items-start justify-between gap-3 text-sm">
+                        <p className="text-gray-300">{entry.summary}</p>
+                        <span className="shrink-0 text-[11px] text-gray-500">
+                          {new Date(entry.createdAt).toLocaleString("en-US")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <CVEList cves={details[project.id] ?? []} loading={loading} />
             </section>
           ))}

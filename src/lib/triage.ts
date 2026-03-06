@@ -1,5 +1,8 @@
+import { AuditLogEntry } from "./types";
+
 export const TRIAGE_UPDATED_EVENT = "cvesearch:triage-updated";
 const TRIAGE_STORAGE_KEY = "cvesearch.triage";
+const MAX_TRIAGE_ACTIVITY = 20;
 
 export type TriageStatus = "new" | "investigating" | "mitigated" | "accepted" | "closed";
 
@@ -10,6 +13,7 @@ export interface TriageRecord {
   notes: string;
   tags: string[];
   updatedAt: string;
+  activity: AuditLogEntry[];
 }
 
 export function readTriageMap(): Record<string, TriageRecord> {
@@ -41,9 +45,16 @@ export function readTriageRecord(cveId: string): TriageRecord {
 export function writeTriageRecord(record: TriageRecord): TriageRecord {
   if (typeof window === "undefined") return record;
 
+  const previous = readTriageRecord(record.cveId);
+  const nextRecord = normalizeTriageRecord(record);
+  const nextActivity = buildTriageActivity(previous, nextRecord);
+
   const next = {
     ...readTriageMap(),
-    [record.cveId]: normalizeTriageRecord(record),
+    [record.cveId]: {
+      ...nextRecord,
+      activity: nextActivity,
+    },
   };
 
   window.localStorage.setItem(TRIAGE_STORAGE_KEY, JSON.stringify(next));
@@ -60,7 +71,27 @@ export function createDefaultTriageRecord(cveId: string): TriageRecord {
     notes: "",
     tags: [],
     updatedAt: "",
+    activity: [],
   };
+}
+
+export function summarizeTriageChanges(previous: TriageRecord, next: TriageRecord): string[] {
+  const changes: string[] = [];
+
+  if (previous.status !== next.status) {
+    changes.push(`Status changed to ${getTriageStatusLabel(next.status)}`);
+  }
+  if (previous.owner !== next.owner) {
+    changes.push(next.owner ? `Owner set to ${next.owner}` : "Owner cleared");
+  }
+  if (previous.notes !== next.notes) {
+    changes.push(next.notes ? "Notes updated" : "Notes cleared");
+  }
+  if (previous.tags.join("|") !== next.tags.join("|")) {
+    changes.push(next.tags.length > 0 ? `Tags updated: ${next.tags.join(", ")}` : "Tags cleared");
+  }
+
+  return changes;
 }
 
 export function parseTags(value: string): string[] {
@@ -125,9 +156,36 @@ function normalizeTriageRecord(record: TriageRecord): TriageRecord {
     notes: record.notes ?? "",
     tags: Array.isArray(record.tags) ? record.tags.filter((tag): tag is string => typeof tag === "string") : [],
     updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : "",
+    activity: Array.isArray(record.activity) ? record.activity.filter(isAuditLogEntry).slice(0, MAX_TRIAGE_ACTIVITY) : [],
   };
 }
 
 function isValidStatus(status: string): status is TriageStatus {
   return ["new", "investigating", "mitigated", "accepted", "closed"].includes(status);
+}
+
+function isAuditLogEntry(value: unknown): value is AuditLogEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.action === "string" &&
+    typeof record.summary === "string" &&
+    typeof record.createdAt === "string"
+  );
+}
+
+function buildTriageActivity(previous: TriageRecord, next: TriageRecord): AuditLogEntry[] {
+  const changes = summarizeTriageChanges(previous, next);
+  if (changes.length === 0 || !next.updatedAt) {
+    return previous.activity;
+  }
+
+  const entry: AuditLogEntry = {
+    id: crypto.randomUUID(),
+    action: "triage_updated",
+    summary: changes.join(" • "),
+    createdAt: next.updatedAt,
+  };
+  return [entry, ...previous.activity].slice(0, MAX_TRIAGE_ACTIVITY);
 }
