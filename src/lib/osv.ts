@@ -190,29 +190,66 @@ export const getHighestSeverity = (vuln: OSVVulnerability): string | null => {
   return cvssEntry.score;
 };
 
-export const parseCvssScore = (vectorString: string): number | null => {
-  const match = vectorString.match(/CVSS:\d+\.\d+\/.*$/);
-  if (!match) return null;
+const CVSS_V3_WEIGHTS: Record<string, Record<string, number>> = {
+  AV: { N: 0.85, A: 0.62, L: 0.55, P: 0.2 },
+  AC: { L: 0.77, H: 0.44 },
+  PR_U: { N: 0.85, L: 0.62, H: 0.27 },
+  PR_C: { N: 0.85, L: 0.68, H: 0.5 },
+  UI: { N: 0.85, R: 0.62 },
+  C: { H: 0.56, L: 0.22, N: 0 },
+  I: { H: 0.56, L: 0.22, N: 0 },
+  A: { H: 0.56, L: 0.22, N: 0 },
+};
 
+export const parseCvssScore = (vectorString: string): number | null => {
   const metricsMatch = vectorString.match(
     /AV:([NALP])\/AC:([LH])\/PR:([NLH])\/UI:([NR])\/S:([UC])\/C:([NLH])\/I:([NLH])\/A:([NLH])/
   );
   if (!metricsMatch) return null;
 
-  return null;
+  const [, av, ac, pr, ui, s, c, i, a] = metricsMatch;
+  const scopeChanged = s === "C";
+
+  const attackVector = CVSS_V3_WEIGHTS.AV[av] ?? 0;
+  const attackComplexity = CVSS_V3_WEIGHTS.AC[ac] ?? 0;
+  const privilegesRequired = scopeChanged
+    ? (CVSS_V3_WEIGHTS.PR_C[pr] ?? 0)
+    : (CVSS_V3_WEIGHTS.PR_U[pr] ?? 0);
+  const userInteraction = CVSS_V3_WEIGHTS.UI[ui] ?? 0;
+  const confidentiality = CVSS_V3_WEIGHTS.C[c] ?? 0;
+  const integrity = CVSS_V3_WEIGHTS.I[i] ?? 0;
+  const availability = CVSS_V3_WEIGHTS.A[a] ?? 0;
+
+  const exploitability = 8.22 * attackVector * attackComplexity * privilegesRequired * userInteraction;
+  const iss = 1 - (1 - confidentiality) * (1 - integrity) * (1 - availability);
+
+  if (iss <= 0) return 0;
+
+  const impact = scopeChanged
+    ? 7.52 * (iss - 0.029) - 3.25 * Math.pow(iss - 0.02, 15)
+    : 6.42 * iss;
+
+  const baseScore = scopeChanged
+    ? Math.min(1.08 * (impact + exploitability), 10)
+    : Math.min(impact + exploitability, 10);
+
+  return Math.ceil(baseScore * 10) / 10;
+};
+
+const scoreToSeverityLabel = (score: number): string => {
+  if (score >= 9.0) return "CRITICAL";
+  if (score >= 7.0) return "HIGH";
+  if (score >= 4.0) return "MEDIUM";
+  if (score > 0) return "LOW";
+  return "NONE";
 };
 
 export const getSeverityLabel = (vuln: OSVVulnerability): string => {
   const cvssString = getHighestSeverity(vuln);
   if (!cvssString) return "UNKNOWN";
 
-  const scoreMatch = cvssString.match(/(\d+\.?\d*)/);
-  if (!scoreMatch) return "UNKNOWN";
+  const calculatedScore = parseCvssScore(cvssString);
+  if (calculatedScore !== null) return scoreToSeverityLabel(calculatedScore);
 
-  const score = parseFloat(scoreMatch[1]);
-  if (score >= 9.0) return "CRITICAL";
-  if (score >= 7.0) return "HIGH";
-  if (score >= 4.0) return "MEDIUM";
-  if (score > 0) return "LOW";
-  return "NONE";
+  return "UNKNOWN";
 };

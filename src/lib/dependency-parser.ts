@@ -37,11 +37,22 @@ export const parseNpmDependencies = (
   packageJsonRaw: string,
   packageLockJsonRaw?: string
 ): ParsedDependency[] => {
-  const packageJson: PackageJson = JSON.parse(packageJsonRaw);
+  let packageJson: PackageJson;
+  try {
+    packageJson = JSON.parse(packageJsonRaw);
+  } catch {
+    return [];
+  }
+
   const lockVersions = new Map<string, { version: string; isDev: boolean }>();
 
   if (packageLockJsonRaw) {
-    const lockJson: PackageLockJson = JSON.parse(packageLockJsonRaw);
+    let lockJson: PackageLockJson;
+    try {
+      lockJson = JSON.parse(packageLockJsonRaw);
+    } catch {
+      lockJson = {};
+    }
 
     if (lockJson.packages) {
       Object.entries(lockJson.packages).forEach(([key, value]) => {
@@ -103,12 +114,23 @@ export const parseComposerDependencies = (
   composerJsonRaw: string,
   composerLockJsonRaw?: string
 ): ParsedDependency[] => {
-  const composerJson: ComposerJson = JSON.parse(composerJsonRaw);
+  let composerJson: ComposerJson;
+  try {
+    composerJson = JSON.parse(composerJsonRaw);
+  } catch {
+    return [];
+  }
+
   const dependencies: ParsedDependency[] = [];
   const seen = new Set<string>();
 
   if (composerLockJsonRaw) {
-    const lockJson: ComposerLockJson = JSON.parse(composerLockJsonRaw);
+    let lockJson: ComposerLockJson;
+    try {
+      lockJson = JSON.parse(composerLockJsonRaw);
+    } catch {
+      lockJson = {};
+    }
 
     const addLockPackages = (packages: ComposerLockPackage[] | undefined, isDev: boolean) => {
       if (!packages) return;
