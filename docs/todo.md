@@ -1,5 +1,66 @@
 # Todo
 
+## Recommended Build Order
+
+### Build First
+
+- replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
+- add authentication and authorization
+- move browser-local workflow data (watchlist, alerts, triage, saved views) into user-scoped server persistence
+- stop storing provider API keys in browser local storage; move to server-side secrets or secure per-user encrypted storage
+- replace ad hoc AI calls with a typed AI service layer that supports structured outputs, tool calling, and multi-step workflows
+- evaluate adopting the Vercel AI SDK for typed tool execution, structured JSON generation, and reusable agent loops in Next.js
+- define a small tool registry for agent workflows
+- add prompt and version management so changes to agent behavior are explicit and reversible
+- add evaluation datasets and regression tests for AI outputs so prompt or model changes do not silently degrade quality
+- add fallback behavior for tool failures, upstream CIRCL outages, and malformed model responses
+- upgrade the AI search assistant from single-shot prompt interpretation to an agent that can clarify intent, inspect available filters, and build multi-step searches
+- add an AI triage agent that uses CVE detail, severity, references, KEV and EPSS signals, and project context to recommend priority, ownership, and next actions
+- add an AI alert investigation agent that explains why a rule matched and proposes the next best analyst action
+- add search explanation output that shows exactly which fields, filters, and assumptions the AI applied
+- improve data normalization for aliases, linked vulnerabilities, affected products, and reference metadata
+- add stronger schema validation around upstream CIRCL payloads and AI-generated JSON
+
+### Build Next
+
+- persist AI runs, prompts, outputs, tool calls, and failures for debugging and review
+- add per-feature model/provider configuration instead of one shared global setting for every AI flow
+- add audit fields and activity history for project and triage changes
+- add rate limiting and request logging for API routes
+- enrich prioritization with CISA KEV, EPSS-first sorting, and exploit/reference signals
+- improve result cards with stronger severity, EPSS, KEV, and recency cues
+- add bulk actions for watchlist, triage, and project assignment
+- add an AI remediation agent that drafts remediation plans, compensating controls, validation steps, and rollout notes per vulnerability
+- add an AI watchlist analyst agent that reviews new matches, clusters related issues, and highlights what changed since the last review
+- add an AI project summary agent that turns project state into executive, analyst, and engineering summaries with different output formats
+- add an AI duplicate and cluster agent that groups aliases, related advisories, and linked vulnerabilities into a shared incident view
+- add human approval checkpoints before any agent writes triage state, modifies projects, or sends notifications
+- add redaction rules so sensitive notes or project metadata are not sent to third-party model providers by default
+
+### Build Later
+
+- integrate Radix UI primitives/theme for a more consistent UI system
+- add richer dashboard views for analysts, maintainers, and incident response workflows
+- add better empty states, skeleton states, and success/error feedback across the app
+- add import/export for projects, triage state, saved views, and watchlists
+- expand project management with owners, due dates, labels, status, and timeline views
+- add a real vulnerability management workflow with assignment, SLA tracking, remediation state, and exceptions
+- add asset or product inventory mapping so CVEs can be linked to affected internal systems
+- add team-facing notifications and scheduled digest delivery
+- add usage tracking, latency metrics, and cost visibility for each AI feature
+- expand natural-language search to understand CWE families, date ranges, product aliases, exploitability, and remediation intent
+- add saved prompt templates for common analyst tasks such as "show newly published critical CVEs affecting OpenSSL this week"
+- add an AI exposure agent that maps vulnerabilities against tracked vendors, products, and assets to estimate likely internal impact
+- add a conversational workspace where an agent can answer questions over the user’s watchlist, alerts, projects, and saved searches
+
+### Suggested First Slice
+
+- secure persistence and AI credentials first
+- introduce the typed AI service layer plus tool registry
+- ship one high-value read-only agent flow end to end: AI search agent
+- ship one analyst decision-support flow next: AI triage agent
+- add evaluation coverage before expanding to more agent types
+
 ## Foundation
 
 - replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
