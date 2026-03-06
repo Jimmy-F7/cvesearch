@@ -111,4 +111,5 @@ export interface FixResponse {
   analysis: string;
   fileChanges: FixFileChange[];
   branchName: string;
+  existingPr?: boolean;
 }

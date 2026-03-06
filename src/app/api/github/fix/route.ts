@@ -12,6 +12,7 @@ import {
   commitFileChanges,
   createPullRequest,
   generateBranchName,
+  findExistingFixPR,
 } from "@/lib/github-pr";
 import { generateVulnerabilityFix, extractFixedVersion } from "@/lib/ai-fix";
 import {
@@ -114,6 +115,18 @@ export async function POST(request: NextRequest) {
         },
         { status: 422 }
       );
+    }
+
+    const existingPr = await findExistingFixPR(repoFullName, vulnerability.id);
+    if (existingPr) {
+      const response: FixResponse = {
+        prUrl: existingPr.url,
+        analysis: `A fix PR for ${vulnerability.id} already exists (${existingPr.state === "open" ? "open" : "closed/merged"}).`,
+        fileChanges: [],
+        branchName: existingPr.branchName,
+        existingPr: true,
+      };
+      return NextResponse.json(response);
     }
 
     const defaultBranch = repoInfo.default_branch;

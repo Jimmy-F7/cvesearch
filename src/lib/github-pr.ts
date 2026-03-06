@@ -9,6 +9,17 @@ interface BranchInfo {
 interface GitPullRequest {
   html_url: string;
   number: number;
+  title: string;
+  state: string;
+  head: { ref: string };
+}
+
+export interface ExistingPR {
+  url: string;
+  number: number;
+  title: string;
+  state: string;
+  branchName: string;
 }
 
 export const getDefaultBranchSha = async (
@@ -104,4 +115,36 @@ export const generateBranchName = async (
 
   const timestamp = Date.now().toString(36);
   return `${baseName}-${timestamp}`;
+};
+
+export const sanitizeVulnIdForBranch = (vulnId: string): string =>
+  vulnId.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
+
+export const findExistingFixPR = async (
+  fullName: string,
+  vulnId: string
+): Promise<ExistingPR | null> => {
+  const branchPattern = `fix/${sanitizeVulnIdForBranch(vulnId)}`;
+
+  try {
+    const pullRequests = await fetchGitHub<GitPullRequest[]>(
+      `/repos/${fullName}/pulls?state=all&per_page=30&sort=created&direction=desc`
+    );
+
+    const match = pullRequests.find((pr) =>
+      pr.head.ref === branchPattern || pr.head.ref.startsWith(`${branchPattern}-`)
+    );
+
+    if (!match) return null;
+
+    return {
+      url: match.html_url,
+      number: match.number,
+      title: match.title,
+      state: match.state,
+      branchName: match.head.ref,
+    };
+  } catch {
+    return null;
+  }
 };
