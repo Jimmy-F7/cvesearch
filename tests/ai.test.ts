@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildHeuristicCveInsight,
   buildHeuristicDigest,
+  getServerAIConfigurationSummary,
   interpretSearchPromptHeuristically,
 } from "../src/lib/ai";
 
@@ -100,4 +101,53 @@ test("buildHeuristicDigest summarizes watchlist, alerts, and projects", () => {
 
   assert.match(result.headline, /Critical OpenSSL|Tracking/);
   assert.equal(result.sections.length, 3);
+});
+
+test("getServerAIConfigurationSummary applies per-feature provider and model overrides", () => {
+  const previous = {
+    AI_PROVIDER: process.env.AI_PROVIDER,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_MODEL: process.env.OPENAI_MODEL,
+    AI_SEARCH_ASSISTANT_PROVIDER: process.env.AI_SEARCH_ASSISTANT_PROVIDER,
+    AI_SEARCH_ASSISTANT_MODEL: process.env.AI_SEARCH_ASSISTANT_MODEL,
+    AI_CVE_INSIGHT_PROVIDER: process.env.AI_CVE_INSIGHT_PROVIDER,
+    AI_CVE_INSIGHT_MODEL: process.env.AI_CVE_INSIGHT_MODEL,
+    AI_DAILY_DIGEST_PROVIDER: process.env.AI_DAILY_DIGEST_PROVIDER,
+    AI_DAILY_DIGEST_MODEL: process.env.AI_DAILY_DIGEST_MODEL,
+  };
+
+  process.env.AI_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-openai-key";
+  process.env.OPENAI_MODEL = "gpt-global";
+  process.env.AI_SEARCH_ASSISTANT_PROVIDER = "heuristic";
+  process.env.AI_SEARCH_ASSISTANT_MODEL = "ignored-search-model";
+  process.env.AI_CVE_INSIGHT_PROVIDER = "openai";
+  process.env.AI_CVE_INSIGHT_MODEL = "gpt-cve";
+  process.env.AI_DAILY_DIGEST_PROVIDER = "openai";
+  process.env.AI_DAILY_DIGEST_MODEL = "gpt-digest";
+
+  try {
+    const summary = getServerAIConfigurationSummary();
+    const search = summary.featureConfigurations.find((item) => item.feature === "search_assistant");
+    const cveInsight = summary.featureConfigurations.find((item) => item.feature === "cve_insight");
+    const digest = summary.featureConfigurations.find((item) => item.feature === "daily_digest");
+
+    assert.equal(summary.provider, "openai");
+    assert.equal(summary.model, "gpt-global");
+    assert.equal(search?.provider, "heuristic");
+    assert.equal(search?.mode, "heuristic");
+    assert.equal(search?.model, "");
+    assert.equal(cveInsight?.provider, "openai");
+    assert.equal(cveInsight?.model, "gpt-cve");
+    assert.equal(digest?.provider, "openai");
+    assert.equal(digest?.model, "gpt-digest");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
 });

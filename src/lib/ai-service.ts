@@ -26,6 +26,12 @@ const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
+const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest"];
+const AI_FEATURE_ENV_SEGMENTS: Record<AIFeature, string> = {
+  search_assistant: "SEARCH_ASSISTANT",
+  cve_insight: "CVE_INSIGHT",
+  daily_digest: "DAILY_DIGEST",
+};
 
 export interface DigestInput {
   watchlist: Array<{ id: string; summary?: string; severity?: string }>;
@@ -46,6 +52,13 @@ export interface ServerAIConfigurationSummary {
   mode: "heuristic" | "configured";
   configured: boolean;
   availableProviders: AIProvider[];
+  featureConfigurations: Array<{
+    feature: AIFeature;
+    provider: AIProvider;
+    model: string;
+    mode: "heuristic" | "configured";
+    configured: boolean;
+  }>;
 }
 
 interface AIRuntimeSettings {
@@ -122,6 +135,17 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
     mode: runtime.mode,
     configured: runtime.mode === "configured",
     availableProviders,
+    featureConfigurations: AI_FEATURES.map((feature) => {
+      const featureRuntime = resolveAIRuntime(feature);
+
+      return {
+        feature,
+        provider: featureRuntime.provider,
+        model: featureRuntime.model,
+        mode: featureRuntime.mode,
+        configured: featureRuntime.mode === "configured",
+      };
+    }),
   };
 }
 
@@ -147,7 +171,7 @@ export async function generateCveInsight(input: CveInsightInput): Promise<AICveI
 export async function generateSearchInterpretation(prompt: string): Promise<AISearchInterpretation> {
   const plan = runSearchPlanning(prompt);
   const heuristic = buildSearchInterpretationFromPlan(prompt, plan);
-  const runtime = resolveAIRuntime();
+  const runtime = resolveAIRuntime("search_assistant");
   const startedAt = Date.now();
 
   if (runtime.mode === "heuristic") {
@@ -499,7 +523,7 @@ export function buildHeuristicDigest(input: DigestInput): AIDigest {
 }
 
 async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, toolCalls = [] }: StructuredTask<T>): Promise<T> {
-  const runtime = resolveAIRuntime();
+  const runtime = resolveAIRuntime(feature);
   const startedAt = Date.now();
   if (runtime.mode === "heuristic") {
     const result = fallback();
@@ -859,15 +883,27 @@ async function callAnthropic(prompt: string, settings: AIRuntimeSettings, featur
   return content;
 }
 
-function resolveAIRuntime(): AIRuntimeSettings {
-  const requestedProvider = normalizeProvider(process.env.AI_PROVIDER);
+function resolveAIRuntime(feature?: AIFeature): AIRuntimeSettings {
+  const requestedProvider = normalizeProvider(readFeatureEnv(feature, "PROVIDER") ?? process.env.AI_PROVIDER);
+  const requestedModel = readFeatureEnv(feature, "MODEL") ?? "";
   const openAIKey = process.env.OPENAI_API_KEY?.trim() ?? "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
+  const openAIModel = (requestedModel || process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL).trim();
+  const anthropicModel = (requestedModel || process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL).trim();
+
+  if (requestedProvider === "heuristic") {
+    return {
+      provider: "heuristic",
+      model: "",
+      apiKey: "",
+      mode: "heuristic",
+    };
+  }
 
   if (requestedProvider === "openai" && openAIKey) {
     return {
       provider: "openai",
-      model: (process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL).trim(),
+      model: openAIModel,
       apiKey: openAIKey,
       mode: "configured",
     };
@@ -876,7 +912,7 @@ function resolveAIRuntime(): AIRuntimeSettings {
   if (requestedProvider === "anthropic" && anthropicKey) {
     return {
       provider: "anthropic",
-      model: (process.env.ANTHROPIC_MODEL ?? DEFAULT_ANTHROPIC_MODEL).trim(),
+      model: anthropicModel,
       apiKey: anthropicKey,
       mode: "configured",
     };
@@ -885,7 +921,7 @@ function resolveAIRuntime(): AIRuntimeSettings {
   if (openAIKey) {
     return {
       provider: "openai",
-      model: (process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL).trim(),
+      model: openAIModel,
       apiKey: openAIKey,
       mode: "configured",
     };
@@ -894,7 +930,7 @@ function resolveAIRuntime(): AIRuntimeSettings {
   if (anthropicKey) {
     return {
       provider: "anthropic",
-      model: (process.env.ANTHROPIC_MODEL ?? DEFAULT_ANTHROPIC_MODEL).trim(),
+      model: anthropicModel,
       apiKey: anthropicKey,
       mode: "configured",
     };
@@ -906,6 +942,16 @@ function resolveAIRuntime(): AIRuntimeSettings {
     apiKey: "",
     mode: "heuristic",
   };
+}
+
+function readFeatureEnv(feature: AIFeature | undefined, suffix: "PROVIDER" | "MODEL"): string | undefined {
+  if (!feature) {
+    return undefined;
+  }
+
+  const envKey = `AI_${AI_FEATURE_ENV_SEGMENTS[feature]}_${suffix}`;
+  const value = process.env[envKey]?.trim();
+  return value || undefined;
 }
 
 function normalizeProvider(value: string | undefined): AIProvider | undefined {

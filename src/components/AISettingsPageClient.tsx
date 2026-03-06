@@ -32,7 +32,7 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
         </div>
 
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          Configure AI providers with environment variables such as `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL`. No provider API key is persisted in browser storage.
+          Configure AI providers with environment variables such as `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL`. You can override individual flows with `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_SEARCH_ASSISTANT_MODEL`, `AI_CVE_INSIGHT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, `AI_DAILY_DIGEST_PROVIDER`, and `AI_DAILY_DIGEST_MODEL`. No provider API key is persisted in browser storage.
         </div>
 
         <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-100">
@@ -47,6 +47,32 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
               ? `Available providers: ${summary.availableProviders.join(", ")}`
               : "No model provider credentials detected on the server."}
           </span>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Per-Feature Configuration</h2>
+            <p className="mt-1 text-sm text-gray-500">Each AI flow can inherit the global server configuration or override it with feature-specific provider and model settings.</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {summary.featureConfigurations.map((featureConfig) => (
+              <div key={featureConfig.feature} className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium text-white">{featureConfig.feature}</h3>
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-gray-300">{featureConfig.mode === "configured" ? "Configured" : "Heuristic"}</span>
+                </div>
+                <div className="mt-3 space-y-2 text-sm text-gray-300">
+                  <p>
+                    <span className="text-gray-500">Provider:</span> {featureConfig.provider}
+                  </p>
+                  <p>
+                    <span className="text-gray-500">Model:</span> {featureConfig.model || "Not required in heuristic mode"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
