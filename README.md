@@ -10,13 +10,13 @@ Fast, analyst-friendly CVE search, GitHub repository monitoring, and automated v
 
 ## Overview
 
-CVE Search turns raw vulnerability data into a workflow-oriented web app for research, prioritization, and lightweight tracking.
+CVE Search turns raw vulnerability data into a workflow-oriented web app for research, prioritization, and operational tracking.
 
-It combines URL-driven search, rich CVE detail pages, saved views, watchlists, alerts, triage state, and project grouping in a single interface. The app is designed to feel closer to an analyst workstation than a simple API browser.
+It combines URL-driven search, rich CVE detail pages, saved views, watchlists, alerts, triage state, project workflows, team notifications, and a conversational workspace in a single interface. The app is designed to feel closer to an analyst workstation than a simple API browser.
 
-It also includes an optional AI layer for natural-language search, analyst-facing CVE summaries, remediation guidance, and cross-workspace digests, with provider settings stored locally in the browser.
+It also includes an optional AI layer for natural-language search, analyst-facing CVE summaries, remediation guidance, workspace digests, and workspace Q&A, with provider settings managed server-side through environment variables.
 
-The GitHub Repos feature connects private and public repositories, scans their dependency trees for known vulnerabilities via the OSV.dev API, and can automatically generate fix PRs using AI.
+The GitHub Repos feature connects private and public repositories, scans their dependency trees for known vulnerabilities via the OSV.dev API, persists scan history in SQLite, and can automatically generate fix PRs using AI.
 
 ## Screenshots
 
@@ -46,10 +46,11 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 - Severity filters and result sorting
 - Server-rendered homepage results
 - Rich CVE detail pages with EPSS, CWE, CAPEC, references, comments, and linked vulnerabilities when available
-- Saved views, watchlist, alerts, and triage workflow
-- Server-persisted projects workspace
-- AI-assisted search, summaries, triage guidance, and workspace digests
+- Saved views, watchlist, alerts, notifications, and triage workflow
+- Server-persisted projects workspace with owner, due date, labels, status, SLA, and exception tracking
+- AI-assisted search, summaries, triage guidance, workspace digests, and conversational workspace answers
 - GitHub repository monitoring with deep dependency scanning (npm, pnpm, Composer) across monorepo subdirectories
+- Persisted repository scan history for monitored repos
 - AI-powered vulnerability fix generation with automatic pull request creation
 - Duplicate PR detection to avoid redundant fix branches
 - Export to CSV and JSON
@@ -67,11 +68,12 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 
 ### Analyst Workflow
 
-- Save reusable searches as local saved views
-- Bookmark CVEs and advisories in a local watchlist
-- Create local alert rules and review matches in an alerts center
-- Track local triage status, owner, tags, and notes
-- Group CVEs into server-persisted projects stored in the workspace
+- Save reusable searches as server-persisted saved views
+- Bookmark CVEs and advisories in a server-persisted watchlist
+- Create alert rules, review matches in an alerts center, and schedule digest delivery for team destinations
+- Track triage status, owner, tags, and notes with approval checkpoints
+- Group CVEs into server-persisted projects with owners, due dates, labels, status, timeline events, per-item assignment, SLA tracking, remediation state, and exceptions
+- Ask the workspace assistant questions over watchlist, alerts, projects, and saved searches
 
 ### AI Workspace
 
@@ -79,7 +81,8 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 - Generate analyst-friendly CVE summaries and triage recommendations
 - Draft remediation notes from affected products, references, and available metadata
 - Build watchlist, alerts, and project digests from current workspace context
-- Configure provider, model, and API key in a browser-local settings page
+- Answer workspace questions over saved views, watchlist, alerts, and project workflow state
+- Configure provider and model with server-side environment variables and per-feature overrides
 
 ### Vulnerability Detail
 
@@ -96,6 +99,7 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 - Deep dependency scanning using the GitHub Tree API to discover dependency files across all subdirectories
 - Supports npm (`package.json`, `package-lock.json`), pnpm (`pnpm-lock.yaml`), and Composer (`composer.json`, `composer.lock`)
 - Batch vulnerability lookup via the OSV.dev API with CVSS v3 base score calculation
+- Persisted scan snapshots per monitored repository with historical visibility in the UI
 - Vulnerability detail links to internal CVE pages when a CVE alias is available
 - AI-powered fix generation: analyzes the vulnerability, generates file changes, creates a branch, commits, and opens a pull request
 - Heuristic fallback when no AI provider is configured (version bump to known fixed version)
@@ -114,10 +118,10 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 ## Current Boundaries
 
 - Vendor-only filtering is intentionally blocked because the current upstream flow is only trustworthy when vendor is paired with product.
-- Saved views, watchlist, alerts, and triage state are browser-local, not synced across devices or users.
-- AI provider settings and API keys are stored in browser local storage and are not encrypted.
-- Projects and monitored repositories are persisted in the app workspace via JSON storage, not a production database.
-- Team assignments, user accounts, email or Slack notifications, and scheduled reports are not implemented.
+- Workspace data is scoped to the app session/user cookie rather than a shared organization identity system.
+- AI providers are configured with server-side environment variables; there is no in-product credential management UI.
+- Notification delivery currently persists in-app schedule and delivery records; external email/Slack/webhook delivery is modeled as destinations but not actually pushed to third-party services.
+- GitHub monitoring requires a valid `GITHUB_TOKEN`; without one, the Repos workflow is limited to negative-path validation.
 - Lock file regeneration (`npm install`, `composer update`) must be run locally after merging AI-generated fix PRs.
 
 ## Quick Start
@@ -150,13 +154,15 @@ Open `http://localhost:3000`.
 
 ### AI Configuration
 
-To use model-backed AI features instead of the built-in heuristic fallback, open `/settings` in the app and configure:
+To use model-backed AI features instead of the built-in heuristic fallback, configure server-side environment variables such as:
 
-- provider (OpenAI or Anthropic)
-- model
-- API key
+- `AI_PROVIDER`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_MODEL`
 
-AI settings are stored in browser `localStorage` and apply to search interpretation, CVE summaries, triage guidance, workspace digests, and vulnerability fix generation.
+You can also override individual flows with feature-specific variables such as `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_PROJECT_SUMMARY_MODEL`, or `AI_DAILY_DIGEST_MODEL`. The `/settings` page shows the active configuration, prompt versions, tool registry, inventory assets, workspace import/export, and recent AI runs.
 
 ## Scripts
 
@@ -176,7 +182,10 @@ The project includes lightweight TypeScript tests for:
 - prioritization and local alert matching
 - triage helpers
 - upstream response validation
-- project helper logic
+- project workflow logic
+- repository scan persistence
+- notification scheduling and digest delivery
+- workspace assistant behavior
 - CVSS and description extraction
 
 GitHub Actions runs `lint`, `test`, and `build` on pushes and pull requests.
@@ -198,16 +207,16 @@ src/
 │   ├── cve/[id]/            # CVE detail route
 │   ├── projects/            # Projects route
 │   ├── repos/               # GitHub repository monitoring route
-│   ├── settings/            # Browser-local AI provider settings
+│   ├── settings/            # Server-side AI configuration, inventory, and workspace data
+│   ├── workspace/           # Conversational workspace and notifications
 │   ├── watchlist/           # Watchlist route
 │   └── page.tsx             # Homepage
 ├── components/              # Search, detail, workflow, repos, and navigation UI
 └── lib/                     # Search logic, AI helpers, API clients, GitHub integration,
-                             # dependency parsing, storage, validation, utilities
+                             # dependency parsing, SQLite-backed storage, validation, utilities
 
 data/
-├── monitored-repos.json     # Monitored repository persistence
-└── projects.json            # Workspace project persistence
+└── app.db                   # Default SQLite workspace database
 
 tests/                       # Node-based TypeScript test suite
 ```
@@ -255,6 +264,7 @@ Planning and benchmark docs live in [`docs/`](./docs):
 - `docs/improvement-plan.md`
 - `docs/execution-backlog.md`
 - `docs/opencve-benchmark.md`
+- `docs/test-user-journeys.md`
 - [`CHANGELOG.md`](./CHANGELOG.md)
 
 ## Tech Stack

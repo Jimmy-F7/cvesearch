@@ -25,6 +25,53 @@ export interface AlertRule {
   lastCheckedAt: string | null;
 }
 
+export type NotificationChannel = "in_app" | "email" | "slack" | "webhook";
+export type NotificationCadence = "daily" | "weekly";
+
+export interface NotificationPreferenceRecord {
+  id: string;
+  teamName: string;
+  channel: NotificationChannel;
+  destination: string;
+  cadence: NotificationCadence;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastSentAt: string | null;
+  nextRunAt: string | null;
+}
+
+export interface NotificationDeliveryRecord {
+  id: string;
+  preferenceId: string;
+  teamName: string;
+  channel: NotificationChannel;
+  destination: string;
+  cadence: NotificationCadence;
+  headline: string;
+  summary: string;
+  status: "sent" | "preview";
+  itemCount: number;
+  createdAt: string;
+  deliveredAt: string | null;
+}
+
+export interface WorkspaceConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+  references: string[];
+}
+
+export interface WorkspaceConversationRecord {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: WorkspaceConversationMessage[];
+}
+
 export interface InventoryAssetRecord {
   id: string;
   name: string;
@@ -48,6 +95,8 @@ export interface WorkspaceExportSnapshot {
   inventoryAssets: InventoryAssetRecord[];
   triageRecords: TriageRecord[];
   projects: ProjectRecord[];
+  notificationPreferences?: NotificationPreferenceRecord[];
+  conversations?: WorkspaceConversationRecord[];
 }
 
 export type WorkspaceImportMode = "merge" | "replace";

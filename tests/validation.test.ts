@@ -60,6 +60,29 @@ test("parseCVEDetail accepts cveMetadata.cveId when top-level id is missing", ()
   assert.deepEqual(detail.aliases, ["GHSA-example-1234"]);
 });
 
+test("parseCVEDetail normalizes references linked vulnerabilities and affected products", () => {
+  const detail = parseCVEDetail({
+    id: "GHSA-abcd-1234",
+    aliases: ["CVE-2026-4242"],
+    references: ["https://example.com/advisory"],
+    containers: {
+      cna: {
+        references: [{ url: "https://github.com/acme/repo/commit/123", tags: ["Patch"] }],
+        affected: [{ vendor: "Acme", product: "Gateway", versions: [{ version: "1.2.3", status: "affected" }] }],
+      },
+    },
+    linked_vulnerabilities: [{ id: "CVE-2026-1111" }],
+    vulnerable_configuration: ["cpe:2.3:a:acme:gateway:1.2.3:*:*:*:*:*:*:*"],
+  });
+
+  assert.equal(detail.id, "CVE-2026-4242");
+  assert.equal(detail.referenceMeta?.length, 2);
+  assert.equal(detail.referenceMeta?.[0]?.host, "github.com");
+  assert.equal(detail.referenceMeta?.[0]?.type, "patch");
+  assert.equal(detail.linkedVulnerabilities?.[0]?.id, "CVE-2026-1111");
+  assert.ok(detail.affectedProducts?.some((item) => item.vendor === "Acme" && item.product === "Gateway"));
+});
+
 test("parseStringList rejects mixed arrays", () => {
   assert.throws(() => parseStringList(["ok", 2], "vendors"), /string list/);
 });

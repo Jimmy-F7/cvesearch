@@ -4,9 +4,25 @@ import { parseDependencyFiles } from "@/lib/dependency-parser";
 import { queryOSVBatch } from "@/lib/osv";
 import { updateLastScan } from "@/lib/monitored-repos-store";
 import { DependencyScanResult } from "@/lib/github-types";
+import { listRepoScansForRepo, persistRepoScanResult } from "@/lib/repo-scans-store";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
 
 const isRepoFullName = (value: string): boolean => /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
+
+export const GET = withRouteProtection(async function GET(request: NextRequest) {
+  const fullName = request.nextUrl.searchParams.get("fullName")?.trim() ?? "";
+
+  if (!fullName || !isRepoFullName(fullName)) {
+    return NextResponse.json({ error: "fullName is required" }, { status: 400 });
+  }
+
+  const scans = await listRepoScansForRepo(fullName);
+  return NextResponse.json(scans);
+}, {
+  route: "/api/github/scan",
+  errorMessage: "Failed to load repository scan history",
+  rateLimit: API_RATE_LIMITS.githubScans,
+});
 
 export const POST = withRouteProtection(async function POST(request: NextRequest) {
   if (!isGitHubTokenConfigured()) {
@@ -40,6 +56,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       };
 
       await updateLastScan(fullName, 0);
+      await persistRepoScanResult(fullName, branch ?? "default", emptyResult);
       return NextResponse.json(emptyResult);
     }
 
@@ -55,6 +72,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     };
 
     await updateLastScan(fullName, vulnerabilities.length);
+    await persistRepoScanResult(fullName, branch ?? "default", result);
 
     return NextResponse.json(result);
   } catch (error) {

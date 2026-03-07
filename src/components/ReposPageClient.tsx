@@ -6,6 +6,7 @@ import {
   GitHubRepo,
   MonitoredRepo,
   DependencyScanResult,
+  RepoScanRecord,
   VulnerabilityMatch,
 } from "@/lib/github-types";
 import { getSeverityLabel } from "@/lib/osv";
@@ -29,6 +30,7 @@ export default function ReposPageClient() {
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
   const [monitoredRepos, setMonitoredRepos] = useState<MonitoredRepo[]>([]);
   const [scanStates, setScanStates] = useState<Record<string, RepoScanState>>({});
+  const [scanHistory, setScanHistory] = useState<Record<string, RepoScanRecord[]>>({});
   const [loadingGithub, setLoadingGithub] = useState(false);
   const [loadingMonitored, setLoadingMonitored] = useState(true);
   const [githubError, setGithubError] = useState<string | null>(null);
@@ -36,18 +38,30 @@ export default function ReposPageClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoBrowser, setShowRepoBrowser] = useState(false);
 
+  const loadRepoScanHistory = useCallback(async (fullName: string) => {
+    try {
+      const response = await fetch(`/api/github/scan?fullName=${encodeURIComponent(fullName)}`);
+      if (!response.ok) throw new Error("Failed to load repo scan history");
+      const scans: RepoScanRecord[] = await response.json();
+      setScanHistory((current) => ({ ...current, [fullName]: scans }));
+    } catch {
+      setScanHistory((current) => ({ ...current, [fullName]: [] }));
+    }
+  }, []);
+
   const loadMonitoredRepos = useCallback(async () => {
     try {
       const response = await fetch("/api/github/monitored");
       if (!response.ok) throw new Error("Failed to load monitored repos");
       const repos: MonitoredRepo[] = await response.json();
       setMonitoredRepos(repos);
+      await Promise.all(repos.map((repo) => loadRepoScanHistory(repo.fullName)));
     } catch {
       setMonitoredRepos([]);
     } finally {
       setLoadingMonitored(false);
     }
-  }, []);
+  }, [loadRepoScanHistory]);
 
   useEffect(() => {
     loadMonitoredRepos();
@@ -109,6 +123,12 @@ export default function ReposPageClient() {
         if (repo) delete next[repo.fullName];
         return next;
       });
+      setScanHistory((current) => {
+        const next = { ...current };
+        const repo = monitoredRepos.find((r) => r.id === repoId);
+        if (repo) delete next[repo.fullName];
+        return next;
+      });
     } catch {
       // silently fail
     }
@@ -138,6 +158,7 @@ export default function ReposPageClient() {
         [fullName]: { state: "done", result, error: null },
       }));
       await loadMonitoredRepos();
+      await loadRepoScanHistory(fullName);
     } catch (error) {
       setScanStates((current) => ({
         ...current,
@@ -365,6 +386,7 @@ export default function ReposPageClient() {
                 key={repo.id}
                 repo={repo}
                 scanState={scan ?? null}
+                history={scanHistory[repo.fullName] ?? []}
                 onScan={() => handleScanRepo(repo.fullName)}
                 onRemove={() => handleRemoveRepo(repo.id)}
               />
@@ -379,11 +401,12 @@ export default function ReposPageClient() {
 interface MonitoredRepoCardProps {
   repo: MonitoredRepo;
   scanState: RepoScanState | null;
+  history: RepoScanRecord[];
   onScan: () => void;
   onRemove: () => void;
 }
 
-const MonitoredRepoCard = ({ repo, scanState, onScan, onRemove }: MonitoredRepoCardProps) => {
+const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: MonitoredRepoCardProps) => {
   const isScanning = scanState?.state === "scanning";
   const hasResults = scanState?.state === "done" && scanState.result;
   const hasError = scanState?.state === "error";
@@ -464,6 +487,31 @@ const MonitoredRepoCard = ({ repo, scanState, onScan, onRemove }: MonitoredRepoC
 
       {hasResults && scanState.result && (
         <ScanResults result={scanState.result} repoFullName={repo.fullName} />
+      )}
+
+      {history.length > 0 && (
+        <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Persisted scan history</h3>
+            <span className="text-[11px] text-white/20">{history.length} snapshots</span>
+          </div>
+          <div className="space-y-2">
+            {history.slice(0, 4).map((entry) => (
+              <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-white/50">
+                  <span>{new Date(entry.scannedAt).toLocaleString()}</span>
+                  <span className="text-white/15">/</span>
+                  <span>branch {entry.branch}</span>
+                  <span className="text-white/15">/</span>
+                  <span>{entry.dependencyCount} deps</span>
+                </div>
+                <span className={entry.vulnerabilityCount > 0 ? "text-red-300" : "text-emerald-300"}>
+                  {entry.vulnerabilityCount} vuln{entry.vulnerabilityCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   );

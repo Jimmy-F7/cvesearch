@@ -88,12 +88,15 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
   const modified = cve.cveMetadata?.dateUpdated || cve.modified;
   const assigner = cve.cveMetadata?.assignerShortName || cve.assigner;
   const state = cve.cveMetadata?.state || cve.state;
-  const references = normalizeReferences(cve);
+  const references = (cve.referenceMeta?.map((reference) => ({
+    url: reference.url,
+    tags: reference.tags.length > 0 ? [...reference.tags, reference.type] : [reference.type],
+  })) ?? normalizeReferences(cve));
   const affected = cve.containers?.cna?.affected || [];
   const problemTypes = cve.containers?.cna?.problemTypes || [];
   const metrics = cve.containers?.cna?.metrics || [];
   const aliases = cve.aliases?.filter((alias) => alias !== cveId) ?? [];
-  const linkedVulnerabilities = getLinkedVulnerabilities(cve, cveId);
+  const linkedVulnerabilities = cve.linkedVulnerabilities?.map((entry) => entry.id) ?? getLinkedVulnerabilities(cve, cveId);
   const comments = getComments(cve);
   const capecEntries = cve.capec ?? [];
 

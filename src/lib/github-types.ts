@@ -25,6 +25,14 @@ export interface MonitoredRepo {
   lastScanVulnerabilityCount: number | null;
 }
 
+export interface RepoScanRecord extends DependencyScanResult {
+  id: string;
+  repoId: string | null;
+  branch: string;
+  vulnerabilityCount: number;
+  error: string | null;
+}
+
 export interface ParsedDependency {
   name: string;
   version: string;

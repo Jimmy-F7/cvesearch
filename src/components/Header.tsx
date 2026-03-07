@@ -9,6 +9,7 @@ import { loadTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 const NAV_ITEMS = [
   { href: "/", label: "Search", icon: SearchIcon },
+  { href: "/workspace", label: "Workspace", icon: ChatIcon },
   { href: "/watchlist", label: "Watchlist", icon: BookmarkIcon },
   { href: "/alerts", label: "Alerts", icon: BellIcon },
   { href: "/projects", label: "Projects", icon: FolderIcon },
@@ -150,6 +151,14 @@ function BellIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  );
+}
+
+function ChatIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75h6.75m-6.75 3h4.5m6.375-.75c0 4.142-3.693 7.5-8.25 7.5a8.841 8.841 0 01-4.082-.98L3.75 19.5l1.106-2.95A7.272 7.272 0 014.5 12c0-4.142 3.693-7.5 8.25-7.5S21 7.858 21 12z" />
     </svg>
   );
 }

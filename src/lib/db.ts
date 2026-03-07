@@ -80,6 +80,10 @@ function initializeDatabase(db: DatabaseSync): void {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL,
+      owner TEXT NOT NULL DEFAULT '',
+      due_at TEXT,
+      labels_json TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -89,6 +93,11 @@ function initializeDatabase(db: DatabaseSync): void {
       cve_id TEXT NOT NULL,
       note TEXT NOT NULL,
       added_at TEXT NOT NULL,
+      owner TEXT NOT NULL DEFAULT '',
+      remediation_state TEXT NOT NULL DEFAULT 'not_started',
+      sla_due_at TEXT,
+      exception_json TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT '',
       PRIMARY KEY (project_id, cve_id),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
@@ -115,6 +124,22 @@ function initializeDatabase(db: DatabaseSync): void {
       last_scanned_at TEXT,
       last_scan_vulnerability_count INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS monitored_repo_scans (
+      id TEXT PRIMARY KEY,
+      repo_id TEXT,
+      repo_full_name TEXT NOT NULL,
+      branch TEXT NOT NULL,
+      scanned_at TEXT NOT NULL,
+      dependency_count INTEGER NOT NULL,
+      location_count INTEGER NOT NULL,
+      vulnerability_count INTEGER NOT NULL,
+      result_json TEXT NOT NULL,
+      error TEXT NOT NULL DEFAULT '',
+      FOREIGN KEY (repo_id) REFERENCES monitored_repos(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_repo_full_name ON monitored_repo_scans(repo_full_name, scanned_at DESC);
 
     CREATE TABLE IF NOT EXISTS ai_runs (
       id TEXT PRIMARY KEY,
@@ -192,6 +217,43 @@ function initializeDatabase(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_user_alert_rules_user_id ON user_alert_rules(user_id, created_at DESC);
 
+    CREATE TABLE IF NOT EXISTS user_notification_preferences (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      team_name TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      cadence TEXT NOT NULL,
+      enabled INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_sent_at TEXT,
+      next_run_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_notification_preferences_user_id ON user_notification_preferences(user_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS user_notification_deliveries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      preference_id TEXT NOT NULL,
+      team_name TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      cadence TEXT NOT NULL,
+      headline TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      status TEXT NOT NULL,
+      item_count INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      delivered_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (preference_id) REFERENCES user_notification_preferences(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_notification_deliveries_user_id ON user_notification_deliveries(user_id, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS user_inventory_assets (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -223,7 +285,40 @@ function initializeDatabase(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_triage_records_user_id ON user_triage_records(user_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS user_workspace_conversations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_workspace_conversations_user_id ON user_workspace_conversations(user_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS user_workspace_messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      references_json TEXT NOT NULL,
+      FOREIGN KEY (conversation_id) REFERENCES user_workspace_conversations(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_workspace_messages_conversation_id ON user_workspace_messages(conversation_id, created_at ASC);
   `);
+
+  ensureColumn(db, "projects", "owner", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "projects", "due_at", "TEXT");
+  ensureColumn(db, "projects", "labels_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, "projects", "status", "TEXT NOT NULL DEFAULT 'active'");
+  ensureColumn(db, "project_items", "owner", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "project_items", "remediation_state", "TEXT NOT NULL DEFAULT 'not_started'");
+  ensureColumn(db, "project_items", "sla_due_at", "TEXT");
+  ensureColumn(db, "project_items", "exception_json", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "project_items", "updated_at", "TEXT NOT NULL DEFAULT ''");
 
   migrateJsonBackfills(db);
 }
@@ -451,4 +546,13 @@ function readJsonArray(filePath: string): unknown[] | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function ensureColumn(db: DatabaseSync, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((entry) => entry.name === column)) {
+    return;
+  }
+
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }

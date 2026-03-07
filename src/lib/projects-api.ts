@@ -28,6 +28,16 @@ export function createProjectAPI(input: { name: string; description?: string }):
   });
 }
 
+export function updateProjectAPI(
+  projectId: string,
+  input: Partial<Pick<ProjectRecord, "name" | "description" | "owner" | "dueAt" | "labels" | "status">>
+): Promise<ProjectRecord> {
+  return fetchProjectsAPI<ProjectRecord>(`/api/projects/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteProjectAPI(projectId: string): Promise<{ success: boolean }> {
   return fetchProjectsAPI<{ success: boolean }>(`/api/projects/${encodeURIComponent(projectId)}`, {
     method: "DELETE",
@@ -38,6 +48,23 @@ export function addProjectItemAPI(projectId: string, input: { cveId: string; not
   return fetchProjectsAPI<ProjectRecord>(`/api/projects/${encodeURIComponent(projectId)}/items`, {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateProjectItemAPI(
+  projectId: string,
+  cveId: string,
+  input: {
+    note?: string;
+    owner?: string;
+    remediationState?: ProjectRecord["items"][number]["remediationState"];
+    slaDueAt?: string | null;
+    exception?: ProjectRecord["items"][number]["exception"] | null;
+  }
+): Promise<ProjectRecord> {
+  return fetchProjectsAPI<ProjectRecord>(`/api/projects/${encodeURIComponent(projectId)}/items`, {
+    method: "PATCH",
+    body: JSON.stringify({ cveId, ...input }),
   });
 }
 

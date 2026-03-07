@@ -12,7 +12,10 @@ export interface CVESummary {
   published?: string;
   modified?: string;
   references?: string[];
+  referenceMeta?: VulnerabilityReference[];
   vulnerable_product?: string[];
+  affectedProducts?: NormalizedAffectedProduct[];
+  linkedVulnerabilities?: LinkedVulnerability[];
   state?: string;
   kev?: KnownExploitedVulnerability;
 }
@@ -32,8 +35,11 @@ export interface CVEDetail {
   published?: string;
   modified?: string;
   references?: string[];
+  referenceMeta?: VulnerabilityReference[];
   vulnerable_product?: string[];
   vulnerable_configuration?: string[];
+  affectedProducts?: NormalizedAffectedProduct[];
+  linkedVulnerabilities?: LinkedVulnerability[];
   capec?: CAPECItem[];
   state?: string;
   // vulnerability.circl.lu fields
@@ -62,6 +68,25 @@ export interface CVEDetail {
     };
   };
   kev?: KnownExploitedVulnerability;
+}
+
+export interface VulnerabilityReference {
+  url: string;
+  host: string;
+  tags: string[];
+  type: string;
+}
+
+export interface LinkedVulnerability {
+  id: string;
+  relationship: string;
+}
+
+export interface NormalizedAffectedProduct {
+  vendor: string;
+  product: string;
+  version: string;
+  ecosystem: string;
 }
 
 export interface KnownExploitedVulnerability {
@@ -204,6 +229,11 @@ export interface ProjectItem {
   cveId: string;
   note?: string;
   addedAt: string;
+  owner?: string;
+  remediationState?: RemediationState;
+  slaDueAt?: string | null;
+  exception?: ProjectExceptionRecord | null;
+  updatedAt?: string;
 }
 
 export interface AuditLogEntry {
@@ -219,8 +249,27 @@ export interface ProjectRecord {
   description: string;
   createdAt: string;
   updatedAt: string;
+  owner?: string;
+  dueAt?: string | null;
+  labels?: string[];
+  status?: ProjectStatus;
   items: ProjectItem[];
   activity: AuditLogEntry[];
+  timeline?: ProjectTimelineEvent[];
+}
+
+export type ProjectStatus = "planned" | "active" | "at_risk" | "done";
+export type RemediationState = "not_started" | "planned" | "in_progress" | "validated" | "deferred" | "exception";
+
+export interface ProjectExceptionRecord {
+  reason: string;
+  approvedBy: string;
+  expiresAt: string | null;
+  notes: string;
+}
+
+export interface ProjectTimelineEvent extends AuditLogEntry {
+  kind: "project" | "vulnerability" | "sla";
 }
 
 export interface AITriageContextSnapshot {

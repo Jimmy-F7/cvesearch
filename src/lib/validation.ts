@@ -1,4 +1,13 @@
-import { CVEDetail, CVESummary, CWEData, EPSSData, KnownExploitedVulnerability } from "./types";
+import {
+  CVEDetail,
+  CVESummary,
+  CWEData,
+  EPSSData,
+  KnownExploitedVulnerability,
+  LinkedVulnerability,
+  NormalizedAffectedProduct,
+  VulnerabilityReference,
+} from "./types";
 
 export function parseCVESummaryList(value: unknown): CVESummary[] {
   if (!Array.isArray(value)) {
@@ -31,7 +40,7 @@ export function parseCVEDetail(value: unknown): CVEDetail {
     throw new Error("Unexpected response format: CVE detail is missing an id");
   }
 
-  return normalizeRecordIdentifiers(record, normalizedId) as unknown as CVEDetail;
+  return normalizeSupplementalData(normalizeRecordIdentifiers(record, normalizedId)) as unknown as CVEDetail;
 }
 
 export function parseStringList(value: unknown, label: string): string[] {
@@ -105,7 +114,7 @@ function parseCVESummary(value: unknown): CVESummary {
     throw new Error("Unexpected response format: CVE summary is missing an id");
   }
 
-  return normalizeRecordIdentifiers(record, normalizedId) as unknown as CVESummary;
+  return normalizeSupplementalData(normalizeRecordIdentifiers(record, normalizedId)) as unknown as CVESummary;
 }
 
 function parseKnownExploitedVulnerability(value: unknown): KnownExploitedVulnerability {
@@ -192,6 +201,15 @@ function normalizeRecordIdentifiers(record: Record<string, unknown>, preferredId
   };
 }
 
+function normalizeSupplementalData(record: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...record,
+    referenceMeta: normalizeReferences(record),
+    linkedVulnerabilities: normalizeLinkedVulnerabilities(record, typeof record.id === "string" ? record.id : ""),
+    affectedProducts: normalizeAffectedProducts(record),
+  };
+}
+
 function getNestedString(record: Record<string, unknown>, ...path: string[]): string | null {
   let current: unknown = record;
 
@@ -203,4 +221,215 @@ function getNestedString(record: Record<string, unknown>, ...path: string[]): st
   }
 
   return typeof current === "string" && current.trim().length > 0 ? current.trim() : null;
+}
+
+function normalizeReferences(record: Record<string, unknown>): VulnerabilityReference[] {
+  const rawContainerReferences = getNestedArray(record, "containers", "cna", "references");
+  const containerReferences = rawContainerReferences.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return [];
+    }
+
+    const reference = entry as Record<string, unknown>;
+    const url = extractReferenceUrl(reference.url);
+    if (!url) return [];
+
+    return [{
+      url,
+      host: extractHost(url),
+      tags: Array.isArray(reference.tags)
+        ? reference.tags.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
+        : [],
+      type: detectReferenceType(url, Array.isArray(reference.tags) ? reference.tags : []),
+    }];
+  });
+
+  const fallbackReferences = Array.isArray(record.references)
+    ? record.references.flatMap((entry) => {
+        const url = extractReferenceUrl(entry);
+        if (!url) return [];
+        return [{
+          url,
+          host: extractHost(url),
+          tags: [],
+          type: detectReferenceType(url, []),
+        }];
+      })
+    : [];
+
+  return dedupeByUrl([...containerReferences, ...fallbackReferences]);
+}
+
+function normalizeLinkedVulnerabilities(record: Record<string, unknown>, currentId: string): LinkedVulnerability[] {
+  const sources: Array<{ relationship: string; value: unknown }> = [
+    { relationship: "related", value: record.related_vulnerabilities },
+    { relationship: "linked", value: record.linked_vulnerabilities },
+    { relationship: "related", value: record.vulnerabilities },
+    { relationship: "related", value: record.related },
+  ];
+
+  const values = sources.flatMap(({ relationship, value }) =>
+    normalizeLinkedValues(value).map((id) => ({ id, relationship }))
+  );
+
+  const unique = new Map<string, LinkedVulnerability>();
+  for (const entry of values) {
+    if (!entry.id || entry.id === currentId) continue;
+    if (!unique.has(entry.id)) {
+      unique.set(entry.id, entry);
+    }
+  }
+
+  return Array.from(unique.values());
+}
+
+function normalizeAffectedProducts(record: Record<string, unknown>): NormalizedAffectedProduct[] {
+  const normalized: NormalizedAffectedProduct[] = [];
+
+  const affected = getNestedArray(record, "containers", "cna", "affected");
+  for (const entry of affected) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const item = entry as Record<string, unknown>;
+    const vendor = typeof item.vendor === "string" ? item.vendor.trim() : "";
+    const product = typeof item.product === "string" ? item.product.trim() : "";
+    const versions = Array.isArray(item.versions) ? item.versions : [];
+
+    if (versions.length > 0) {
+      for (const versionEntry of versions) {
+        if (!versionEntry || typeof versionEntry !== "object" || Array.isArray(versionEntry)) continue;
+        const versionRecord = versionEntry as Record<string, unknown>;
+        normalized.push({
+          vendor,
+          product,
+          version: typeof versionRecord.version === "string" ? versionRecord.version.trim() : "",
+          ecosystem: "cna",
+        });
+      }
+      continue;
+    }
+
+    normalized.push({ vendor, product, version: "", ecosystem: "cna" });
+  }
+
+  const vulnerableProducts = Array.isArray(record.vulnerable_product) ? record.vulnerable_product : [];
+  for (const value of vulnerableProducts) {
+    if (typeof value !== "string") continue;
+    normalized.push(parseAffectedProductString(value, "vulnerable_product"));
+  }
+
+  const vulnerableConfigurations = Array.isArray(record.vulnerable_configuration) ? record.vulnerable_configuration : [];
+  for (const value of vulnerableConfigurations) {
+    if (typeof value !== "string") continue;
+    normalized.push(parseAffectedProductString(value, "vulnerable_configuration"));
+  }
+
+  const unique = new Map<string, NormalizedAffectedProduct>();
+  for (const entry of normalized) {
+    const key = `${entry.vendor}|${entry.product}|${entry.version}|${entry.ecosystem}`.toLowerCase();
+    if (!unique.has(key)) {
+      unique.set(key, entry);
+    }
+  }
+
+  return Array.from(unique.values()).filter((entry) => entry.vendor || entry.product || entry.version);
+}
+
+function getNestedArray(record: Record<string, unknown>, ...path: string[]): unknown[] {
+  let current: unknown = record;
+
+  for (const segment of path) {
+    if (!current || typeof current !== "object" || Array.isArray(current) || !(segment in current)) {
+      return [];
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return Array.isArray(current) ? current : [];
+}
+
+function extractReferenceUrl(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function extractHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function detectReferenceType(url: string, tags: unknown[]): string {
+  const lowerUrl = url.toLowerCase();
+  const normalizedTags = tags.filter((item): item is string => typeof item === "string").map((item) => item.toLowerCase());
+
+  if (normalizedTags.some((item) => item.includes("exploit")) || /exploit|poc|proof/i.test(lowerUrl)) return "exploit";
+  if (normalizedTags.some((item) => item.includes("patch")) || /commit|patch|release-notes|advisories/i.test(lowerUrl)) return "patch";
+  if (normalizedTags.some((item) => item.includes("advisory")) || /advisory|security/i.test(lowerUrl)) return "advisory";
+  return "reference";
+}
+
+function dedupeByUrl(references: VulnerabilityReference[]): VulnerabilityReference[] {
+  const unique = new Map<string, VulnerabilityReference>();
+  for (const reference of references) {
+    if (!unique.has(reference.url)) {
+      unique.set(reference.url, reference);
+    }
+  }
+  return Array.from(unique.values());
+}
+
+function normalizeLinkedValues(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const values: string[] = [];
+  for (const item of value) {
+    if (typeof item === "string") {
+      values.push(item.trim());
+      continue;
+    }
+
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const record = item as Record<string, unknown>;
+      const candidate = [record.id, record.cve, record.vulnerability, record.title].find(
+        (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+      );
+      if (candidate) {
+        values.push(candidate.trim());
+      }
+    }
+  }
+
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function parseAffectedProductString(value: string, ecosystem: string): NormalizedAffectedProduct {
+  const trimmed = value.trim();
+  const cpe = trimmed.startsWith("cpe:2.3:") ? trimmed.split(":") : null;
+
+  if (cpe && cpe.length >= 6) {
+    return {
+      vendor: cpe[3] || "",
+      product: cpe[4] || "",
+      version: cpe[5] || "",
+      ecosystem,
+    };
+  }
+
+  const segments = trimmed.split(":");
+  if (segments.length >= 2) {
+    return {
+      vendor: segments[0] || "",
+      product: segments[1] || "",
+      version: segments.slice(2).join(":"),
+      ecosystem,
+    };
+  }
+
+  return {
+    vendor: "",
+    product: trimmed,
+    version: "",
+    ecosystem,
+  };
 }
