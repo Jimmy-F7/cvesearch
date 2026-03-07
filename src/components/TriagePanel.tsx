@@ -10,8 +10,10 @@ import {
   TriageStatus,
   writeTriageRecord,
 } from "@/lib/triage";
+import { CVEDetail } from "@/lib/types";
+import AITriageAssistantPanel from "./AITriageAssistantPanel";
 
-export default function TriagePanel({ cveId }: { cveId: string }) {
+export default function TriagePanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
   const [record, setRecord] = useState<TriageRecord>(() => createDefaultTriageRecord(cveId));
   const [tagInput, setTagInput] = useState("");
 
@@ -32,6 +34,12 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
       ...next,
       updatedAt: new Date().toISOString(),
     }).then((saved) => setRecord(saved));
+  };
+
+  const applySuggestion = (updater: (current: TriageRecord) => TriageRecord) => {
+    const next = updater(record);
+    persist(next);
+    setTagInput(next.tags.join(", "));
   };
 
   return (
@@ -115,6 +123,8 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
           </div>
         </div>
       )}
+
+      <AITriageAssistantPanel cveId={cveId} detail={detail} record={record} onApply={applySuggestion} />
     </div>
   );
 }

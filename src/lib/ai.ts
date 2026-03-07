@@ -3,9 +3,13 @@ import { AISettings } from "./types";
 export {
   buildHeuristicCveInsight,
   buildHeuristicDigest,
+  buildHeuristicRemediationPlan,
+  buildHeuristicTriageSuggestion,
   generateCveInsight,
   generateDigest,
+  generateRemediationPlan,
   generateSearchInterpretation,
+  generateTriageSuggestion,
   getRecentAIRuns,
   getServerAIConfigurationSummary,
   interpretSearchPromptHeuristically,
@@ -14,7 +18,9 @@ export {
 export type {
   CveInsightInput,
   DigestInput,
+  RemediationPlanInput,
   ServerAIConfigurationSummary,
+  TriageSuggestionInput,
 } from "./ai-service";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";

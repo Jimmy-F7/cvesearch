@@ -2,9 +2,11 @@ import {
   AICveInsight,
   AIDigest,
   AIFeature,
+  AIRemediationPlan,
   AIRunRecord,
   AITriageContextSnapshot,
   AITriageSignal,
+  AITriageSuggestion,
   AIProvider,
   AISearchAppliedFilter,
   AISearchFilterField,
@@ -19,6 +21,15 @@ import {
 import { appendAIRun, listRecentAIRuns } from "./ai-runs-store";
 import { SearchState, normalizeSearchState } from "./search";
 import { extractCVEId, extractDescription, getSeverityFromScore } from "./utils";
+import {
+  getCveInsightPromptTemplate,
+  getDailyDigestPromptTemplate,
+  getRemediationAgentPromptTemplate,
+  getSearchAssistantPromptTemplate,
+  getTriageAgentPromptTemplate,
+  listPromptTemplates,
+} from "./ai-prompts";
+import { listAITools } from "./ai-tool-registry";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -26,11 +37,13 @@ const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
-const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest"];
+const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest", "triage_agent", "remediation_agent"];
 const AI_FEATURE_ENV_SEGMENTS: Record<AIFeature, string> = {
   search_assistant: "SEARCH_ASSISTANT",
   cve_insight: "CVE_INSIGHT",
   daily_digest: "DAILY_DIGEST",
+  triage_agent: "TRIAGE_AGENT",
+  remediation_agent: "REMEDIATION_AGENT",
 };
 
 export interface DigestInput {
@@ -46,6 +59,9 @@ export interface CveInsightInput {
   relatedProjects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[];
 }
 
+export type TriageSuggestionInput = CveInsightInput;
+export type RemediationPlanInput = CveInsightInput;
+
 export interface ServerAIConfigurationSummary {
   provider: AIProvider;
   model: string;
@@ -58,6 +74,17 @@ export interface ServerAIConfigurationSummary {
     model: string;
     mode: "heuristic" | "configured";
     configured: boolean;
+  }>;
+  promptTemplates: Array<{
+    feature: AIFeature;
+    version: string;
+    description: string;
+  }>;
+  toolRegistry: Array<{
+    name: string;
+    description: string;
+    access: "read" | "write";
+    features: AIFeature[];
   }>;
 }
 
@@ -135,6 +162,8 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
     mode: runtime.mode,
     configured: runtime.mode === "configured",
     availableProviders,
+    promptTemplates: listPromptTemplates(),
+    toolRegistry: listAITools(),
     featureConfigurations: AI_FEATURES.map((feature) => {
       const featureRuntime = resolveAIRuntime(feature);
 
@@ -154,17 +183,35 @@ export async function getRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
 }
 
 export async function generateCveInsight(input: CveInsightInput): Promise<AICveInsight> {
+  const promptTemplate = getCveInsightPromptTemplate();
   return executeStructuredTask({
     feature: "cve_insight",
-    prompt: [
-      "You are a security analyst assistant.",
-      "Return only valid JSON matching this TypeScript shape:",
-      '{"summary":"string","triage":{"priority":"critical|high|medium|low","status":"new|investigating|mitigated|accepted|closed","confidence":"high|medium|low","ownerRecommendation":"string","rationale":"string","nextSteps":["string"],"signals":[{"label":"string","value":"string","level":"high|medium|low","rationale":"string"}]},"remediation":["string"],"cluster":{"canonicalId":"string","sourceIds":["string"],"relatedIds":["string"],"summary":"string"},"projectContext":{"projectCount":0,"projectNames":["string"],"summary":"string"}}',
-      "Base your answer only on this triage input JSON:",
-      JSON.stringify(input),
-    ].join("\n"),
+    prompt: promptTemplate.build(input),
     fallback: () => buildHeuristicCveInsight(input),
     sanitize: sanitizeInsight,
+    toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+  });
+}
+
+export async function generateTriageSuggestion(input: TriageSuggestionInput): Promise<AITriageSuggestion> {
+  const promptTemplate = getTriageAgentPromptTemplate();
+  return executeStructuredTask({
+    feature: "triage_agent",
+    prompt: promptTemplate.build(input),
+    fallback: () => buildHeuristicTriageSuggestion(input),
+    sanitize: sanitizeTriageSuggestion,
+    toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+  });
+}
+
+export async function generateRemediationPlan(input: RemediationPlanInput): Promise<AIRemediationPlan> {
+  const promptTemplate = getRemediationAgentPromptTemplate();
+  return executeStructuredTask({
+    feature: "remediation_agent",
+    prompt: promptTemplate.build(input),
+    fallback: () => buildHeuristicRemediationPlan(input),
+    sanitize: sanitizeRemediationPlan,
+    toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
   });
 }
 
@@ -173,6 +220,8 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
   const heuristic = buildSearchInterpretationFromPlan(prompt, plan);
   const runtime = resolveAIRuntime("search_assistant");
   const startedAt = Date.now();
+  const promptTemplate = getSearchAssistantPromptTemplate();
+  const promptTemplateTrace = { tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` };
 
   if (runtime.mode === "heuristic") {
     await persistAIRun({
@@ -181,7 +230,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       status: "fallback",
       prompt,
       output: JSON.stringify(heuristic),
-      toolCalls: plan.toolCalls,
+      toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "",
     });
@@ -190,23 +239,15 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
 
   try {
     const response = await callModel(
-      [
-        "Convert this vulnerability search request into structured filters.",
-        "Return only valid JSON with keys query, vendor, product, cwe, since, minSeverity, sort, explanation, assumptions, appliedFilters, needsClarification, clarificationQuestion.",
-        'Allowed minSeverity: "ANY" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL".',
-        'Allowed sort: "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc" | "risk_desc".',
-        "Tool outputs:",
-        JSON.stringify(plan.outputs),
-        `Request: ${prompt}`,
-      ].join("\n"),
+      promptTemplate.build({ request: prompt, toolOutputs: plan.outputs }),
       runtime,
       "search_assistant"
     );
 
-    const parsed = sanitizeSearchInterpretation(JSON.parse(response), heuristic);
+    const parsed = sanitizeSearchInterpretation(parseModelJSON(response, "search_assistant"), heuristic);
     const result = {
       ...parsed,
-      toolCalls: plan.toolCalls,
+      toolCalls: [...plan.toolCalls, promptTemplateTrace],
     };
     await persistAIRun({
       feature: "search_assistant",
@@ -214,7 +255,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       status: "success",
       prompt,
       output: JSON.stringify(result),
-      toolCalls: plan.toolCalls,
+      toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "",
     });
@@ -226,7 +267,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       status: "fallback",
       prompt,
       output: JSON.stringify(heuristic),
-      toolCalls: plan.toolCalls,
+      toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "model_generation_failed",
     });
@@ -235,17 +276,13 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
 }
 
 export async function generateDigest(input: DigestInput): Promise<AIDigest> {
+  const promptTemplate = getDailyDigestPromptTemplate();
   return executeStructuredTask({
     feature: "daily_digest",
-    prompt: [
-      "You are producing a concise vulnerability monitoring digest.",
-      "Return only valid JSON matching this shape:",
-      '{"headline":"string","sections":[{"title":"string","body":"string","items":["string"]}]}',
-      "Use this input JSON:",
-      JSON.stringify(input),
-    ].join("\n"),
+    prompt: promptTemplate.build(input),
     fallback: () => buildHeuristicDigest(input),
     sanitize: sanitizeDigest,
+    toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
   });
 }
 
@@ -300,6 +337,81 @@ export function buildHeuristicCveInsight(input: CVEDetail | CveInsightInput): AI
   };
 }
 
+export function buildHeuristicTriageSuggestion(input: TriageSuggestionInput | CVEDetail): AITriageSuggestion {
+  const normalized = normalizeCveInsightInput(input as CVEDetail | CveInsightInput);
+  const insight = buildHeuristicCveInsight(normalized);
+  const tags = buildRecommendedTags(normalized.detail, normalized.epss, normalized.triage, normalized.relatedProjects);
+
+  return {
+    summary: insight.summary,
+    recommendation: insight.triage,
+    recommendedTags: tags,
+    recommendedOwner: deriveSuggestedOwner(normalized.triage, normalized.relatedProjects),
+    ownershipRationale: normalized.triage?.owner
+      ? `Keep ${normalized.triage.owner} unless product ownership has changed, because this CVE is already being handled in the current workflow.`
+      : insight.triage.ownerRecommendation,
+    projectContext: insight.projectContext,
+    requiresHumanApproval: true,
+  };
+}
+
+export function buildHeuristicRemediationPlan(input: RemediationPlanInput | CVEDetail): AIRemediationPlan {
+  const normalized = normalizeCveInsightInput(input as CVEDetail | CveInsightInput);
+  const insight = buildHeuristicCveInsight(normalized);
+  const referenceSummary = summarizeReferences(normalized.detail);
+  const severity = getSeverityFromScore(normalized.detail.cvss3 ?? normalized.detail.cvss);
+  const affectedProducts = (normalized.detail.containers?.cna?.affected ?? [])
+    .map((item) => item.product || item.vendor)
+    .filter((item): item is string => Boolean(item))
+    .slice(0, 3);
+  const internetFacing =
+    normalized.triage?.tags.some((tag) => /internet-facing/i.test(tag)) ||
+    /internet|remote|network|gateway|edge/i.test(extractDescription(normalized.detail));
+  const recommendedOwner = deriveSuggestedOwner(normalized.triage, normalized.relatedProjects);
+
+  return {
+    summary: `${extractCVEId(normalized.detail)} remediation should start with ${referenceSummary.patchCount > 0 ? "vendor patch validation" : "version exposure validation"}${affectedProducts.length > 0 ? ` for ${affectedProducts.join(", ")}` : ""}.`,
+    strategy:
+      referenceSummary.patchCount > 0
+        ? "Validate the vendor-fixed release path first, then schedule rollout through the owning service team with a fallback to compensating controls if change windows are constrained."
+        : "Confirm affected versions in the environment, define an upgrade or isolation plan, and use compensating controls until a stable fix path is available.",
+    compensatingControls: [
+      internetFacing ? "Prioritize edge filtering, WAF or reverse-proxy rules, and temporary exposure reduction for internet-facing entry points." : "Reduce exposure by limiting access to affected services while remediation is in progress.",
+      severity === "CRITICAL" || severity === "HIGH"
+        ? "Increase logging and detection coverage for exploit attempts tied to the vulnerable component."
+        : "Add targeted monitoring around the vulnerable component to catch failed or suspicious access patterns.",
+      referenceSummary.patchCount > 0
+        ? "If rollout must wait, apply vendor-recommended mitigations from the published advisory references."
+        : "Document temporary configuration changes, feature flags, or service isolation steps that reduce exploitability.",
+    ],
+    validationSteps: [
+      "Inventory deployed versions and confirm which environments actually run an affected build.",
+      referenceSummary.patchCount > 0 ? "Verify the selected fixed release or advisory guidance applies to each affected deployment path." : "Confirm the target upgrade or mitigation path with the owning engineering team before rollout.",
+      "Validate remediation with version checks, smoke tests, and review of logs or telemetry after deployment.",
+    ],
+    rolloutNotes: [
+      normalized.relatedProjects.length > 0
+        ? `Coordinate rollout with the linked projects: ${normalized.relatedProjects.map((project) => project.name).slice(0, 3).join(", ")}.`
+        : "Capture rollout ownership before making production changes.",
+      insight.triage.priority === "critical" || normalized.detail.kev
+        ? "Use the fastest approved change path and communicate urgency because severity or exploitation signals are elevated."
+        : "Prefer staged deployment with checkpoints for validation and rollback readiness.",
+      normalized.triage?.notes
+        ? `Preserve existing analyst notes during rollout: ${truncateSentence(normalized.triage.notes, 140)}`
+        : "Record validation evidence and any residual risk decisions in triage notes after rollout.",
+    ],
+    changeRisk: insight.triage.priority === "critical" || normalized.relatedProjects.length > 1 ? "high" : insight.triage.priority === "high" ? "medium" : "low",
+    recommendedOwner,
+    ownerRationale: normalized.triage?.owner
+      ? `Keep ${normalized.triage.owner} as remediation owner so the rollout stays aligned with the current analyst workflow.`
+      : normalized.relatedProjects.length > 0
+        ? `Use the owning team for ${normalized.relatedProjects[0].name} because that project is already linked to the affected CVE.`
+        : "Assign the security or service owner who can validate exposure and coordinate the change window.",
+    projectContext: insight.projectContext,
+    requiresHumanApproval: true,
+  };
+}
+
 function normalizeCveInsightInput(input: CVEDetail | CveInsightInput): CveInsightInput {
   if ("detail" in input) {
     return input;
@@ -345,6 +457,57 @@ function buildProjectContext(projects: Pick<ProjectRecord, "name" | "items" | "u
         ? `This CVE is already tracked in ${projects.length} project${projects.length === 1 ? "" : "s"}: ${projectNames.join(", ")}.`
         : "This CVE is not currently linked to any tracked project.",
   };
+}
+
+function buildRecommendedTags(
+  detail: CVEDetail,
+  epss: EPSSData | null,
+  triage: AITriageContextSnapshot | null,
+  projects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[]
+): string[] {
+  const tags = new Set<string>();
+
+  const severity = getSeverityFromScore(detail.cvss3 ?? detail.cvss);
+  if (severity === "CRITICAL" || severity === "HIGH") {
+    tags.add(severity.toLowerCase());
+  }
+
+  if (detail.kev) {
+    tags.add("kev");
+  }
+
+  if ((epss?.percentile ?? 0) >= 0.9) {
+    tags.add("high-epss");
+  }
+
+  if (triage?.tags.some((tag) => /internet-facing/i.test(tag)) || (extractDescription(detail).match(/internet|remote|network/i))) {
+    tags.add("internet-facing");
+  }
+
+  if (projects.length > 0) {
+    tags.add("project-tracked");
+  }
+
+  if (summarizeReferences(detail).patchCount > 0) {
+    tags.add("patch-available");
+  }
+
+  return Array.from(tags).slice(0, 5);
+}
+
+function deriveSuggestedOwner(
+  triage: AITriageContextSnapshot | null,
+  projects: Pick<ProjectRecord, "name" | "items" | "updatedAt">[]
+): string {
+  if (triage?.owner) {
+    return triage.owner;
+  }
+
+  if (projects.length > 0) {
+    return `${projects[0].name} owner`;
+  }
+
+  return "Security triage";
 }
 
 function buildTriageSignals(input: {
@@ -542,7 +705,7 @@ async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, t
 
   try {
     const response = await callModel(prompt, runtime, feature);
-    const result = sanitize(JSON.parse(response));
+    const result = sanitize(parseModelJSON(response, feature));
     await persistAIRun({
       feature,
       runtime,
@@ -802,6 +965,14 @@ async function persistAIRun(input: {
   }
 }
 
+function parseModelJSON(response: string, feature: AIFeature): unknown {
+  try {
+    return JSON.parse(response);
+  } catch (error) {
+    throw new Error(`${feature}_invalid_json:${error instanceof Error ? error.message : "parse_failed"}`);
+  }
+}
+
 function safeSerialize(value: unknown): string {
   try {
     return JSON.stringify(value);
@@ -1040,6 +1211,65 @@ function sanitizeDigest(value: unknown): AIDigest {
               : [],
           }))
       : [],
+  };
+}
+
+function sanitizeTriageSuggestion(value: unknown): AITriageSuggestion {
+  const fallback = buildHeuristicTriageSuggestion({
+    detail: { id: "CVE-UNKNOWN" },
+    epss: null,
+    triage: null,
+    relatedProjects: [],
+  });
+
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    summary: typeof record.summary === "string" ? record.summary : fallback.summary,
+    recommendation: sanitizeTriage(record.recommendation, fallback.recommendation),
+    recommendedTags: Array.isArray(record.recommendedTags)
+      ? record.recommendedTags.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : fallback.recommendedTags,
+    recommendedOwner: typeof record.recommendedOwner === "string" ? record.recommendedOwner : fallback.recommendedOwner,
+    ownershipRationale: typeof record.ownershipRationale === "string" ? record.ownershipRationale : fallback.ownershipRationale,
+    projectContext: sanitizeProjectContext(record.projectContext, fallback.projectContext),
+    requiresHumanApproval: record.requiresHumanApproval === false ? false : true,
+  };
+}
+
+function sanitizeRemediationPlan(value: unknown): AIRemediationPlan {
+  const fallback = buildHeuristicRemediationPlan({
+    detail: { id: "CVE-UNKNOWN" },
+    epss: null,
+    triage: null,
+    relatedProjects: [],
+  });
+
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    summary: typeof record.summary === "string" ? record.summary : fallback.summary,
+    strategy: typeof record.strategy === "string" ? record.strategy : fallback.strategy,
+    compensatingControls: Array.isArray(record.compensatingControls)
+      ? record.compensatingControls.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : fallback.compensatingControls,
+    validationSteps: Array.isArray(record.validationSteps)
+      ? record.validationSteps.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : fallback.validationSteps,
+    rolloutNotes: Array.isArray(record.rolloutNotes)
+      ? record.rolloutNotes.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : fallback.rolloutNotes,
+    changeRisk: record.changeRisk === "high" || record.changeRisk === "medium" || record.changeRisk === "low" ? record.changeRisk : fallback.changeRisk,
+    recommendedOwner: typeof record.recommendedOwner === "string" ? record.recommendedOwner : fallback.recommendedOwner,
+    ownerRationale: typeof record.ownerRationale === "string" ? record.ownerRationale : fallback.ownerRationale,
+    projectContext: sanitizeProjectContext(record.projectContext, fallback.projectContext),
+    requiresHumanApproval: record.requiresHumanApproval === false ? false : true,
   };
 }
 

@@ -17,6 +17,7 @@ import CopyLinkButton from "@/components/CopyLinkButton";
 import TriagePanel from "@/components/TriagePanel";
 import ProjectPickerButton from "@/components/ProjectPickerButton";
 import AICveInsightPanel from "@/components/AICveInsightPanel";
+import AIRemediationPlanPanel from "@/components/AIRemediationPlanPanel";
 
 export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -167,9 +168,11 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
           <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{description}</p>
         </Section>
 
-        <AICveInsightPanel cveId={cveId} />
+        <AICveInsightPanel cveId={cveId} detail={cve} />
 
-        <TriagePanel cveId={cveId} />
+        <TriagePanel cveId={cveId} detail={cve} />
+
+        <AIRemediationPlanPanel cveId={cveId} detail={cve} />
 
         {aliases.length > 0 && (
           <Section title="Aliases">

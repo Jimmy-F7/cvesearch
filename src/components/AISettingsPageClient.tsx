@@ -37,7 +37,7 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
 
         <Callout.Root color="amber" variant="soft">
           <Callout.Text>
-            Configure AI providers with environment variables such as `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL`. You can override individual flows with `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_SEARCH_ASSISTANT_MODEL`, `AI_CVE_INSIGHT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, `AI_DAILY_DIGEST_PROVIDER`, and `AI_DAILY_DIGEST_MODEL`. No provider API key is persisted in browser storage.
+            Configure AI providers with environment variables such as `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL`. You can override individual flows with `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_SEARCH_ASSISTANT_MODEL`, `AI_CVE_INSIGHT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, `AI_TRIAGE_AGENT_PROVIDER`, `AI_TRIAGE_AGENT_MODEL`, `AI_REMEDIATION_AGENT_PROVIDER`, `AI_REMEDIATION_AGENT_MODEL`, `AI_DAILY_DIGEST_PROVIDER`, and `AI_DAILY_DIGEST_MODEL`. No provider API key is persisted in browser storage.
           </Callout.Text>
         </Callout.Root>
 
@@ -85,6 +85,51 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
             ))}
           </Grid>
         </Card>
+
+        <Grid columns={{ initial: "1", xl: "2" }} gap="4">
+          <Card size="3" className="border border-white/[0.06] bg-white/[0.03]">
+            <Heading size="4" className="text-white">Prompt Versions</Heading>
+            <Text as="p" size="2" color="gray" className="mt-1">
+              Prompt changes are versioned explicitly so behavior updates are visible and reversible.
+            </Text>
+            <div className="mt-4 space-y-3">
+              {summary.promptTemplates.map((template) => (
+                <Card key={template.feature} size="2" className="border border-white/[0.06] bg-black/20">
+                  <Flex justify="between" align="center" gap="3" wrap="wrap">
+                    <div>
+                      <Heading size="3" className="text-white">{template.feature}</Heading>
+                      <Text as="p" size="2" color="gray" className="mt-1">{template.description}</Text>
+                    </div>
+                    <Badge color="cyan" variant="soft">{template.version}</Badge>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          </Card>
+
+          <Card size="3" className="border border-white/[0.06] bg-white/[0.03]">
+            <Heading size="4" className="text-white">Tool Registry</Heading>
+            <Text as="p" size="2" color="gray" className="mt-1">
+              Shared tools define the read and write capabilities available to current and future agent workflows.
+            </Text>
+            <div className="mt-4 space-y-3">
+              {summary.toolRegistry.map((tool) => (
+                <Card key={tool.name} size="2" className="border border-white/[0.06] bg-black/20">
+                  <Flex justify="between" align="start" gap="3" wrap="wrap">
+                    <div>
+                      <Heading size="3" className="text-white">{tool.name}</Heading>
+                      <Text as="p" size="2" color="gray" className="mt-1">{tool.description}</Text>
+                      <Text as="p" size="1" color="gray" className="mt-2">
+                        Features: {tool.features.join(", ")}
+                      </Text>
+                    </div>
+                    <Badge color={tool.access === "write" ? "amber" : "cyan"} variant="soft">{tool.access}</Badge>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          </Card>
+        </Grid>
 
         <WorkspaceDataPanel />
 

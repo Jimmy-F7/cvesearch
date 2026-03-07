@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCVEByIdServer, getEPSSServer } from "@/lib/server-api";
-import { listProjects } from "@/lib/projects-store";
-import { generateCveInsight } from "@/lib/ai-service";
-import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { generateRemediationPlan } from "@/lib/ai-service";
 import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
-import { readTriageRecordForUser } from "@/lib/workspace-store";
+import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { listProjects } from "@/lib/projects-store";
+import { getCVEByIdServer, getEPSSServer } from "@/lib/server-api";
 import { CVEDetail } from "@/lib/types";
+import { readTriageRecordForUser } from "@/lib/workspace-store";
 
 export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = getOrCreateWorkspaceSession(request);
@@ -15,18 +15,18 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   const detail = await getCVEByIdServer(decodeURIComponent(id)).catch(() => requestDetail);
 
   if (!detail) {
-    return applyWorkspaceSession(NextResponse.json({ error: "Failed to load CVE detail for AI insight" }, { status: 502 }), session);
+    return applyWorkspaceSession(NextResponse.json({ error: "Failed to load CVE detail for AI remediation" }, { status: 502 }), session);
   }
 
   const [epss, projects] = await Promise.all([
     getEPSSServer(detail.id).catch(() => null),
     listProjects().catch(() => []),
   ]);
-  const relatedProjects = projects.filter((project) => project.items.some((item) => item.cveId === detail.id));
   const triage = body?.triage && typeof body.triage === "object"
     ? body.triage
     : await readTriageRecordForUser(session.userId, detail.id);
-  const insight = await generateCveInsight({
+  const relatedProjects = projects.filter((project) => project.items.some((item) => item.cveId === detail.id));
+  const remediation = await generateRemediationPlan({
     detail,
     epss,
     triage,
@@ -36,10 +36,11 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       updatedAt: project.updatedAt,
     })),
   });
-  return applyWorkspaceSession(NextResponse.json(insight), session);
+
+  return applyWorkspaceSession(NextResponse.json(remediation), session);
 }, {
-  route: "/api/ai/cve/[id]",
-  errorMessage: "Failed to generate AI CVE insight",
+  route: "/api/ai/remediation/[id]",
+  errorMessage: "Failed to generate AI remediation plan",
   rateLimit: API_RATE_LIMITS.aiWrite,
 });
 
