@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
+import { getDb, withTransaction } from "./db";
 
 interface RateLimitWindow {
   count: number;
@@ -34,8 +33,6 @@ interface RouteProtectionConfig {
 
 type RouteHandler<T extends unknown[]> = (...args: T) => Promise<Response> | Response;
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const API_REQUEST_LOG_FILE = () => process.env.API_REQUEST_LOG_FILE?.trim() || path.join(DATA_DIR, "api-requests.json");
 const MAX_STORED_REQUEST_LOGS = 500;
 const rateLimitState = new Map<string, RateLimitWindow>();
 
@@ -103,8 +100,33 @@ export function withRouteProtection<T extends [Request, ...unknown[]]>(handler: 
 }
 
 export async function listRecentAPIRequestLogs(limit = 50): Promise<APIRequestLogRecord[]> {
-  const records = await readAPIRequestLogs();
-  return records.slice(0, normalizeLimit(limit));
+  const rows = getDb().prepare(`
+    SELECT
+      id,
+      route,
+      method,
+      status,
+      duration_ms as durationMs,
+      limited,
+      client_id as clientId,
+      error,
+      created_at as createdAt
+    FROM api_request_logs
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(normalizeLimit(limit)) as APIRequestLogRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    route: row.route,
+    method: row.method,
+    status: row.status,
+    durationMs: row.durationMs,
+    limited: row.limited === 1 || row.limited === true,
+    clientId: row.clientId,
+    error: row.error,
+    createdAt: row.createdAt,
+  }));
 }
 
 export function resetAPIRateLimits(): void {
@@ -164,48 +186,51 @@ function getClientIdentifier(request: Request): string {
 
 async function appendAPIRequestLog(input: Omit<APIRequestLogRecord, "id" | "createdAt">): Promise<void> {
   try {
-    const records = await readAPIRequestLogs();
-    const next: APIRequestLogRecord[] = [
-      {
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        ...input,
-      },
-      ...records,
-    ].slice(0, MAX_STORED_REQUEST_LOGS);
-    await fs.mkdir(path.dirname(API_REQUEST_LOG_FILE()), { recursive: true });
-    await fs.writeFile(API_REQUEST_LOG_FILE(), JSON.stringify(next, null, 2));
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    withTransaction((db) => {
+      db.prepare(`
+        INSERT INTO api_request_logs (
+          id, route, method, status, duration_ms, limited, client_id, error, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id,
+        input.route,
+        input.method,
+        input.status,
+        input.durationMs,
+        input.limited ? 1 : 0,
+        input.clientId,
+        input.error,
+        createdAt
+      );
+
+      const overflow = db.prepare(`
+        SELECT id
+        FROM api_request_logs
+        ORDER BY created_at DESC
+        LIMIT -1 OFFSET ?
+      `).all(MAX_STORED_REQUEST_LOGS) as Array<{ id: string }>;
+
+      for (const row of overflow) {
+        db.prepare("DELETE FROM api_request_logs WHERE id = ?").run(row.id);
+      }
+    });
   } catch {
   }
 }
 
-async function readAPIRequestLogs(): Promise<APIRequestLogRecord[]> {
-  try {
-    const raw = await fs.readFile(API_REQUEST_LOG_FILE(), "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isAPIRequestLogRecord) : [];
-  } catch {
-    return [];
-  }
-}
-
-function isAPIRequestLogRecord(value: unknown): value is APIRequestLogRecord {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === "string" &&
-    typeof record.route === "string" &&
-    typeof record.method === "string" &&
-    typeof record.status === "number" &&
-    typeof record.durationMs === "number" &&
-    typeof record.limited === "boolean" &&
-    typeof record.clientId === "string" &&
-    typeof record.error === "string" &&
-    typeof record.createdAt === "string"
-  );
+interface APIRequestLogRow {
+  id: string;
+  route: string;
+  method: string;
+  status: number;
+  durationMs: number;
+  limited: number | boolean;
+  clientId: string;
+  error: string;
+  createdAt: string;
 }
 
 function normalizeLimit(limit: number): number {
@@ -235,6 +260,16 @@ export const API_RATE_LIMITS = {
   projectReads: {
     bucket: "project-reads",
     maxRequests: 120,
+    windowMs: 60_000,
+  },
+  workspaceReads: {
+    bucket: "workspace-reads",
+    maxRequests: 180,
+    windowMs: 60_000,
+  },
+  workspaceMutations: {
+    bucket: "workspace-mutations",
+    maxRequests: 90,
     windowMs: 60_000,
   },
   githubReads: {

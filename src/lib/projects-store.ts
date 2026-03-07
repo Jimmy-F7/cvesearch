@@ -1,24 +1,23 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { AuditLogEntry, ProjectItem, ProjectRecord } from "./types";
+import { getDb, withTransaction } from "./db";
 
-const DATA_DIR = path.join(process.cwd(), "data");
 const MAX_ACTIVITY_ENTRIES = 20;
 
-function getProjectsFile(): string {
-  return process.env.PROJECTS_FILE?.trim() || path.join(DATA_DIR, "projects.json");
-}
-
 export async function listProjects(): Promise<ProjectRecord[]> {
-  const projects = await readProjects();
-  return projects.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT id, name, description, created_at as createdAt, updated_at as updatedAt
+    FROM projects
+    ORDER BY updated_at DESC
+  `).all() as ProjectRow[];
+
+  return rows.map((row) => buildProjectRecord(row, db));
 }
 
 export async function createProject(input: {
   name: string;
   description?: string;
 }): Promise<ProjectRecord> {
-  const projects = await readProjects();
   const now = new Date().toISOString();
   const project: ProjectRecord = {
     id: crypto.randomUUID(),
@@ -30,130 +29,119 @@ export async function createProject(input: {
     activity: [createActivityEntry("project_created", `Created project ${normalizeProjectName(input.name)}`, now)],
   };
 
-  projects.push(project);
-  await writeProjects(projects);
+  withTransaction((db) => {
+    db.prepare(`
+      INSERT INTO projects (id, name, description, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(project.id, project.name, project.description, project.createdAt, project.updatedAt);
+
+    db.prepare(`
+      INSERT INTO project_activity (id, project_id, action, summary, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(project.activity[0].id, project.id, project.activity[0].action, project.activity[0].summary, project.activity[0].createdAt);
+  });
+
   return project;
 }
 
 export async function deleteProject(projectId: string): Promise<boolean> {
-  const projects = await readProjects();
-  const next = projects.filter((project) => project.id !== projectId);
-  if (next.length === projects.length) return false;
-  await writeProjects(next);
-  return true;
+  const result = getDb().prepare("DELETE FROM projects WHERE id = ?").run(projectId);
+  return result.changes > 0;
 }
 
 export async function addProjectItem(projectId: string, item: { cveId: string; note?: string }): Promise<ProjectRecord | null> {
-  const projects = await readProjects();
-  const index = projects.findIndex((project) => project.id === projectId);
-  if (index === -1) return null;
+  return withTransaction((db) => {
+    const project = getProjectRecord(projectId, db);
+    if (!project) return null;
 
-  const project = projects[index];
-  const now = new Date().toISOString();
-  const note = item.note?.trim() ?? "";
-  const exists = project.items.some((entry) => entry.cveId === item.cveId);
-  const nextItems: ProjectItem[] = exists
-    ? project.items.map((entry) =>
-        entry.cveId === item.cveId ? { ...entry, note: note || entry.note, addedAt: entry.addedAt } : entry
-      )
-    : [{ cveId: item.cveId, note, addedAt: now }, ...project.items];
+    const existing = project.items.find((entry) => entry.cveId === item.cveId);
+    const now = new Date().toISOString();
+    const note = item.note?.trim() ?? "";
 
-  const summary = exists
-    ? note && note !== project.items.find((entry) => entry.cveId === item.cveId)?.note
-      ? `Updated note for ${item.cveId}`
-      : `Refreshed ${item.cveId} in project`
-    : `Added ${item.cveId} to project`;
+    db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(now, projectId);
 
-  const updated: ProjectRecord = {
-    ...project,
-    items: nextItems,
-    updatedAt: now,
-    activity: appendActivity(project.activity, createActivityEntry(exists ? "project_item_updated" : "project_item_added", summary, now)),
-  };
-  projects[index] = updated;
-  await writeProjects(projects);
-  return updated;
+    db.prepare(`
+      INSERT INTO project_items (project_id, cve_id, note, added_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(project_id, cve_id) DO UPDATE SET note = excluded.note
+    `).run(projectId, item.cveId, note || existing?.note || "", existing?.addedAt || now);
+
+    const summary = existing
+      ? note && note !== existing.note
+        ? `Updated note for ${item.cveId}`
+        : `Refreshed ${item.cveId} in project`
+      : `Added ${item.cveId} to project`;
+
+    appendProjectActivity(projectId, createActivityEntry(existing ? "project_item_updated" : "project_item_added", summary, now), db);
+
+    return getProjectRecord(projectId, db);
+  });
 }
 
 export async function removeProjectItem(projectId: string, cveId: string): Promise<ProjectRecord | null> {
-  const projects = await readProjects();
-  const index = projects.findIndex((project) => project.id === projectId);
-  if (index === -1) return null;
+  return withTransaction((db) => {
+    const project = getProjectRecord(projectId, db);
+    if (!project) return null;
 
-  const project = projects[index];
-  const nextItems = project.items.filter((item) => item.cveId !== cveId);
-  const now = new Date().toISOString();
-  const updated: ProjectRecord = {
-    ...project,
-    items: nextItems,
-    updatedAt: now,
-    activity: appendActivity(project.activity, createActivityEntry("project_item_removed", `Removed ${cveId} from project`, now)),
-  };
-  projects[index] = updated;
-  await writeProjects(projects);
-  return updated;
+    const now = new Date().toISOString();
+    db.prepare("DELETE FROM project_items WHERE project_id = ? AND cve_id = ?").run(projectId, cveId);
+    db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(now, projectId);
+    appendProjectActivity(projectId, createActivityEntry("project_item_removed", `Removed ${cveId} from project`, now), db);
+    return getProjectRecord(projectId, db);
+  });
 }
 
 export function normalizeProjectName(name: string): string {
   return name.trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
-async function readProjects(): Promise<ProjectRecord[]> {
-  try {
-    const raw = await fs.readFile(getProjectsFile(), "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isProjectRecord).map(normalizeProjectRecord) : [];
-  } catch {
-    return [];
+interface ProjectRow {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function getProjectRecord(projectId: string, db = getDb()): ProjectRecord | null {
+  const row = db.prepare(`
+    SELECT id, name, description, created_at as createdAt, updated_at as updatedAt
+    FROM projects
+    WHERE id = ?
+  `).get(projectId) as ProjectRow | undefined;
+
+  if (!row) {
+    return null;
   }
+
+  return buildProjectRecord(row, db);
 }
 
-async function writeProjects(projects: ProjectRecord[]): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(getProjectsFile(), JSON.stringify(projects, null, 2));
-}
+function buildProjectRecord(row: ProjectRow, db = getDb()): ProjectRecord {
+  const items = db.prepare(`
+    SELECT cve_id as cveId, note, added_at as addedAt
+    FROM project_items
+    WHERE project_id = ?
+    ORDER BY added_at DESC
+  `).all(row.id) as ProjectItem[];
 
-function isProjectRecord(value: unknown): value is ProjectRecord {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
+  const activity = db.prepare(`
+    SELECT id, action, summary, created_at as createdAt
+    FROM project_activity
+    WHERE project_id = ?
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT ?
+  `).all(row.id, MAX_ACTIVITY_ENTRIES) as AuditLogEntry[];
 
-  return (
-    typeof record.id === "string" &&
-    typeof record.name === "string" &&
-    typeof record.description === "string" &&
-    typeof record.createdAt === "string" &&
-    typeof record.updatedAt === "string" &&
-    Array.isArray(record.items)
-  );
-}
-
-function normalizeProjectRecord(record: ProjectRecord): ProjectRecord {
   return {
-    id: record.id,
-    name: record.name,
-    description: record.description,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    items: Array.isArray(record.items) ? record.items.filter(isProjectItem) : [],
-    activity: Array.isArray(record.activity) ? record.activity.filter(isAuditLogEntry).slice(0, MAX_ACTIVITY_ENTRIES) : [],
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    items,
+    activity,
   };
-}
-
-function isProjectItem(value: unknown): value is ProjectItem {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return typeof record.cveId === "string" && typeof record.addedAt === "string" && (typeof record.note === "string" || record.note === undefined);
-}
-
-function isAuditLogEntry(value: unknown): value is AuditLogEntry {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === "string" &&
-    typeof record.action === "string" &&
-    typeof record.summary === "string" &&
-    typeof record.createdAt === "string"
-  );
 }
 
 function createActivityEntry(action: string, summary: string, createdAt: string): AuditLogEntry {
@@ -165,6 +153,21 @@ function createActivityEntry(action: string, summary: string, createdAt: string)
   };
 }
 
-function appendActivity(activity: AuditLogEntry[], entry: AuditLogEntry): AuditLogEntry[] {
-  return [entry, ...activity].slice(0, MAX_ACTIVITY_ENTRIES);
+function appendProjectActivity(projectId: string, entry: AuditLogEntry, db = getDb()): void {
+  db.prepare(`
+    INSERT INTO project_activity (id, project_id, action, summary, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(entry.id, projectId, entry.action, entry.summary, entry.createdAt);
+
+  const extraRows = db.prepare(`
+    SELECT id
+    FROM project_activity
+    WHERE project_id = ?
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT -1 OFFSET ?
+  `).all(projectId, MAX_ACTIVITY_ENTRIES) as Array<{ id: string }>;
+
+  for (const row of extraRows) {
+    db.prepare("DELETE FROM project_activity WHERE id = ?").run(row.id);
+  }
 }

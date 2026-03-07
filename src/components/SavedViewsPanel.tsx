@@ -6,7 +6,7 @@ import { SearchState } from "@/lib/search";
 import {
   deleteSavedView,
   getSavedViewHref,
-  readSavedViews,
+  loadSavedViews,
   saveView,
   SAVED_VIEWS_UPDATED_EVENT,
   SavedView,
@@ -21,8 +21,8 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    const sync = () => setSavedViews(readSavedViews());
-    sync();
+    const sync = async () => setSavedViews(await loadSavedViews());
+    void sync();
     window.addEventListener(SAVED_VIEWS_UPDATED_EVENT, sync);
     return () => window.removeEventListener(SAVED_VIEWS_UPDATED_EVENT, sync);
   }, []);
@@ -39,7 +39,7 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Saved Views</h2>
-          <p className="mt-1 text-sm text-gray-500">OpenCVE-style reusable searches stored locally in your browser.</p>
+          <p className="mt-1 text-sm text-gray-500">OpenCVE-style reusable searches stored in your workspace session.</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <input
@@ -49,12 +49,14 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
             placeholder={defaultName}
             className="min-w-56 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
           />
-          <button
-            type="button"
-            onClick={() => {
-              saveView(name || defaultName, search);
-              setName("");
-            }}
+            <button
+              type="button"
+              onClick={() => {
+                void saveView(name || defaultName, search).then((next) => {
+                  setSavedViews(next);
+                  setName("");
+                });
+              }}
             className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white"
           >
             Save Current View
@@ -75,7 +77,9 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSavedViews(deleteSavedView(view.id))}
+                  onClick={() => {
+                    void deleteSavedView(view.id).then((next) => setSavedViews(next));
+                  }}
                   className="text-xs text-gray-500 hover:text-red-400"
                 >
                   Delete

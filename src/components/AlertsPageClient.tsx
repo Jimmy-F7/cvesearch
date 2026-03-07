@@ -7,9 +7,9 @@ import {
   AlertRule,
   ALERT_RULES_UPDATED_EVENT,
   deleteAlertRule,
+  loadAlertRules,
   markAllAlertRulesChecked,
   markAlertRuleChecked,
-  readAlertRules,
 } from "@/lib/alerts";
 import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
 import { CVESummary } from "@/lib/types";
@@ -23,8 +23,8 @@ export default function AlertsPageClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const syncRules = () => setRules(readAlertRules());
-    syncRules();
+    const syncRules = async () => setRules(await loadAlertRules());
+    void syncRules();
     window.addEventListener(ALERT_RULES_UPDATED_EVENT, syncRules);
 
     let cancelled = false;
@@ -71,18 +71,20 @@ export default function AlertsPageClient() {
   const totalUnread = evaluations.reduce((sum, item) => sum + item.unread, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="app-shell px-4 py-8 sm:px-6">
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Alerts</h1>
           <p className="mt-2 text-base text-gray-500">
-            Browser-local alert rules evaluated against the latest upstream sample.
+            Workspace alert rules evaluated against the latest upstream sample.
           </p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setRules(markAllAlertRulesChecked())}
+            onClick={() => {
+              void markAllAlertRulesChecked().then((next) => setRules(next));
+            }}
             className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
           >
             Mark All Checked
@@ -138,14 +140,18 @@ export default function AlertsPageClient() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setRules(markAlertRuleChecked(rule.id))}
+                    onClick={() => {
+                      void markAlertRuleChecked(rule.id).then((next) => setRules(next));
+                    }}
                     className="rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
                   >
                     Mark Checked
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRules(deleteAlertRule(rule.id))}
+                    onClick={() => {
+                      void deleteAlertRule(rule.id).then((next) => setRules(next));
+                    }}
                     className="rounded-lg border border-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
                   >
                     Delete

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AIDigest } from "@/lib/types";
-import { readWatchlist } from "@/lib/watchlist";
-import { readAlertRules } from "@/lib/alerts";
+import { loadWatchlist } from "@/lib/watchlist";
+import { loadAlertRules } from "@/lib/alerts";
 import { listProjectsAPI } from "@/lib/projects-api";
 import { getLatestCVEs } from "@/lib/api";
 import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
@@ -21,12 +21,14 @@ export default function AIDigestPanel() {
       setError(null);
 
       try {
-        const [latest, projects] = await Promise.all([
+        const [latest, projects, watchlist, alertRules] = await Promise.all([
           getLatestCVEs(1, 80).catch(() => []),
           listProjectsAPI().catch(() => []),
+          loadWatchlist().catch(() => []),
+          loadAlertRules().catch(() => []),
         ]);
 
-        const alertPayload = readAlertRules().map((rule) => {
+        const alertPayload = alertRules.map((rule) => {
           const matching = applySearchResultPreferences(
             latest.filter((cve) => matchesSearchState(cve, rule.search)),
             rule.search
@@ -42,7 +44,7 @@ export default function AIDigestPanel() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            watchlist: readWatchlist().map((id) => ({ id })),
+            watchlist: watchlist.map((id) => ({ id })),
             alerts: alertPayload,
             projects: projects.map((project) => ({
               name: project.name,

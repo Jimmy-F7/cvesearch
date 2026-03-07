@@ -164,7 +164,7 @@ export default function ReposPageClient() {
   const isAnyScanRunning = Object.values(scanStates).some((s) => s.state === "scanning");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="app-shell px-4 py-8 sm:px-6">
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">

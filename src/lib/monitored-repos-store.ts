@@ -1,17 +1,23 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { MonitoredRepo } from "./github-types";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-let writeQueue: Promise<void> = Promise.resolve();
-
-function getMonitoredReposFile(): string {
-  return process.env.MONITORED_REPOS_FILE?.trim() || path.join(DATA_DIR, "monitored-repos.json");
-}
+import { getDb, withTransaction } from "./db";
 
 export const listMonitoredRepos = async (): Promise<MonitoredRepo[]> => {
-  const repos = await readMonitoredRepos();
-  return repos.sort((left, right) => right.addedAt.localeCompare(left.addedAt));
+  const rows = getDb().prepare(`
+    SELECT
+      id,
+      github_id as githubId,
+      full_name as fullName,
+      html_url as htmlUrl,
+      is_private as isPrivate,
+      default_branch as defaultBranch,
+      added_at as addedAt,
+      last_scanned_at as lastScannedAt,
+      last_scan_vulnerability_count as lastScanVulnerabilityCount
+    FROM monitored_repos
+    ORDER BY added_at DESC
+  `).all() as MonitoredRepoRow[];
+
+  return rows.map((row) => normalizeMonitoredRepoRow(row));
 };
 
 export const addMonitoredRepo = async (input: {
@@ -21,10 +27,24 @@ export const addMonitoredRepo = async (input: {
   isPrivate: boolean;
   defaultBranch: string;
 }): Promise<MonitoredRepo> => {
-  return mutateMonitoredRepos((repos) => {
-    const existing = repos.find((repo) => repo.fullName === input.fullName);
+  return withTransaction((db) => {
+    const existing = db.prepare(`
+      SELECT
+        id,
+        github_id as githubId,
+        full_name as fullName,
+        html_url as htmlUrl,
+        is_private as isPrivate,
+        default_branch as defaultBranch,
+        added_at as addedAt,
+        last_scanned_at as lastScannedAt,
+        last_scan_vulnerability_count as lastScanVulnerabilityCount
+      FROM monitored_repos
+      WHERE full_name = ?
+    `).get(input.fullName) as MonitoredRepoRow | undefined;
+
     if (existing) {
-      return { repos, result: existing };
+      return normalizeMonitoredRepoRow(existing);
     }
 
     const repo: MonitoredRepo = {
@@ -39,104 +59,92 @@ export const addMonitoredRepo = async (input: {
       lastScanVulnerabilityCount: null,
     };
 
-    return {
-      repos: [...repos, repo],
-      result: repo,
-    };
+    db.prepare(`
+      INSERT INTO monitored_repos (
+        id,
+        github_id,
+        full_name,
+        html_url,
+        is_private,
+        default_branch,
+        added_at,
+        last_scanned_at,
+        last_scan_vulnerability_count
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      repo.id,
+      repo.githubId,
+      repo.fullName,
+      repo.htmlUrl,
+      repo.isPrivate ? 1 : 0,
+      repo.defaultBranch,
+      repo.addedAt,
+      repo.lastScannedAt,
+      repo.lastScanVulnerabilityCount
+    );
+
+    return repo;
   });
 };
 
 export const removeMonitoredRepo = async (repoId: string): Promise<boolean> => {
-  return mutateMonitoredRepos((repos) => {
-    const filtered = repos.filter((repo) => repo.id !== repoId);
-    return {
-      repos: filtered,
-      result: filtered.length !== repos.length,
-      changed: filtered.length !== repos.length,
-    };
-  });
+  const result = getDb().prepare("DELETE FROM monitored_repos WHERE id = ?").run(repoId);
+  return result.changes > 0;
 };
 
 export const updateLastScan = async (
   repoFullName: string,
   vulnerabilityCount: number
 ): Promise<void> => {
-  await mutateMonitoredRepos((repos) => {
-    const index = repos.findIndex((repo) => repo.fullName === repoFullName);
-    if (index === -1) {
-      return { repos, result: undefined };
-    }
-
-    const next = [...repos];
-    next[index] = {
-      ...next[index],
-      lastScannedAt: new Date().toISOString(),
-      lastScanVulnerabilityCount: vulnerabilityCount,
-    };
-
-    return {
-      repos: next,
-      result: undefined,
-      changed: true,
-    };
-  });
+  getDb().prepare(`
+    UPDATE monitored_repos
+    SET last_scanned_at = ?, last_scan_vulnerability_count = ?
+    WHERE full_name = ?
+  `).run(new Date().toISOString(), vulnerabilityCount, repoFullName);
 };
 
 export const getMonitoredRepo = async (repoIdOrFullName: string): Promise<MonitoredRepo | null> => {
-  const repos = await readMonitoredRepos();
-  return (
-    repos.find((repo) => repo.id === repoIdOrFullName) ??
-    repos.find((repo) => repo.fullName === repoIdOrFullName) ??
-    null
-  );
+  const row = getDb().prepare(`
+    SELECT
+      id,
+      github_id as githubId,
+      full_name as fullName,
+      html_url as htmlUrl,
+      is_private as isPrivate,
+      default_branch as defaultBranch,
+      added_at as addedAt,
+      last_scanned_at as lastScannedAt,
+      last_scan_vulnerability_count as lastScanVulnerabilityCount
+    FROM monitored_repos
+    WHERE id = ? OR full_name = ?
+    LIMIT 1
+  `).get(repoIdOrFullName, repoIdOrFullName) as MonitoredRepoRow | undefined;
+
+  return row ? normalizeMonitoredRepoRow(row) : null;
 };
 
-const readMonitoredRepos = async (): Promise<MonitoredRepo[]> => {
-  try {
-    const raw = await fs.readFile(getMonitoredReposFile(), "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isMonitoredRepo) : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeMonitoredRepos = async (repos: MonitoredRepo[]): Promise<void> => {
-  await fs.mkdir(path.dirname(getMonitoredReposFile()), { recursive: true });
-  await fs.writeFile(getMonitoredReposFile(), JSON.stringify(repos, null, 2));
-};
-
-async function mutateMonitoredRepos<T>(
-  mutation: (repos: MonitoredRepo[]) => { repos: MonitoredRepo[]; result: T; changed?: boolean }
-): Promise<T> {
-  let result!: T;
-
-  const operation = writeQueue.then(async () => {
-    const repos = await readMonitoredRepos();
-    const next = mutation(repos);
-    result = next.result;
-
-    if (next.changed !== false) {
-      await writeMonitoredRepos(next.repos);
-    }
-  });
-
-  writeQueue = operation.catch(() => undefined);
-  await operation;
-  return result;
+interface MonitoredRepoRow {
+  id: string;
+  githubId: number;
+  fullName: string;
+  htmlUrl: string;
+  isPrivate: number | boolean;
+  defaultBranch: string;
+  addedAt: string;
+  lastScannedAt: string | null;
+  lastScanVulnerabilityCount: number | null;
 }
 
-const isMonitoredRepo = (value: unknown): value is MonitoredRepo => {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-
-  return (
-    typeof record.id === "string" &&
-    typeof record.githubId === "number" &&
-    typeof record.fullName === "string" &&
-    typeof record.htmlUrl === "string" &&
-    typeof record.isPrivate === "boolean" &&
-    typeof record.defaultBranch === "string" &&
-    typeof record.addedAt === "string"
-  );
-};
+function normalizeMonitoredRepoRow(row: MonitoredRepoRow): MonitoredRepo {
+  return {
+    id: row.id,
+    githubId: row.githubId,
+    fullName: row.fullName,
+    htmlUrl: row.htmlUrl,
+    isPrivate: row.isPrivate === true || row.isPrivate === 1,
+    defaultBranch: row.defaultBranch,
+    addedAt: row.addedAt,
+    lastScannedAt: row.lastScannedAt,
+    lastScanVulnerabilityCount: row.lastScanVulnerabilityCount,
+  };
+}

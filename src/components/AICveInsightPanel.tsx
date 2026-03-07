@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AICveInsight } from "@/lib/types";
-import { readTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { loadTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 export default function AICveInsightPanel({ cveId }: { cveId: string }) {
   const [insight, setInsight] = useState<AICveInsight | null>(null);
@@ -17,10 +17,11 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
       setError(null);
 
       try {
+        const triage = await loadTriageRecord(cveId);
         const res = await fetch(`/api/ai/cve/${encodeURIComponent(cveId)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triage: readTriageRecord(cveId) }),
+          body: JSON.stringify({ triage }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {

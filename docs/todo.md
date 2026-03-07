@@ -2,16 +2,16 @@
 
 ## misc stuff
 
-- [ ] make the UI use 95% of the screen width
+- [x] make the UI use 95% of the screen width
 
 
 ## Recommended Build Order
 
 ### Build First
 
-- replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
-- add authentication and authorization
-- move browser-local workflow data (watchlist, alerts, triage, saved views) into user-scoped server persistence
+- [x] replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
+- [x] add authentication and authorization
+- [x] move browser-local workflow data (watchlist, alerts, triage, saved views) into user-scoped server persistence
 - [x] harden GitHub repository monitoring routes with the same rate limiting and request logging used by the rest of the API
 - [x] make GitHub dependency scans branch-accurate and fail closed on tree truncation or dependency file fetch errors
 - [x] preserve dependency manifest location through scan and fix flows so monorepo remediation targets the correct workspace
@@ -73,9 +73,9 @@
 
 ## Foundation
 
-- replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
-- add authentication and authorization
-- move browser-local workflow data (watchlist, alerts, triage, saved views) into user-scoped server persistence
+- [x] replace JSON file persistence with a real database (`sqlite` first, with a clean path to Postgres later)
+- [x] add authentication and authorization
+- [x] move browser-local workflow data (watchlist, alerts, triage, saved views) into user-scoped server persistence
 - [x] harden GitHub repository monitoring routes with the same rate limiting and request logging used by the rest of the API
 - [x] add audit fields and activity history for project and triage changes
 - [x] add rate limiting and request logging for API routes

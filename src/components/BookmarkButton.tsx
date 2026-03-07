@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isWatchlisted, toggleWatchlistItem, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
+import { isWatchlisted, loadWatchlist, toggleWatchlistItem, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
 
 interface BookmarkButtonProps {
   cveId: string;
@@ -12,8 +12,11 @@ export default function BookmarkButton({ cveId, size = "md" }: BookmarkButtonPro
   const [watchlisted, setWatchlisted] = useState(false);
 
   useEffect(() => {
-    const sync = () => setWatchlisted(isWatchlisted(cveId));
-    sync();
+    const sync = async () => {
+      await loadWatchlist();
+      setWatchlisted(isWatchlisted(cveId));
+    };
+    void sync();
     window.addEventListener(WATCHLIST_UPDATED_EVENT, sync);
     return () => window.removeEventListener(WATCHLIST_UPDATED_EVENT, sync);
   }, [cveId]);
@@ -27,7 +30,7 @@ export default function BookmarkButton({ cveId, size = "md" }: BookmarkButtonPro
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        toggleWatchlistItem(cveId);
+        void toggleWatchlistItem(cveId).then((next) => setWatchlisted(next.includes(cveId)));
       }}
       className={`inline-flex items-center justify-center rounded-full border transition-colors ${sizeClasses} ${
         watchlisted

@@ -7,7 +7,7 @@ import {
   AlertRule,
   ALERT_RULES_UPDATED_EVENT,
   deleteAlertRule,
-  readAlertRules,
+  loadAlertRules,
   saveAlertRule,
 } from "@/lib/alerts";
 
@@ -20,8 +20,8 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    const sync = () => setRules(readAlertRules());
-    sync();
+    const sync = async () => setRules(await loadAlertRules());
+    void sync();
     window.addEventListener(ALERT_RULES_UPDATED_EVENT, sync);
     return () => window.removeEventListener(ALERT_RULES_UPDATED_EVENT, sync);
   }, []);
@@ -39,7 +39,7 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Alert Rules</h2>
-          <p className="mt-1 text-sm text-gray-500">Track the current search as a local alert and review matches in the notification center.</p>
+          <p className="mt-1 text-sm text-gray-500">Track the current search as a workspace alert and review matches in the notification center.</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <input
@@ -49,12 +49,14 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
             placeholder={defaultName}
             className="min-w-56 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
           />
-          <button
-            type="button"
-            onClick={() => {
-              saveAlertRule(name || defaultName, search);
-              setName("");
-            }}
+            <button
+              type="button"
+              onClick={() => {
+                void saveAlertRule(name || defaultName, search).then((next) => {
+                  setRules(next);
+                  setName("");
+                });
+              }}
             className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-medium text-black"
           >
             Save Alert
@@ -77,7 +79,9 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setRules(deleteAlertRule(rule.id))}
+                  onClick={() => {
+                    void deleteAlertRule(rule.id).then((next) => setRules(next));
+                  }}
                   className="text-xs text-gray-500 hover:text-red-400"
                 >
                   Delete

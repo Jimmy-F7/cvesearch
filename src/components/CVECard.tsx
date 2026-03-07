@@ -17,7 +17,7 @@ import BookmarkButton from "./BookmarkButton";
 import CopyLinkButton from "./CopyLinkButton";
 import TriageBadge from "./TriageBadge";
 import ProjectPickerButton from "./ProjectPickerButton";
-import { readTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { loadTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 import { useEffect, useState } from "react";
 
 interface CVECardProps {
@@ -25,7 +25,7 @@ interface CVECardProps {
 }
 
 export default function CVECard({ cve }: CVECardProps) {
-  const [triageStatus, setTriageStatus] = useState<ReturnType<typeof readTriageRecord>["status"]>("new");
+  const [triageStatus, setTriageStatus] = useState<"new" | "investigating" | "mitigated" | "accepted" | "closed">("new");
   const cveId = extractCVEId(cve);
   const description = extractDescription(cve);
   const published = extractPublishedDate(cve);
@@ -37,8 +37,8 @@ export default function CVECard({ cve }: CVECardProps) {
   const exploitReferenceCount = getExploitReferenceCount(cve);
 
   useEffect(() => {
-    const sync = () => setTriageStatus(readTriageRecord(cveId).status);
-    sync();
+    const sync = async () => setTriageStatus((await loadTriageRecord(cveId)).status);
+    void sync();
     window.addEventListener(TRIAGE_UPDATED_EVENT, sync);
     return () => window.removeEventListener(TRIAGE_UPDATED_EVENT, sync);
   }, [cveId]);

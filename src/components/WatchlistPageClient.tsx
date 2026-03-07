@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getCVEById } from "@/lib/api";
 import { CVEDetail, CVESummary } from "@/lib/types";
-import { readWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
-import { readTriageMap, TRIAGE_UPDATED_EVENT, TriageStatus } from "@/lib/triage";
+import { loadWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
+import { loadTriageMap, readTriageMap, TRIAGE_UPDATED_EVENT, TriageStatus } from "@/lib/triage";
 import CVEList from "@/components/CVEList";
 import AIDigestPanel from "@/components/AIDigestPanel";
 
@@ -19,7 +19,7 @@ export default function WatchlistPageClient() {
 
     async function load() {
       setLoading(true);
-      const ids = readWatchlist();
+      const [ids] = await Promise.all([loadWatchlist(), loadTriageMap()]);
 
       if (ids.length === 0) {
         if (!cancelled) {
@@ -82,11 +82,11 @@ export default function WatchlistPageClient() {
   }, [items]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className="app-shell px-4 py-8 sm:px-6">
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Watchlist</h1>
-          <p className="mt-2 text-base text-gray-500">Bookmarked CVEs and advisories with local triage status, notes, and ownership.</p>
+          <p className="mt-2 text-base text-gray-500">Bookmarked CVEs and advisories with workspace triage status, notes, and ownership.</p>
         </div>
         <Link href="/" className="inline-flex rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white">
           Back to Search

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { readWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
-import { ALERT_RULES_UPDATED_EVENT, readAlertRules } from "@/lib/alerts";
-import { readTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { loadWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
+import { ALERT_RULES_UPDATED_EVENT, loadAlertRules } from "@/lib/alerts";
+import { loadTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 export default function Header() {
   const pathname = usePathname();
@@ -20,32 +20,32 @@ export default function Header() {
   const [investigatingCount, setInvestigatingCount] = useState(0);
 
   useEffect(() => {
-    const sync = () => setWatchlistCount(readWatchlist().length);
-    sync();
+    const sync = async () => setWatchlistCount((await loadWatchlist()).length);
+    void sync();
     window.addEventListener(WATCHLIST_UPDATED_EVENT, sync);
     return () => window.removeEventListener(WATCHLIST_UPDATED_EVENT, sync);
   }, []);
 
   useEffect(() => {
-    const sync = () => setAlertRuleCount(readAlertRules().length);
-    sync();
+    const sync = async () => setAlertRuleCount((await loadAlertRules()).length);
+    void sync();
     window.addEventListener(ALERT_RULES_UPDATED_EVENT, sync);
     return () => window.removeEventListener(ALERT_RULES_UPDATED_EVENT, sync);
   }, []);
 
   useEffect(() => {
-    const sync = () => {
-      const triage = Object.values(readTriageMap());
+    const sync = async () => {
+      const triage = Object.values(await loadTriageMap());
       setInvestigatingCount(triage.filter((item) => item.status === "investigating").length);
     };
-    sync();
+    void sync();
     window.addEventListener(TRIAGE_UPDATED_EVENT, sync);
     return () => window.removeEventListener(TRIAGE_UPDATED_EVENT, sync);
   }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <div className="app-shell flex h-16 items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
             <svg

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDigest } from "@/lib/ai-service";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
 
 export const POST = withRouteProtection(async function POST(request: NextRequest) {
+  const session = getOrCreateWorkspaceSession(request);
   const body = await request.json().catch(() => null);
   const digest = await generateDigest({
     watchlist: Array.isArray(body?.watchlist) ? body.watchlist : [],
@@ -10,7 +12,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     projects: Array.isArray(body?.projects) ? body.projects : [],
   });
 
-  return NextResponse.json(digest);
+  return applyWorkspaceSession(NextResponse.json(digest), session);
 }, {
   route: "/api/ai/digest",
   errorMessage: "Failed to generate digest",

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   createDefaultTriageRecord,
+  loadTriageRecord,
   parseTags,
-  readTriageRecord,
   TRIAGE_UPDATED_EVENT,
   TriageRecord,
   TriageStatus,
@@ -16,30 +16,29 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
   const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    const sync = () => {
-      const next = readTriageRecord(cveId);
+    const sync = async () => {
+      const next = await loadTriageRecord(cveId);
       setRecord(next);
       setTagInput(next.tags.join(", "));
     };
 
-    sync();
+    void sync();
     window.addEventListener(TRIAGE_UPDATED_EVENT, sync);
     return () => window.removeEventListener(TRIAGE_UPDATED_EVENT, sync);
   }, [cveId]);
 
   const persist = (next: TriageRecord) => {
-    const saved = writeTriageRecord({
+    void writeTriageRecord({
       ...next,
       updatedAt: new Date().toISOString(),
-    });
-    setRecord(saved);
+    }).then((saved) => setRecord(saved));
   };
 
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
       <div className="mb-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Triage</h2>
-        <p className="mt-1 text-sm text-gray-500">Local analyst workflow for status, ownership, notes, and tags.</p>
+        <p className="mt-1 text-sm text-gray-500">Workspace-scoped analyst workflow for status, ownership, notes, and tags.</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

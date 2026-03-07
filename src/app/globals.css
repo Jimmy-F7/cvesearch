@@ -12,6 +12,11 @@ body {
   color: var(--color-foreground);
 }
 
+.app-shell {
+  width: 95vw;
+  margin-inline: auto;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

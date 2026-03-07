@@ -52,7 +52,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="app-shell px-4 py-8 sm:px-6">
         <div className="animate-pulse space-y-6">
           <div className="h-8 w-48 rounded-lg bg-white/[0.06]" />
           <div className="h-6 w-64 rounded-lg bg-white/[0.06]" />
@@ -65,7 +65,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
 
   if (error || !cve) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="app-shell px-4 py-8 sm:px-6">
         <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -101,7 +101,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
     : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className="app-shell px-4 py-8 sm:px-6">
       {/* Back nav */}
       <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
