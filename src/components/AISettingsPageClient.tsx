@@ -14,6 +14,8 @@ import { AIRunRecord } from "@/lib/types";
 import WorkspaceDataPanel from "@/components/WorkspaceDataPanel";
 
 export default function AISettingsPageClient({ summary, recentRuns }: { summary: ServerAIConfigurationSummary; recentRuns: AIRunRecord[] }) {
+  const usageSummary = summarizeAIRunUsage(recentRuns);
+
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
       <Flex justify="between" align={{ initial: "start", sm: "end" }} gap="4" wrap="wrap" className="mb-8">
@@ -144,8 +146,15 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
         <Card size="3" className="border border-white/[0.06] bg-white/[0.03]">
           <Heading size="4" className="text-white">Recent AI Runs</Heading>
           <Text as="p" size="2" color="gray" className="mt-1">
-            Read-only history of recent prompts, outcomes, tool traces, and failures.
+            Read-only history of prompts, outcomes, latency, estimated tokens, and estimated provider cost.
           </Text>
+
+          <Grid columns={{ initial: "1", md: "4" }} gap="3" className="mt-4">
+            <MetricCard label="Runs" value={String(usageSummary.runCount)} />
+            <MetricCard label="Avg Latency" value={`${usageSummary.averageDurationMs}ms`} />
+            <MetricCard label="Est. Tokens" value={usageSummary.totalTokens.toLocaleString("en-US")} />
+            <MetricCard label="Est. Cost" value={`$${usageSummary.totalCostUsd.toFixed(4)}`} />
+          </Grid>
 
           {recentRuns.length > 0 ? (
             <div className="mt-4 space-y-3">
@@ -157,6 +166,8 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
                     <Badge color="gray" variant="soft">{run.provider}{run.model ? ` • ${run.model}` : ""}</Badge>
                     <Text size="1" color="gray">{new Date(run.createdAt).toLocaleString("en-US")}</Text>
                     <Text size="1" color="gray">{run.durationMs}ms</Text>
+                    <Text size="1" color="gray">~{((run.promptTokensEstimate ?? 0) + (run.outputTokensEstimate ?? 0)).toLocaleString("en-US")} tokens</Text>
+                    <Text size="1" color="gray">${(run.estimatedCostUsd ?? 0).toFixed(4)}</Text>
                   </Flex>
 
                   <div className="mt-3 grid gap-3">
@@ -211,4 +222,17 @@ function RunBlock({ title, value }: { title: string; value: string }) {
       <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-gray-300">{value}</pre>
     </div>
   );
+}
+
+function summarizeAIRunUsage(runs: AIRunRecord[]) {
+  const totalDurationMs = runs.reduce((sum, run) => sum + run.durationMs, 0);
+  const totalTokens = runs.reduce((sum, run) => sum + (run.promptTokensEstimate ?? 0) + (run.outputTokensEstimate ?? 0), 0);
+  const totalCostUsd = runs.reduce((sum, run) => sum + (run.estimatedCostUsd ?? 0), 0);
+
+  return {
+    runCount: runs.length,
+    averageDurationMs: runs.length > 0 ? Math.round(totalDurationMs / runs.length) : 0,
+    totalTokens,
+    totalCostUsd,
+  };
 }

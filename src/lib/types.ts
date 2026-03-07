@@ -400,6 +400,9 @@ export interface AIRunRecord {
   toolCalls: AISearchToolTrace[];
   error: string;
   durationMs: number;
+  promptTokensEstimate?: number;
+  outputTokensEstimate?: number;
+  estimatedCostUsd?: number;
   createdAt: string;
 }
 

@@ -45,8 +45,46 @@ test("appendAIRun stores newest runs first and listRecentAIRuns enforces the lim
     assert.equal(allRuns[0].id, "run-2");
     assert.equal(allRuns[1].id, "run-1");
     assert.equal(allRuns[0].toolCalls[0]?.tool, "inspect_available_filters");
+    assert.equal((allRuns[0].promptTokensEstimate ?? 0) > 0, true);
+    assert.equal(allRuns[0].estimatedCostUsd, 0);
     assert.equal(limitedRuns.length, 1);
     assert.equal(limitedRuns[0].id, "run-2");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.AI_RUNS_FILE;
+    } else {
+      process.env.AI_RUNS_FILE = previous;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("listRecentAIRuns estimates tokens and provider cost for configured runs", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-ai-runs-cost-"));
+  const previous = process.env.AI_RUNS_FILE;
+  process.env.AI_RUNS_FILE = path.join(tempDir, "ai-runs.json");
+
+  const run: AIRunRecord = {
+    id: "run-openai",
+    feature: "cve_insight",
+    provider: "openai",
+    model: "gpt-4.1-mini",
+    mode: "configured",
+    status: "success",
+    prompt: "a".repeat(400),
+    output: "b".repeat(200),
+    toolCalls: [],
+    error: "",
+    durationMs: 42,
+    createdAt: "2026-03-06T11:02:00.000Z",
+  };
+
+  try {
+    await appendAIRun(run);
+    const [stored] = await listRecentAIRuns(1);
+    assert.equal(stored.promptTokensEstimate, 100);
+    assert.equal(stored.outputTokensEstimate, 50);
+    assert.equal((stored.estimatedCostUsd ?? 0) > 0, true);
   } finally {
     if (previous === undefined) {
       delete process.env.AI_RUNS_FILE;
