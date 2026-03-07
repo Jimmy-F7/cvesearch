@@ -6,7 +6,7 @@ import {
   normalizeTriageRecord,
   TriageRecord,
 } from "./triage-shared";
-import { AlertRule, SavedView } from "./workspace-types";
+import { AlertRule, SavedView, WorkspaceImportMode } from "./workspace-types";
 
 export async function listWatchlist(userId: string): Promise<string[]> {
   const rows = getDb().prepare(`
@@ -36,6 +36,26 @@ export async function toggleWatchlistEntry(userId: string, cveId: string): Promi
       INSERT INTO user_watchlist (user_id, cve_id, added_at)
       VALUES (?, ?, ?)
     `).run(userId, cveId, new Date().toISOString());
+  });
+
+  return listWatchlist(userId);
+}
+
+export async function removeWatchlistEntries(userId: string, cveIds: string[]): Promise<string[]> {
+  if (cveIds.length === 0) {
+    return listWatchlist(userId);
+  }
+
+  const uniqueIds = Array.from(new Set(cveIds.map((id) => id.trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return listWatchlist(userId);
+  }
+
+  withTransaction((db) => {
+    const deleteStatement = db.prepare("DELETE FROM user_watchlist WHERE user_id = ? AND cve_id = ?");
+    for (const cveId of uniqueIds) {
+      deleteStatement.run(userId, cveId);
+    }
   });
 
   return listWatchlist(userId);
@@ -228,6 +248,83 @@ export async function writeTriageRecordForUser(userId: string, record: TriageRec
     );
 
     return next;
+  });
+}
+
+export async function importWorkspaceStateForUser(
+  userId: string,
+  input: {
+    watchlist: string[];
+    savedViews: SavedView[];
+    alertRules: AlertRule[];
+    triageRecords: TriageRecord[];
+  },
+  mode: WorkspaceImportMode
+): Promise<void> {
+  withTransaction((db) => {
+    if (mode === "replace") {
+      db.prepare("DELETE FROM user_watchlist WHERE user_id = ?").run(userId);
+      db.prepare("DELETE FROM user_saved_views WHERE user_id = ?").run(userId);
+      db.prepare("DELETE FROM user_alert_rules WHERE user_id = ?").run(userId);
+      db.prepare("DELETE FROM user_triage_records WHERE user_id = ?").run(userId);
+    }
+
+    const insertWatchlist = db.prepare(`
+      INSERT OR REPLACE INTO user_watchlist (user_id, cve_id, added_at)
+      VALUES (?, ?, ?)
+    `);
+    const insertSavedView = db.prepare(`
+      INSERT OR REPLACE INTO user_saved_views (id, user_id, name, search_json, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const insertAlertRule = db.prepare(`
+      INSERT OR REPLACE INTO user_alert_rules (id, user_id, name, search_json, created_at, last_checked_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const insertTriage = db.prepare(`
+      INSERT OR REPLACE INTO user_triage_records (
+        user_id, cve_id, status, owner, notes, tags_json, updated_at, activity_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const cveId of Array.from(new Set(input.watchlist.map((id) => id.trim()).filter(Boolean)))) {
+      insertWatchlist.run(userId, cveId, new Date().toISOString());
+    }
+
+    for (const view of input.savedViews) {
+      insertSavedView.run(
+        view.id || crypto.randomUUID(),
+        userId,
+        view.name.trim() || "Imported view",
+        JSON.stringify(normalizeSearchState(view.search)),
+        view.createdAt || new Date().toISOString()
+      );
+    }
+
+    for (const rule of input.alertRules) {
+      insertAlertRule.run(
+        rule.id || crypto.randomUUID(),
+        userId,
+        rule.name.trim() || "Imported alert",
+        JSON.stringify(normalizeSearchState(rule.search)),
+        rule.createdAt || new Date().toISOString(),
+        rule.lastCheckedAt ?? null
+      );
+    }
+
+    for (const triageRecord of input.triageRecords) {
+      const normalized = normalizeTriageRecord(triageRecord);
+      insertTriage.run(
+        userId,
+        normalized.cveId,
+        normalized.status,
+        normalized.owner,
+        normalized.notes,
+        JSON.stringify(normalized.tags),
+        normalized.updatedAt,
+        JSON.stringify(normalized.activity)
+      );
+    }
   });
 }
 

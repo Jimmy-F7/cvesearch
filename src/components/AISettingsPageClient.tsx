@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ServerAIConfigurationSummary } from "@/lib/ai-service";
 import { AIRunRecord } from "@/lib/types";
+import WorkspaceDataPanel from "@/components/WorkspaceDataPanel";
 
 export default function AISettingsPageClient({ summary, recentRuns }: { summary: ServerAIConfigurationSummary; recentRuns: AIRunRecord[] }) {
   return (
@@ -73,6 +74,10 @@ export default function AISettingsPageClient({ summary, recentRuns }: { summary:
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <WorkspaceDataPanel />
         </div>
 
         <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">

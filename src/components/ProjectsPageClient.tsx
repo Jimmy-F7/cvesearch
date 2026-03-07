@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { deleteProjectAPI, listProjectsAPI, removeProjectItemAPI } from "@/lib/projects-api";
+import { createProjectAPI, deleteProjectAPI, listProjectsAPI, removeProjectItemAPI } from "@/lib/projects-api";
 import { getCVEById } from "@/lib/api";
 import { ProjectRecord, CVESummary } from "@/lib/types";
 import CVEList from "./CVEList";
@@ -13,13 +13,22 @@ export default function ProjectsPageClient() {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [details, setDetails] = useState<ProjectDetails>({});
   const [loading, setLoading] = useState(true);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [busy, setBusy] = useState<"create" | "delete" | "remove-item" | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
-      const projectList = await listProjectsAPI().catch(() => []);
+      const projectList = await listProjectsAPI().catch((error: unknown) => {
+        setFeedback({
+          type: "error",
+          message: error instanceof Error ? error.message : "Failed to load projects.",
+        });
+        return [];
+      });
       if (cancelled) return;
 
       setProjects(projectList);
@@ -51,22 +60,54 @@ export default function ProjectsPageClient() {
   }, []);
 
   async function handleDeleteProject(projectId: string) {
-    await deleteProjectAPI(projectId);
-    setProjects((current) => current.filter((project) => project.id !== projectId));
-    setDetails((current) => {
-      const next = { ...current };
-      delete next[projectId];
-      return next;
-    });
+    setBusy("delete");
+    try {
+      await deleteProjectAPI(projectId);
+      setProjects((current) => current.filter((project) => project.id !== projectId));
+      setDetails((current) => {
+        const next = { ...current };
+        delete next[projectId];
+        return next;
+      });
+      setFeedback({ type: "success", message: "Project deleted." });
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete project." });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function handleRemoveItem(projectId: string, cveId: string) {
-    const updated = await removeProjectItemAPI(projectId, cveId);
-    setProjects((current) => current.map((project) => (project.id === updated.id ? updated : project)));
-    setDetails((current) => ({
-      ...current,
-      [projectId]: (current[projectId] ?? []).filter((item) => item.id !== cveId),
-    }));
+    setBusy("remove-item");
+    try {
+      const updated = await removeProjectItemAPI(projectId, cveId);
+      setProjects((current) => current.map((project) => (project.id === updated.id ? updated : project)));
+      setDetails((current) => ({
+        ...current,
+        [projectId]: (current[projectId] ?? []).filter((item) => item.id !== cveId),
+      }));
+      setFeedback({ type: "success", message: `${cveId} removed from the project.` });
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to remove CVE from project." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleCreateProject() {
+    if (!newProjectName.trim()) return;
+    setBusy("create");
+    try {
+      const project = await createProjectAPI({ name: newProjectName.trim() });
+      setProjects((current) => [project, ...current]);
+      setDetails((current) => ({ ...current, [project.id]: [] }));
+      setNewProjectName("");
+      setFeedback({ type: "success", message: `Created ${project.name}.` });
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to create project." });
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -76,14 +117,51 @@ export default function ProjectsPageClient() {
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Projects</h1>
           <p className="mt-2 text-base text-gray-500">Server-persisted project groupings for CVEs in this workspace.</p>
         </div>
-        <Link href="/" className="inline-flex rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white">
-          Back to Search
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            value={newProjectName}
+            onChange={(event) => setNewProjectName(event.target.value)}
+            placeholder="New project name"
+            className="min-w-56 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => void handleCreateProject()}
+            disabled={busy !== null || !newProjectName.trim()}
+            className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+          >
+            {busy === "create" ? "Creating..." : "Create Project"}
+          </button>
+          <Link href="/" className="inline-flex rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white">
+            Back to Search
+          </Link>
+        </div>
       </div>
 
+      {feedback && (
+        <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-red-500/20 bg-red-500/10 text-red-200" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"}`}>
+          {feedback.message}
+        </div>
+      )}
+
       {projects.length === 0 && !loading ? (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-6 py-10 text-center text-gray-500">
-          No projects yet. Add a CVE to a project from search results or the detail page.
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-6 py-10 text-center">
+          <p className="text-lg font-medium text-white">No projects yet</p>
+          <p className="mt-2 text-sm text-gray-500">Create a project here or add a CVE to one from search results or the detail view.</p>
+        </div>
+      ) : loading ? (
+        <div className="space-y-6">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+              <div className="h-7 w-48 rounded bg-white/[0.06]" />
+              <div className="mt-3 h-4 w-64 rounded bg-white/[0.04]" />
+              <div className="mt-6 space-y-3">
+                <div className="h-20 rounded-xl bg-white/[0.03]" />
+                <div className="h-20 rounded-xl bg-white/[0.03]" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="space-y-6">
@@ -99,8 +177,9 @@ export default function ProjectsPageClient() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleDeleteProject(project.id)}
-                  className="rounded-lg border border-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+                  onClick={() => void handleDeleteProject(project.id)}
+                  disabled={busy !== null}
+                  className="rounded-lg border border-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                 >
                   Delete Project
                 </button>
@@ -112,8 +191,9 @@ export default function ProjectsPageClient() {
                     <button
                       key={item.cveId}
                       type="button"
-                      onClick={() => handleRemoveItem(project.id, item.cveId)}
-                      className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-xs text-gray-300 hover:bg-white/[0.06]"
+                      onClick={() => void handleRemoveItem(project.id, item.cveId)}
+                      disabled={busy !== null}
+                      className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-xs text-gray-300 hover:bg-white/[0.06] disabled:opacity-50"
                     >
                       {item.cveId} ×
                     </button>
@@ -137,7 +217,13 @@ export default function ProjectsPageClient() {
                 </div>
               )}
 
-              <CVEList cves={details[project.id] ?? []} loading={loading} />
+              <CVEList
+                cves={details[project.id] ?? []}
+                loading={loading}
+                skeletonCount={3}
+                emptyTitle="No CVE previews loaded yet"
+                emptyBody="Add more CVEs to this project or open them from search to populate the project workspace."
+              />
             </section>
           ))}
         </div>

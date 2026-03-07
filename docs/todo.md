@@ -39,7 +39,7 @@
 - [x] add rate limiting and request logging for API routes
 - [x] enrich prioritization with CISA KEV, EPSS-first sorting, and exploit/reference signals
 - [x] improve result cards with stronger severity, EPSS, KEV, and recency cues
-- add bulk actions for watchlist, triage, and project assignment
+- [x] add bulk actions for watchlist, triage, and project assignment
 - add an AI remediation agent that drafts remediation plans, compensating controls, validation steps, and rollout notes per vulnerability
 - add an AI watchlist analyst agent that reviews new matches, clusters related issues, and highlights what changed since the last review
 - add an AI project summary agent that turns project state into executive, analyst, and engineering summaries with different output formats
@@ -52,7 +52,7 @@
 - integrate Radix UI primitives/theme for a more consistent UI system
 - add richer dashboard views for analysts, maintainers, and incident response workflows
 - add better empty states, skeleton states, and success/error feedback across the app
-- add import/export for projects, triage state, saved views, and watchlists
+- [x] add import/export for projects, triage state, saved views, and watchlists
 - expand project management with owners, due dates, labels, status, and timeline views
 - add a real vulnerability management workflow with assignment, SLA tracking, remediation state, and exceptions
 - add asset or product inventory mapping so CVEs can be linked to affected internal systems
@@ -85,8 +85,8 @@
 - integrate Radix UI primitives/theme for a more consistent UI system
 - add richer dashboard views for analysts, maintainers, and incident response workflows
 - [x] improve result cards with stronger severity, EPSS, KEV, and recency cues
-- add better empty states, skeleton states, and success/error feedback across the app
-- add bulk actions for watchlist, triage, and project assignment
+- [x] add better empty states, skeleton states, and success/error feedback across the app
+- [x] add bulk actions for watchlist, triage, and project assignment
 - add import/export for projects, triage state, saved views, and watchlists
 
 ## Vulnerability Management

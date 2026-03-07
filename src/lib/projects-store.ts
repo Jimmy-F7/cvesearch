@@ -1,5 +1,6 @@
 import { AuditLogEntry, ProjectItem, ProjectRecord } from "./types";
 import { getDb, withTransaction } from "./db";
+import { WorkspaceImportMode } from "./workspace-types";
 
 const MAX_ACTIVITY_ENTRIES = 20;
 
@@ -93,6 +94,69 @@ export async function removeProjectItem(projectId: string, cveId: string): Promi
 
 export function normalizeProjectName(name: string): string {
   return name.trim().replace(/\s+/g, " ").slice(0, 80);
+}
+
+export async function importProjects(projects: ProjectRecord[], mode: WorkspaceImportMode): Promise<void> {
+  withTransaction((db) => {
+    if (mode === "replace") {
+      db.prepare("DELETE FROM projects").run();
+    }
+
+    const upsertProject = db.prepare(`
+      INSERT INTO projects (id, name, description, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        description = excluded.description,
+        created_at = excluded.created_at,
+        updated_at = excluded.updated_at
+    `);
+    const insertItem = db.prepare(`
+      INSERT INTO project_items (project_id, cve_id, note, added_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    const insertActivity = db.prepare(`
+      INSERT INTO project_activity (id, project_id, action, summary, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    for (const project of projects) {
+      const projectId = project.id || crypto.randomUUID();
+      upsertProject.run(
+        projectId,
+        normalizeProjectName(project.name) || "Imported project",
+        project.description ?? "",
+        project.createdAt || new Date().toISOString(),
+        project.updatedAt || new Date().toISOString()
+      );
+
+      db.prepare("DELETE FROM project_items WHERE project_id = ?").run(projectId);
+      db.prepare("DELETE FROM project_activity WHERE project_id = ?").run(projectId);
+
+      for (const item of project.items) {
+        insertItem.run(
+          projectId,
+          item.cveId,
+          item.note ?? "",
+          item.addedAt || new Date().toISOString()
+        );
+      }
+
+      const activity = project.activity.length > 0
+        ? project.activity.slice(0, MAX_ACTIVITY_ENTRIES)
+        : [createActivityEntry("project_imported", `Imported project ${project.name}`, project.updatedAt || new Date().toISOString())];
+
+      for (const entry of activity) {
+        insertActivity.run(
+          entry.id || crypto.randomUUID(),
+          projectId,
+          entry.action,
+          entry.summary,
+          entry.createdAt || new Date().toISOString()
+        );
+      }
+    }
+  });
 }
 
 interface ProjectRow {

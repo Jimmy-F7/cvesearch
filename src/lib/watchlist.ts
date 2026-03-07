@@ -19,6 +19,24 @@ export async function toggleWatchlistItem(id: string): Promise<string[]> {
   return next;
 }
 
+export async function removeWatchlistItems(ids: string[]): Promise<string[]> {
+  const res = await fetch("/api/watchlist", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to remove watchlist items");
+  }
+
+  const data = await res.json().catch(() => []);
+  const next = Array.isArray(data) ? data.filter((value): value is string => typeof value === "string") : [];
+  watchlistCache = next;
+  dispatchWatchlistUpdated();
+  return next;
+}
+
 export function isWatchlisted(id: string): boolean {
   return watchlistCache.includes(id);
 }

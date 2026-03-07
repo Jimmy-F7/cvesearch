@@ -7,6 +7,7 @@ import { getOrCreateWorkspaceSession } from "../src/lib/auth-session";
 import {
   createAlertRuleForUser,
   createSavedViewForUser,
+  importWorkspaceStateForUser,
   listAlertRulesForUser,
   listSavedViewsForUser,
   listWatchlist,
@@ -15,6 +16,7 @@ import {
   writeTriageRecordForUser,
 } from "../src/lib/workspace-store";
 import { createDefaultTriageRecord } from "../src/lib/triage-shared";
+import { importProjects, listProjects } from "../src/lib/projects-store";
 
 test("workspace stores are isolated per session user", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-workspace-"));
@@ -66,6 +68,63 @@ test("workspace stores are isolated per session user", async () => {
     assert.equal((await listSavedViewsForUser(sessionB.userId)).length, 0);
     assert.equal((await listAlertRulesForUser(sessionB.userId)).length, 0);
     assert.equal((await readTriageRecordForUser(sessionB.userId, "CVE-2026-1111")).status, "new");
+  } finally {
+    if (previousDatabaseFile === undefined) {
+      delete process.env.DATABASE_FILE;
+    } else {
+      process.env.DATABASE_FILE = previousDatabaseFile;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("workspace import supports replace mode for user data and projects", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-workspace-import-"));
+  const previousDatabaseFile = process.env.DATABASE_FILE;
+  process.env.DATABASE_FILE = path.join(tempDir, "workspace.db");
+
+  try {
+    const session = getOrCreateWorkspaceSession(new Request("https://example.test/api/workspace/import"));
+
+    await toggleWatchlistEntry(session.userId, "CVE-2026-0001");
+
+    await importWorkspaceStateForUser(session.userId, {
+      watchlist: ["CVE-2026-1234"],
+      savedViews: [{
+        id: "view-1",
+        name: "Critical",
+        search: { query: "openssl", vendor: "", product: "", cwe: "", since: "", minSeverity: "CRITICAL", sort: "risk_desc", page: 1, perPage: 20 },
+        createdAt: new Date().toISOString(),
+      }],
+      alertRules: [{
+        id: "alert-1",
+        name: "Critical Alert",
+        search: { query: "openssl", vendor: "", product: "", cwe: "", since: "", minSeverity: "HIGH", sort: "risk_desc", page: 1, perPage: 20 },
+        createdAt: new Date().toISOString(),
+        lastCheckedAt: null,
+      }],
+      triageRecords: [{
+        ...createDefaultTriageRecord("CVE-2026-1234"),
+        status: "mitigated",
+        updatedAt: new Date().toISOString(),
+      }],
+    }, "replace");
+
+    await importProjects([{
+      id: "project-1",
+      name: "Imported Project",
+      description: "Imported",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items: [{ cveId: "CVE-2026-1234", note: "Track fix", addedAt: new Date().toISOString() }],
+      activity: [],
+    }], "replace");
+
+    assert.deepEqual(await listWatchlist(session.userId), ["CVE-2026-1234"]);
+    assert.equal((await listSavedViewsForUser(session.userId))[0]?.name, "Critical");
+    assert.equal((await listAlertRulesForUser(session.userId))[0]?.name, "Critical Alert");
+    assert.equal((await readTriageRecordForUser(session.userId, "CVE-2026-1234")).status, "mitigated");
+    assert.equal((await listProjects())[0]?.name, "Imported Project");
   } finally {
     if (previousDatabaseFile === undefined) {
       delete process.env.DATABASE_FILE;

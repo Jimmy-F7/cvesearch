@@ -22,9 +22,12 @@ import { useEffect, useState } from "react";
 
 interface CVECardProps {
   cve: CVESummary;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (cveId: string) => void;
 }
 
-export default function CVECard({ cve }: CVECardProps) {
+export default function CVECard({ cve, selectable = false, selected = false, onToggleSelect }: CVECardProps) {
   const [triageStatus, setTriageStatus] = useState<"new" | "investigating" | "mitigated" | "accepted" | "closed">("new");
   const cveId = extractCVEId(cve);
   const description = extractDescription(cve);
@@ -46,6 +49,17 @@ export default function CVECard({ cve }: CVECardProps) {
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        {selectable && (
+          <label className="mt-0.5 flex shrink-0 items-center gap-2 text-sm text-gray-400">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect?.(cveId)}
+              className="h-4 w-4 rounded border-white/[0.15] bg-white/[0.04] text-cyan-500 focus:ring-cyan-500/40"
+            />
+            <span className="sm:hidden">Select</span>
+          </label>
+        )}
         <Link href={href} className="group min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-mono text-base font-semibold text-white group-hover:text-cyan-400 transition-colors">

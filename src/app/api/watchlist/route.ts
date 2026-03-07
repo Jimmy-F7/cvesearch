@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
 import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
-import { listWatchlist, toggleWatchlistEntry } from "@/lib/workspace-store";
+import { listWatchlist, removeWatchlistEntries, toggleWatchlistEntry } from "@/lib/workspace-store";
 
 export const GET = withRouteProtection(async function GET(request: NextRequest) {
   const session = getOrCreateWorkspaceSession(request);
@@ -27,5 +27,18 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
 }, {
   route: "/api/watchlist",
   errorMessage: "Failed to update watchlist",
+  rateLimit: API_RATE_LIMITS.workspaceMutations,
+});
+
+export const DELETE = withRouteProtection(async function DELETE(request: NextRequest) {
+  const session = getOrCreateWorkspaceSession(request);
+  const body = await request.json().catch(() => null);
+  const ids = Array.isArray(body?.ids) ? body.ids.filter((value: unknown): value is string => typeof value === "string") : [];
+
+  const response = NextResponse.json(await removeWatchlistEntries(session.userId, ids));
+  return applyWorkspaceSession(response, session);
+}, {
+  route: "/api/watchlist",
+  errorMessage: "Failed to remove watchlist entries",
   rateLimit: API_RATE_LIMITS.workspaceMutations,
 });
