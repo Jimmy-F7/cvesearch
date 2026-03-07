@@ -8,12 +8,12 @@ export default function AITriageAssistantPanel({
   cveId,
   detail,
   record,
-  onApply,
+  onRequestApproval,
 }: {
   cveId: string;
   detail?: CVEDetail | null;
   record: TriageRecord;
-  onApply: (updater: (current: TriageRecord) => TriageRecord) => void;
+  onRequestApproval: (updater: (current: TriageRecord) => TriageRecord, label: string) => void;
 }) {
   const [suggestion, setSuggestion] = useState<AITriageSuggestion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,7 @@ export default function AITriageAssistantPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-cyan-300">AI Triage Agent</h3>
-          <p className="mt-1 text-sm text-gray-400">Read-only guidance built from severity, EPSS, references, KEV, project context, and the current triage record.</p>
+          <p className="mt-1 text-sm text-gray-400">Read-only guidance built from severity, EPSS, references, KEV, project context, and the current triage record. Any write now goes through an explicit approval checkpoint.</p>
         </div>
         {suggestion?.requiresHumanApproval ? (
           <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200">
@@ -115,24 +115,36 @@ export default function AITriageAssistantPanel({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => onApply((current) => ({ ...current, status: suggestion.recommendation.status }))}
+              onClick={() => onRequestApproval((current) => ({ ...current, status: suggestion.recommendation.status }), "AI triage status recommendation")}
               className="rounded-lg bg-cyan-500 px-3 py-2 text-sm font-medium text-black"
             >
-              Apply Status
+              Review Status
             </button>
             <button
               type="button"
-              onClick={() => onApply((current) => ({ ...current, owner: suggestion.recommendedOwner }))}
+              onClick={() => onRequestApproval((current) => ({ ...current, owner: suggestion.recommendedOwner }), "AI triage owner recommendation")}
               className="rounded-lg border border-emerald-500/20 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-500/10"
             >
-              Apply Owner
+              Review Owner
             </button>
             <button
               type="button"
-              onClick={() => onApply((current) => ({ ...current, tags: Array.from(new Set([...current.tags, ...suggestion.recommendedTags])) }))}
+              onClick={() => onRequestApproval((current) => ({ ...current, tags: Array.from(new Set([...current.tags, ...suggestion.recommendedTags])) }), "AI triage tag recommendation")}
               className="rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
             >
-              Apply Tags
+              Review Tags
+            </button>
+            <button
+              type="button"
+              onClick={() => onRequestApproval((current) => ({
+                ...current,
+                status: suggestion.recommendation.status,
+                owner: suggestion.recommendedOwner,
+                tags: Array.from(new Set([...current.tags, ...suggestion.recommendedTags])),
+              }), "AI triage full recommendation")}
+              className="rounded-lg border border-amber-500/20 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/10"
+            >
+              Review Full Update
             </button>
           </div>
 

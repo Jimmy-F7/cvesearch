@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ApprovalCheckpoint, buildTriageApprovalCheckpoint } from "@/lib/approval-checkpoints";
 import {
   createDefaultTriageRecord,
   loadTriageRecord,
@@ -12,10 +13,12 @@ import {
 } from "@/lib/triage";
 import { CVEDetail } from "@/lib/types";
 import AITriageAssistantPanel from "./AITriageAssistantPanel";
+import HumanApprovalCheckpoint from "./HumanApprovalCheckpoint";
 
 export default function TriagePanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
   const [record, setRecord] = useState<TriageRecord>(() => createDefaultTriageRecord(cveId));
   const [tagInput, setTagInput] = useState("");
+  const [pendingApproval, setPendingApproval] = useState<ApprovalCheckpoint<TriageRecord> | null>(null);
 
   useEffect(() => {
     const sync = async () => {
@@ -36,10 +39,15 @@ export default function TriagePanel({ cveId, detail }: { cveId: string; detail?:
     }).then((saved) => setRecord(saved));
   };
 
-  const applySuggestion = (updater: (current: TriageRecord) => TriageRecord) => {
-    const next = updater(record);
-    persist(next);
-    setTagInput(next.tags.join(", "));
+  const requestApproval = (updater: (current: TriageRecord) => TriageRecord, label: string) => {
+    const checkpoint = buildTriageApprovalCheckpoint(record, updater(record), label);
+    setPendingApproval(checkpoint);
+  };
+
+  const approveCheckpoint = (checkpoint: ApprovalCheckpoint<TriageRecord>) => {
+    persist(checkpoint.nextState);
+    setTagInput(checkpoint.nextState.tags.join(", "));
+    setPendingApproval(null);
   };
 
   return (
@@ -124,7 +132,15 @@ export default function TriagePanel({ cveId, detail }: { cveId: string; detail?:
         </div>
       )}
 
-      <AITriageAssistantPanel cveId={cveId} detail={detail} record={record} onApply={applySuggestion} />
+      <AITriageAssistantPanel cveId={cveId} detail={detail} record={record} onRequestApproval={requestApproval} />
+
+      {pendingApproval ? (
+        <HumanApprovalCheckpoint
+          checkpoint={pendingApproval}
+          onApprove={approveCheckpoint}
+          onCancel={() => setPendingApproval(null)}
+        />
+      ) : null}
     </div>
   );
 }
