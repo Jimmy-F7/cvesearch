@@ -17,6 +17,7 @@ export {
   getRecentAIRuns,
   getServerAIConfigurationSummary,
   interpretSearchPromptHeuristically,
+  preparePromptInputForFeature,
 } from "./ai-service";
 
 export type {

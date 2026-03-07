@@ -59,7 +59,10 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     }),
   });
 
-  return applyWorkspaceSession(NextResponse.json(summary), session);
+  return applyWorkspaceSession(NextResponse.json({
+    ...summary,
+    projectName: project.name,
+  }), session);
 }, {
   route: "/api/ai/project/[id]",
   errorMessage: "Failed to generate AI project summary",

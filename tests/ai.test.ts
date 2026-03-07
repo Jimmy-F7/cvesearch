@@ -9,6 +9,7 @@ import {
   buildHeuristicWatchlistReview,
   getServerAIConfigurationSummary,
   interpretSearchPromptHeuristically,
+  preparePromptInputForFeature,
 } from "../src/lib/ai";
 
 test("interpretSearchPromptHeuristically extracts severity and recent window", () => {
@@ -288,6 +289,52 @@ test("buildHeuristicProjectSummary returns executive analyst and engineering vie
   assert.equal(result.engineering.bullets.length >= 1, true);
 });
 
+test("preparePromptInputForFeature redacts sensitive notes and project metadata for external providers", () => {
+  const previous = {
+    AI_PROVIDER: process.env.AI_PROVIDER,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    AI_ALLOW_SENSITIVE_MODEL_DATA: process.env.AI_ALLOW_SENSITIVE_MODEL_DATA,
+  };
+
+  process.env.AI_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-openai-key";
+  delete process.env.AI_ALLOW_SENSITIVE_MODEL_DATA;
+
+  try {
+    const redacted = preparePromptInputForFeature("triage_agent", {
+      detail: { id: "CVE-2026-7001" },
+      epss: null,
+      triage: {
+        status: "investigating",
+        owner: "platform-security",
+        notes: "Customer-facing production edge cluster",
+        tags: ["internet-facing"],
+        updatedAt: "2026-03-07T12:00:00.000Z",
+      },
+      relatedProjects: [
+        {
+          name: "Top Secret Project",
+          updatedAt: "2026-03-07T12:00:00.000Z",
+          items: [{ cveId: "CVE-2026-7001", note: "Privileged note", addedAt: "2026-03-07T11:00:00.000Z" }],
+        },
+      ],
+    });
+
+    assert.equal(redacted.triage?.owner, "[redacted owner]");
+    assert.equal(redacted.triage?.notes, "[redacted analyst notes]");
+    assert.equal(redacted.relatedProjects[0]?.name, "Tracked project 1");
+    assert.equal("note" in (redacted.relatedProjects[0]?.items[0] ?? {}), false);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
 test("getServerAIConfigurationSummary applies per-feature provider and model overrides", () => {
   const previous = {
     AI_PROVIDER: process.env.AI_PROVIDER,
@@ -309,6 +356,7 @@ test("getServerAIConfigurationSummary applies per-feature provider and model ove
     AI_WATCHLIST_ANALYST_MODEL: process.env.AI_WATCHLIST_ANALYST_MODEL,
     AI_PROJECT_SUMMARY_PROVIDER: process.env.AI_PROJECT_SUMMARY_PROVIDER,
     AI_PROJECT_SUMMARY_MODEL: process.env.AI_PROJECT_SUMMARY_MODEL,
+    AI_ALLOW_SENSITIVE_MODEL_DATA: process.env.AI_ALLOW_SENSITIVE_MODEL_DATA,
   };
 
   process.env.AI_PROVIDER = "openai";
@@ -330,6 +378,7 @@ test("getServerAIConfigurationSummary applies per-feature provider and model ove
   process.env.AI_WATCHLIST_ANALYST_MODEL = "claude-watchlist";
   process.env.AI_PROJECT_SUMMARY_PROVIDER = "openai";
   process.env.AI_PROJECT_SUMMARY_MODEL = "gpt-project";
+  delete process.env.AI_ALLOW_SENSITIVE_MODEL_DATA;
 
   try {
     const summary = getServerAIConfigurationSummary();
@@ -343,6 +392,8 @@ test("getServerAIConfigurationSummary applies per-feature provider and model ove
 
     assert.equal(summary.provider, "openai");
     assert.equal(summary.model, "gpt-global");
+    assert.equal(summary.redactionEnabledForExternalModels, true);
+    assert.equal(summary.sensitiveDataAllowedToModels, false);
     assert.equal(search?.provider, "heuristic");
     assert.equal(search?.mode, "heuristic");
     assert.equal(search?.model, "");

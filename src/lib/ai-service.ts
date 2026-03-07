@@ -108,6 +108,8 @@ export interface ServerAIConfigurationSummary {
   mode: "heuristic" | "configured";
   configured: boolean;
   availableProviders: AIProvider[];
+  redactionEnabledForExternalModels: boolean;
+  sensitiveDataAllowedToModels: boolean;
   featureConfigurations: Array<{
     feature: AIFeature;
     provider: AIProvider;
@@ -202,6 +204,8 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
     mode: runtime.mode,
     configured: runtime.mode === "configured",
     availableProviders,
+    redactionEnabledForExternalModels: !isSensitiveModelDataAllowed(),
+    sensitiveDataAllowedToModels: isSensitiveModelDataAllowed(),
     promptTemplates: listPromptTemplates(),
     toolRegistry: listAITools(),
     featureConfigurations: AI_FEATURES.map((feature) => {
@@ -222,11 +226,33 @@ export async function getRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
   return listRecentAIRuns(limit);
 }
 
+export function preparePromptInputForFeature<T>(feature: AIFeature, input: T): T {
+  const runtime = resolveAIRuntime(feature);
+  if (!shouldRedactPromptInput(runtime)) {
+    return input;
+  }
+
+  switch (feature) {
+    case "cve_insight":
+    case "triage_agent":
+    case "remediation_agent":
+      return redactCveInsightInput(input as CveInsightInput) as T;
+    case "daily_digest":
+      return redactDigestInput(input as DigestInput) as T;
+    case "watchlist_analyst":
+      return redactWatchlistReviewInput(input as WatchlistReviewInput) as T;
+    case "project_summary":
+      return redactProjectSummaryInput(input as ProjectSummaryInput) as T;
+    default:
+      return input;
+  }
+}
+
 export async function generateCveInsight(input: CveInsightInput): Promise<AICveInsight> {
   const promptTemplate = getCveInsightPromptTemplate();
   return executeStructuredTask({
     feature: "cve_insight",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("cve_insight", input)),
     fallback: () => buildHeuristicCveInsight(input),
     sanitize: sanitizeInsight,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -237,7 +263,7 @@ export async function generateTriageSuggestion(input: TriageSuggestionInput): Pr
   const promptTemplate = getTriageAgentPromptTemplate();
   return executeStructuredTask({
     feature: "triage_agent",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("triage_agent", input)),
     fallback: () => buildHeuristicTriageSuggestion(input),
     sanitize: sanitizeTriageSuggestion,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -248,7 +274,7 @@ export async function generateRemediationPlan(input: RemediationPlanInput): Prom
   const promptTemplate = getRemediationAgentPromptTemplate();
   return executeStructuredTask({
     feature: "remediation_agent",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("remediation_agent", input)),
     fallback: () => buildHeuristicRemediationPlan(input),
     sanitize: sanitizeRemediationPlan,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -259,7 +285,7 @@ export async function generateWatchlistReview(input: WatchlistReviewInput): Prom
   const promptTemplate = getWatchlistAnalystPromptTemplate();
   return executeStructuredTask({
     feature: "watchlist_analyst",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("watchlist_analyst", input)),
     fallback: () => buildHeuristicWatchlistReview(input),
     sanitize: sanitizeWatchlistReview,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -270,7 +296,7 @@ export async function generateProjectSummary(input: ProjectSummaryInput): Promis
   const promptTemplate = getProjectSummaryPromptTemplate();
   return executeStructuredTask({
     feature: "project_summary",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("project_summary", input)),
     fallback: () => buildHeuristicProjectSummary(input),
     sanitize: sanitizeProjectSummary,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -341,7 +367,7 @@ export async function generateDigest(input: DigestInput): Promise<AIDigest> {
   const promptTemplate = getDailyDigestPromptTemplate();
   return executeStructuredTask({
     feature: "daily_digest",
-    prompt: promptTemplate.build(input),
+    prompt: promptTemplate.build(preparePromptInputForFeature("daily_digest", input)),
     fallback: () => buildHeuristicDigest(input),
     sanitize: sanitizeDigest,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
@@ -577,6 +603,79 @@ export function buildHeuristicProjectSummary(input: ProjectSummaryInput): AIProj
       investigatingCount,
     },
   };
+}
+
+function shouldRedactPromptInput(runtime: AIRuntimeSettings): boolean {
+  return runtime.provider !== "heuristic" && !isSensitiveModelDataAllowed();
+}
+
+function isSensitiveModelDataAllowed(): boolean {
+  return process.env.AI_ALLOW_SENSITIVE_MODEL_DATA === "true";
+}
+
+function redactCveInsightInput(input: CveInsightInput): CveInsightInput {
+  return {
+    ...input,
+    triage: input.triage
+      ? {
+          ...input.triage,
+          owner: redactSensitiveString(input.triage.owner, "[redacted owner]"),
+          notes: redactSensitiveString(input.triage.notes, "[redacted analyst notes]"),
+        }
+      : input.triage,
+    relatedProjects: input.relatedProjects.map((project, index) => ({
+      name: maskProjectName(index),
+      updatedAt: project.updatedAt,
+      items: project.items.map((item) => ({ cveId: item.cveId, addedAt: item.addedAt })),
+    })),
+  };
+}
+
+function redactDigestInput(input: DigestInput): DigestInput {
+  return {
+    ...input,
+    projects: input.projects.map((project, index) => ({
+      name: maskProjectName(index),
+      updatedAt: project.updatedAt,
+      items: project.items.map((item) => ({ cveId: item.cveId, addedAt: item.addedAt })),
+    })),
+  };
+}
+
+function redactWatchlistReviewInput(input: WatchlistReviewInput): WatchlistReviewInput {
+  return {
+    ...input,
+    items: input.items.map((item) => ({
+      ...item,
+      projectNames: item.projectNames.map((_, index) => maskProjectName(index)),
+    })),
+  };
+}
+
+function redactProjectSummaryInput(input: ProjectSummaryInput): ProjectSummaryInput {
+  return {
+    project: {
+      ...input.project,
+      name: "[redacted project]",
+      description: redactSensitiveString(input.project.description, "[redacted project description]"),
+      activity: input.project.activity.map((entry, index) => ({
+        ...entry,
+        summary: `[redacted activity ${index + 1}]`,
+      })),
+    },
+    items: input.items.map((item) => ({
+      ...item,
+      owner: redactSensitiveString(item.owner, "[redacted owner]"),
+    })),
+  };
+}
+
+function maskProjectName(index: number): string {
+  return `Tracked project ${index + 1}`;
+}
+
+function redactSensitiveString(value: string, replacement: string): string {
+  return value.trim() ? replacement : value;
 }
 
 function normalizeCveInsightInput(input: CVEDetail | CveInsightInput): CveInsightInput {
