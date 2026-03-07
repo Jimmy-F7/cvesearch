@@ -6,6 +6,7 @@ import { createProjectAPI, deleteProjectAPI, listProjectsAPI, removeProjectItemA
 import { getCVEById } from "@/lib/api";
 import { ProjectRecord, CVESummary } from "@/lib/types";
 import CVEList from "./CVEList";
+import AIProjectSummaryPanel from "./AIProjectSummaryPanel";
 
 type ProjectDetails = Record<string, CVESummary[]>;
 
@@ -216,6 +217,8 @@ export default function ProjectsPageClient() {
                   </div>
                 </div>
               )}
+
+              <AIProjectSummaryPanel projectId={project.id} />
 
               <CVEList
                 cves={details[project.id] ?? []}

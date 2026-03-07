@@ -3,11 +3,13 @@ import { AISettings } from "./types";
 export {
   buildHeuristicCveInsight,
   buildHeuristicDigest,
+  buildHeuristicProjectSummary,
   buildHeuristicRemediationPlan,
   buildHeuristicTriageSuggestion,
   buildHeuristicWatchlistReview,
   generateCveInsight,
   generateDigest,
+  generateProjectSummary,
   generateRemediationPlan,
   generateSearchInterpretation,
   generateTriageSuggestion,
@@ -20,6 +22,7 @@ export {
 export type {
   CveInsightInput,
   DigestInput,
+  ProjectSummaryInput,
   RemediationPlanInput,
   ServerAIConfigurationSummary,
   TriageSuggestionInput,

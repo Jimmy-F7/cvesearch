@@ -50,6 +50,10 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   return result.changes > 0;
 }
 
+export async function getProjectById(projectId: string): Promise<ProjectRecord | null> {
+  return getProjectRecord(projectId);
+}
+
 export async function addProjectItem(projectId: string, item: { cveId: string; note?: string }): Promise<ProjectRecord | null> {
   return withTransaction((db) => {
     const project = getProjectRecord(projectId, db);

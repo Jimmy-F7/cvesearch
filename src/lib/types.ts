@@ -309,6 +309,27 @@ export interface AIWatchlistReview {
   reviewedAt: string;
 }
 
+export interface AIProjectSummarySection {
+  headline: string;
+  summary: string;
+  bullets: string[];
+}
+
+export interface AIProjectSummary {
+  projectName: string;
+  overview: string;
+  executive: AIProjectSummarySection;
+  analyst: AIProjectSummarySection;
+  engineering: AIProjectSummarySection;
+  metrics: {
+    totalItems: number;
+    criticalCount: number;
+    highCount: number;
+    kevCount: number;
+    investigatingCount: number;
+  };
+}
+
 export type AISearchFilterField = "query" | "vendor" | "product" | "cwe" | "since" | "minSeverity" | "sort";
 
 export interface AISearchAppliedFilter {
@@ -368,7 +389,7 @@ export interface AIRunRecord {
 
 export type AIProvider = "heuristic" | "openai" | "anthropic";
 
-export type AIFeature = "search_assistant" | "cve_insight" | "daily_digest" | "triage_agent" | "remediation_agent" | "watchlist_analyst";
+export type AIFeature = "search_assistant" | "cve_insight" | "daily_digest" | "triage_agent" | "remediation_agent" | "watchlist_analyst" | "project_summary";
 
 export interface AISettings {
   provider: AIProvider;

@@ -64,6 +64,18 @@ export const AI_PROMPT_TEMPLATES = {
       JSON.stringify(input),
     ].join("\n"),
   } satisfies PromptTemplate<unknown>,
+  project_summary: {
+    feature: "project_summary",
+    version: "2026-03-07.project-summary.v1",
+    description: "Turn project state into executive, analyst, and engineering summaries.",
+    build: (input: unknown) => [
+      "You are a project summary assistant for vulnerability response workflows.",
+      "Return only valid JSON matching this shape:",
+      '{"projectName":"string","overview":"string","executive":{"headline":"string","summary":"string","bullets":["string"]},"analyst":{"headline":"string","summary":"string","bullets":["string"]},"engineering":{"headline":"string","summary":"string","bullets":["string"]},"metrics":{"totalItems":0,"criticalCount":0,"highCount":0,"kevCount":0,"investigatingCount":0}}',
+      "Base your answer only on this input JSON:",
+      JSON.stringify(input),
+    ].join("\n"),
+  } satisfies PromptTemplate<unknown>,
   triage_agent: {
     feature: "triage_agent",
     version: "2026-03-07.triage.v1",
@@ -112,6 +124,10 @@ export function getRemediationAgentPromptTemplate() {
 
 export function getWatchlistAnalystPromptTemplate() {
   return AI_PROMPT_TEMPLATES.watchlist_analyst;
+}
+
+export function getProjectSummaryPromptTemplate() {
+  return AI_PROMPT_TEMPLATES.project_summary;
 }
 
 export function getTriageAgentPromptTemplate() {

@@ -2,6 +2,7 @@ import {
   AICveInsight,
   AIDigest,
   AIFeature,
+  AIProjectSummary,
   AIRemediationPlan,
   AIRunRecord,
   AITriageContextSnapshot,
@@ -25,6 +26,7 @@ import { extractCVEId, extractDescription, getSeverityFromScore } from "./utils"
 import {
   getCveInsightPromptTemplate,
   getDailyDigestPromptTemplate,
+  getProjectSummaryPromptTemplate,
   getRemediationAgentPromptTemplate,
   getSearchAssistantPromptTemplate,
   getTriageAgentPromptTemplate,
@@ -39,7 +41,7 @@ const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
-const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest", "triage_agent", "remediation_agent", "watchlist_analyst"];
+const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest", "triage_agent", "remediation_agent", "watchlist_analyst", "project_summary"];
 const AI_FEATURE_ENV_SEGMENTS: Record<AIFeature, string> = {
   search_assistant: "SEARCH_ASSISTANT",
   cve_insight: "CVE_INSIGHT",
@@ -47,6 +49,7 @@ const AI_FEATURE_ENV_SEGMENTS: Record<AIFeature, string> = {
   triage_agent: "TRIAGE_AGENT",
   remediation_agent: "REMEDIATION_AGENT",
   watchlist_analyst: "WATCHLIST_ANALYST",
+  project_summary: "PROJECT_SUMMARY",
 };
 
 export interface DigestInput {
@@ -83,6 +86,20 @@ export interface WatchlistReviewInput {
     modified: string;
   }>;
   previousReviewAt: string | null;
+}
+
+export interface ProjectSummaryInput {
+  project: Pick<ProjectRecord, "id" | "name" | "description" | "updatedAt" | "items" | "activity">;
+  items: Array<{
+    id: string;
+    summary: string;
+    severity: SearchSeverityFilter | "NONE" | "UNKNOWN";
+    kev: boolean;
+    triageStatus: AITriageContextSnapshot["status"];
+    owner: string;
+    affectedProducts: string[];
+    published: string;
+  }>;
 }
 
 export interface ServerAIConfigurationSummary {
@@ -245,6 +262,17 @@ export async function generateWatchlistReview(input: WatchlistReviewInput): Prom
     prompt: promptTemplate.build(input),
     fallback: () => buildHeuristicWatchlistReview(input),
     sanitize: sanitizeWatchlistReview,
+    toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+  });
+}
+
+export async function generateProjectSummary(input: ProjectSummaryInput): Promise<AIProjectSummary> {
+  const promptTemplate = getProjectSummaryPromptTemplate();
+  return executeStructuredTask({
+    feature: "project_summary",
+    prompt: promptTemplate.build(input),
+    fallback: () => buildHeuristicProjectSummary(input),
+    sanitize: sanitizeProjectSummary,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
   });
 }
@@ -490,6 +518,64 @@ export function buildHeuristicWatchlistReview(input: WatchlistReviewInput): AIWa
     recommendedActions: buildWatchlistActions(sortedItems, newMatches, changedItems, clusters),
     previousReviewAt,
     reviewedAt,
+  };
+}
+
+export function buildHeuristicProjectSummary(input: ProjectSummaryInput): AIProjectSummary {
+  const criticalCount = input.items.filter((item) => item.severity === "CRITICAL").length;
+  const highCount = input.items.filter((item) => item.severity === "HIGH").length;
+  const kevCount = input.items.filter((item) => item.kev).length;
+  const investigatingCount = input.items.filter((item) => item.triageStatus === "investigating").length;
+  const topProducts = Array.from(new Set(input.items.flatMap((item) => item.affectedProducts))).slice(0, 3);
+  const owners = Array.from(new Set(input.items.map((item) => item.owner).filter(Boolean))).slice(0, 4);
+  const newest = [...input.items]
+    .sort((left, right) => (right.published || "").localeCompare(left.published || ""))
+    .slice(0, 3)
+    .map((item) => item.id);
+
+  return {
+    projectName: input.project.name,
+    overview: `${input.project.name} tracks ${input.items.length} ${input.items.length === 1 ? "vulnerability" : "vulnerabilities"}${topProducts.length > 0 ? ` across ${topProducts.join(", ")}` : ""}.`,
+    executive: {
+      headline: criticalCount > 0 || kevCount > 0 ? "Immediate leadership attention recommended" : "Project risk is active but bounded",
+      summary: criticalCount > 0 || kevCount > 0
+        ? `${input.project.name} includes ${criticalCount} critical ${criticalCount === 1 ? "issue" : "issues"} and ${kevCount} known-exploited ${kevCount === 1 ? "entry" : "entries"}, so remediation urgency and ownership should stay visible.`
+        : `${input.project.name} currently centers on ${highCount} high-severity ${highCount === 1 ? "item" : "items"} with ongoing analyst follow-up.`,
+      bullets: [
+        `${input.items.length} total tracked ${input.items.length === 1 ? "item" : "items"} in the project workspace.`,
+        investigatingCount > 0 ? `${investigatingCount} ${investigatingCount === 1 ? "item is" : "items are"} actively investigating.` : "No items are currently marked as investigating.",
+        owners.length > 0 ? `Current ownership spans ${owners.join(", ")}.` : "Ownership is still loosely defined across the project.",
+      ],
+    },
+    analyst: {
+      headline: "Analyst queue and workflow focus",
+      summary: newest.length > 0
+        ? `Start with ${newest.join(", ")} and confirm whether triage state, project notes, and remediation plans still match current exposure.`
+        : "Review triage state and confirm the project still reflects the right incident grouping.",
+      bullets: [
+        criticalCount > 0 ? `Prioritize the ${criticalCount} critical ${criticalCount === 1 ? "entry" : "entries"} for coordination and status checks.` : "No critical entries are present in this project right now.",
+        kevCount > 0 ? `Reconfirm exploit exposure and mitigation posture for ${kevCount} known-exploited ${kevCount === 1 ? "item" : "items"}.` : "No KEV-linked items are currently in the project.",
+        input.project.activity.length > 0 ? `Recent project activity suggests active coordination since ${new Date(input.project.activity[0].createdAt).toLocaleString("en-US")}.` : "Project activity history is still minimal.",
+      ],
+    },
+    engineering: {
+      headline: "Engineering rollout view",
+      summary: topProducts.length > 0
+        ? `Plan remediation by affected product area: ${topProducts.join(", ")}, and keep rollout notes aligned with existing project tracking.`
+        : "Use the project list to align engineering rollout sequencing with current remediation ownership.",
+      bullets: [
+        owners.length > 0 ? `Coordinate implementation with ${owners.join(", ")}.` : "Assign a concrete engineering owner before scheduling rollout work.",
+        highCount > 0 || criticalCount > 0 ? "Bundle high-severity and critical changes into a prioritized rollout path with validation checkpoints." : "Treat remaining work as normal-priority remediation unless exposure changes.",
+        newest.length > 0 ? `Validate the newest impacted entries first: ${newest.join(", ")}.` : "Keep version validation and deployment checks attached to each project item.",
+      ],
+    },
+    metrics: {
+      totalItems: input.items.length,
+      criticalCount,
+      highCount,
+      kevCount,
+      investigatingCount,
+    },
   };
 }
 
@@ -1490,6 +1576,57 @@ function sanitizeWatchlistReview(value: unknown): AIWatchlistReview {
       : fallback.recommendedActions,
     previousReviewAt: typeof record.previousReviewAt === "string" ? record.previousReviewAt : fallback.previousReviewAt,
     reviewedAt: typeof record.reviewedAt === "string" ? record.reviewedAt : fallback.reviewedAt,
+  };
+}
+
+function sanitizeProjectSummary(value: unknown): AIProjectSummary {
+  const fallback = buildHeuristicProjectSummary({
+    project: { id: "project-unknown", name: "Unknown Project", description: "", updatedAt: "", items: [], activity: [] },
+    items: [],
+  });
+
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    projectName: typeof record.projectName === "string" ? record.projectName : fallback.projectName,
+    overview: typeof record.overview === "string" ? record.overview : fallback.overview,
+    executive: sanitizeProjectSummarySection(record.executive, fallback.executive),
+    analyst: sanitizeProjectSummarySection(record.analyst, fallback.analyst),
+    engineering: sanitizeProjectSummarySection(record.engineering, fallback.engineering),
+    metrics: sanitizeProjectSummaryMetrics(record.metrics, fallback.metrics),
+  };
+}
+
+function sanitizeProjectSummarySection(value: unknown, fallback: AIProjectSummary["executive"]): AIProjectSummary["executive"] {
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    headline: typeof record.headline === "string" ? record.headline : fallback.headline,
+    summary: typeof record.summary === "string" ? record.summary : fallback.summary,
+    bullets: Array.isArray(record.bullets)
+      ? record.bullets.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : fallback.bullets,
+  };
+}
+
+function sanitizeProjectSummaryMetrics(value: unknown, fallback: AIProjectSummary["metrics"]): AIProjectSummary["metrics"] {
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    totalItems: typeof record.totalItems === "number" ? record.totalItems : fallback.totalItems,
+    criticalCount: typeof record.criticalCount === "number" ? record.criticalCount : fallback.criticalCount,
+    highCount: typeof record.highCount === "number" ? record.highCount : fallback.highCount,
+    kevCount: typeof record.kevCount === "number" ? record.kevCount : fallback.kevCount,
+    investigatingCount: typeof record.investigatingCount === "number" ? record.investigatingCount : fallback.investigatingCount,
   };
 }
 
