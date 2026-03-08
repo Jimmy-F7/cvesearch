@@ -182,6 +182,8 @@ To use model-backed AI features instead of the built-in heuristic fallback, conf
 - `OPENAI_API_KEY` / `OPENAI_MODEL`
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
 
+OpenAI requests are sent through the Responses API. The checked-in example configuration uses `gpt-5-mini` as the default OpenAI model.
+
 You can also override individual flows with feature-specific variables such as `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, or `AI_DAILY_DIGEST_MODEL`. The `/settings` page shows the active configuration, prompt versions, tool registry, inventory assets, workspace import/export, and recent AI runs.
 
 See `.env.example` for the full list of supported variables.
@@ -198,7 +200,7 @@ npm start
 
 ## Testing
 
-The project includes 65 TypeScript tests across 19 test files covering:
+The project includes 72 TypeScript tests across 19 test files covering:
 
 - search-state parsing and URL generation
 - prioritization and local alert matching

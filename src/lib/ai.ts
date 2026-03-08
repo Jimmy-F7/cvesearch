@@ -38,7 +38,7 @@ export type {
 } from "./ai-service";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 
 export async function callModel(prompt: string, settings: AISettings): Promise<string> {

@@ -41,7 +41,7 @@ import {
 import { listAITools } from "./ai-tool-registry";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
