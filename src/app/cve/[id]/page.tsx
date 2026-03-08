@@ -68,7 +68,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
   if (error || !cve) {
     return (
       <div className="app-shell px-4 py-8 sm:px-6">
-        <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
@@ -184,7 +184,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
           <Section title="Aliases">
             <div className="flex flex-wrap gap-2">
               {aliases.map((alias) => (
-                <span key={alias} className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-sm text-gray-300">
+                <span key={alias} className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-sm text-white/50">
                   {alias}
                 </span>
               ))}
@@ -207,7 +207,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
             </div>
             {cvssDetail.vectorString && (
               <div className="mt-3 rounded-lg bg-white/[0.03] px-3 py-2">
-                <span className="text-xs text-gray-500">Vector: </span>
+                <span className="text-xs text-white/25">Vector: </span>
                 <code className="text-xs text-cyan-400">{cvssDetail.vectorString}</code>
               </div>
             )}
@@ -222,16 +222,16 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                 <div className="text-2xl font-bold text-white">
                   {(epss.epss * 100).toFixed(2)}%
                 </div>
-                <div className="text-xs text-gray-500">Probability of exploitation</div>
+                <div className="text-xs text-white/25">Probability of exploitation</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-white">
                   {(epss.percentile * 100).toFixed(1)}%
                 </div>
-                <div className="text-xs text-gray-500">Percentile rank</div>
+                <div className="text-xs text-white/25">Percentile rank</div>
               </div>
               <div className="flex-1">
-                <div className="mb-1 text-xs text-gray-500">Exploitation likelihood</div>
+                <div className="mb-1 text-xs text-white/25">Exploitation likelihood</div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-white/[0.06]">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-red-500 transition-all"
@@ -259,7 +259,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                       <span className="text-sm font-medium text-white">{a.product}</span>
                     )}
                     {a.defaultStatus && (
-                      <span className="text-xs text-gray-500">({a.defaultStatus})</span>
+                      <span className="text-xs text-white/25">({a.defaultStatus})</span>
                     )}
                   </div>
                   {a.versions && a.versions.length > 0 && (
@@ -279,12 +279,12 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                         </span>
                       ))}
                       {a.versions.length > 20 && (
-                        <span className="text-xs text-gray-500">+{a.versions.length - 20} more</span>
+                        <span className="text-xs text-white/25">+{a.versions.length - 20} more</span>
                       )}
                     </div>
                   )}
                   {a.platforms && a.platforms.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
+                    <div className="mt-2 text-xs text-white/25">
                       Platforms: {a.platforms.join(", ")}
                     </div>
                   )}
@@ -305,7 +305,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                       {d.cweId}
                     </span>
                   )}
-                  <span className="text-sm text-gray-300">{d.description}</span>
+                  <span className="text-sm text-white/50">{d.description}</span>
                 </div>
               ))
             )}
@@ -318,7 +318,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
               <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 p-4">
                 <div className="text-sm font-medium text-white">{cweDetail.name || cweDetail.id}</div>
                 {cweDetail.description && (
-                  <p className="mt-2 text-sm leading-relaxed text-gray-400">{cweDetail.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-white/40">{cweDetail.description}</p>
                 )}
               </div>
             )}
@@ -334,7 +334,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                 const tags = ref.tags ?? [];
                 return (
                   <div key={i} className="flex items-start gap-2 group">
-                    <svg className="mt-1 h-3.5 w-3.5 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <svg className="mt-1 h-3.5 w-3.5 shrink-0 text-white/15" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.868-4.242a4.5 4.5 0 00-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" />
                     </svg>
                     <div className="min-w-0 flex-1">
@@ -349,7 +349,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                       {tags.length > 0 && (
                         <div className="mt-0.5 flex flex-wrap gap-1">
                           {tags.map((tag, k) => (
-                            <span key={k} className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-gray-500">
+                            <span key={k} className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/25">
                               {tag}
                             </span>
                           ))}
@@ -391,12 +391,12 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
                     <span className="text-sm font-medium text-white">{entry.name}</span>
                   </div>
                   {entry.summary && (
-                    <p className="mt-2 text-sm leading-relaxed text-gray-400">{entry.summary}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/40">{entry.summary}</p>
                   )}
                   {entry.related_weakness && entry.related_weakness.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {entry.related_weakness.map((weakness) => (
-                        <span key={weakness} className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-gray-400">
+                        <span key={weakness} className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/35">
                           {weakness}
                         </span>
                       ))}
@@ -413,11 +413,11 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
             <div className="space-y-3">
               {comments.map((comment, index) => (
                 <div key={`${comment.author}-${comment.timestamp}-${index}`} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-white/25">
                     {comment.author && <span>{comment.author}</span>}
                     {comment.timestamp && <span>{formatDate(comment.timestamp)}</span>}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-300">{comment.body}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/50">{comment.body}</p>
                 </div>
               ))}
             </div>
@@ -426,7 +426,7 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
 
         {/* Raw JSON */}
         <Section title="Raw Data" collapsible>
-          <pre className="max-h-96 overflow-auto rounded-lg bg-black/40 p-4 text-xs text-gray-400 font-mono leading-relaxed">
+          <pre className="max-h-96 overflow-auto rounded-lg bg-black/40 p-4 text-xs text-white/35 font-mono leading-relaxed">
             {JSON.stringify(cve, null, 2)}
           </pre>
         </Section>
@@ -632,7 +632,7 @@ function MetricCard({ label, value }: { label: string; value?: string }) {
     if (["ADJACENT_NETWORK", "ADJACENT", "REQUIRED"].includes(upper)) return "text-orange-400";
     if (["LOCAL", "LOW"].includes(upper)) return "text-yellow-400";
     if (["PHYSICAL", "NONE", "UNCHANGED"].includes(upper)) return "text-green-400";
-    return "text-gray-300";
+    return "text-white/50";
   };
 
   return (

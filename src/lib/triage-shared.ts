@@ -80,7 +80,7 @@ export function getTriageStatusClasses(status: TriageStatus): string {
     case "accepted":
       return "border-orange-500/25 bg-orange-500/10 text-orange-300";
     case "closed":
-      return "border-gray-500/25 bg-gray-500/10 text-gray-300";
+      return "border-white/15 bg-white/[0.06] text-white/50";
     default:
       return "border-cyan-500/25 bg-cyan-500/10 text-cyan-300";
   }

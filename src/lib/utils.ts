@@ -20,9 +20,9 @@ export function severityColor(severity: SeverityLevel): string {
     case "LOW":
       return "bg-blue-500/15 text-blue-400 border-blue-500/30";
     case "NONE":
-      return "bg-gray-500/15 text-gray-400 border-gray-500/30";
+      return "bg-white/[0.06] text-white/40 border-white/15";
     default:
-      return "bg-gray-500/15 text-gray-500 border-gray-500/30";
+      return "bg-white/[0.06] text-white/25 border-white/15";
   }
 }
 

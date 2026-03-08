@@ -168,7 +168,7 @@ export default function InventoryAssetsPanel({ initialAssets }: { initialAssets:
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <Text as="span" size="1" weight="bold" className="mb-2 block uppercase tracking-wider text-gray-500">{label}</Text>
+      <Text as="span" size="1" weight="bold" className="mb-2 block uppercase tracking-wider text-white/25">{label}</Text>
       {children}
     </label>
   );

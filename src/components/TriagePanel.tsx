@@ -111,7 +111,7 @@ export default function TriagePanel({ cveId, detail }: { cveId: string; detail?:
       </div>
 
       {record.updatedAt && (
-        <p className="mt-4 text-xs text-gray-500">
+        <p className="mt-4 text-xs text-white/25">
           Last updated {new Date(record.updatedAt).toLocaleString("en-US")}
         </p>
       )}
@@ -122,8 +122,8 @@ export default function TriagePanel({ cveId, detail }: { cveId: string; detail?:
           <div className="mt-3 space-y-2">
             {record.activity.slice(0, 6).map((entry) => (
               <div key={entry.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
-                <p className="text-sm text-gray-300">{entry.summary}</p>
-                <p className="mt-1 text-[11px] text-gray-500">
+                <p className="text-sm text-white/50">{entry.summary}</p>
+                <p className="mt-1 text-[11px] text-white/25">
                   {new Date(entry.createdAt).toLocaleString("en-US")}
                 </p>
               </div>

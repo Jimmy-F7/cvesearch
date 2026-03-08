@@ -99,7 +99,7 @@ function WorkflowPanel({ view }: { view: DashboardWorkflowView }) {
       <Flex justify="between" align={{ initial: "start", md: "center" }} direction={{ initial: "column", md: "row" }} gap="3">
         <div>
           <Heading size="5" className="text-white">{view.title}</Heading>
-          <Text as="p" size="2" className="mt-2 text-gray-200/90">{view.description}</Text>
+          <Text as="p" size="2" className="mt-2 text-white/50">{view.description}</Text>
         </div>
         <Button asChild variant="soft" color="gray" highContrast>
           <Link href={view.href}>Open Queue</Link>
@@ -110,7 +110,7 @@ function WorkflowPanel({ view }: { view: DashboardWorkflowView }) {
         {view.metrics.map((metric) => (
           <Card key={`${view.id}-${metric.label}`} size="2" className="border border-white/10 bg-black/15">
             <Text as="p" size="4" weight="bold" className="text-white">{metric.value}</Text>
-            <Text as="p" size="1" className="mt-1 uppercase tracking-wider text-gray-300/80">{metric.label}</Text>
+            <Text as="p" size="1" className="mt-1 uppercase tracking-wider text-white/35">{metric.label}</Text>
           </Card>
         ))}
       </Grid>
@@ -118,7 +118,7 @@ function WorkflowPanel({ view }: { view: DashboardWorkflowView }) {
       <div className="mt-4 space-y-3">
         {view.cves.length === 0 ? (
           <Card size="2" className="border border-white/10 bg-black/15">
-            <Text size="2" className="text-gray-200/80">No matching vulnerabilities in the current sample.</Text>
+            <Text size="2" className="text-white/40">No matching vulnerabilities in the current sample.</Text>
           </Card>
         ) : (
           view.cves.map((cve) => <CompactDashboardCard key={`${view.id}-${cve.id}`} cve={cve} />)
@@ -162,7 +162,7 @@ function CompactDashboardCard({ cve }: { cve: HomeDashboardData["latestCritical"
           <Link href={`/cve/${encodeURIComponent(cve.id)}`} className="font-mono text-sm font-semibold text-white hover:text-cyan-300">
             {cve.id}
           </Link>
-          <Text as="p" size="2" className="mt-1 line-clamp-2 text-gray-200/85">
+          <Text as="p" size="2" className="mt-1 line-clamp-2 text-white/50">
             {cve.summary || cve.description || "No description available."}
           </Text>
         </div>

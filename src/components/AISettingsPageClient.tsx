@@ -98,8 +98,8 @@ export default function AISettingsPageClient({
                   </Badge>
                 </Flex>
                 <div className="mt-3 space-y-2">
-                  <Text as="p" size="2" className="text-gray-300"><span className="text-gray-500">Provider:</span> {featureConfig.provider}</Text>
-                  <Text as="p" size="2" className="text-gray-300"><span className="text-gray-500">Model:</span> {featureConfig.model || "Not required in heuristic mode"}</Text>
+                  <Text as="p" size="2" className="text-white/50"><span className="text-white/25">Provider:</span> {featureConfig.provider}</Text>
+                  <Text as="p" size="2" className="text-white/50"><span className="text-white/25">Model:</span> {featureConfig.model || "Not required in heuristic mode"}</Text>
                 </div>
               </Card>
             ))}
@@ -188,12 +188,12 @@ export default function AISettingsPageClient({
 
                     {run.toolCalls.length > 0 ? (
                       <div>
-                        <Text size="1" weight="bold" className="uppercase tracking-wider text-gray-500">Tool Calls</Text>
+                        <Text size="1" weight="bold" className="uppercase tracking-wider text-white/25">Tool Calls</Text>
                         <div className="mt-2 space-y-2">
                           {run.toolCalls.map((call) => (
-                            <div key={`${run.id}-${call.tool}`} className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-gray-300">
+                            <div key={`${run.id}-${call.tool}`} className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-white/50">
                               <span className="font-medium text-white">{call.tool}</span>
-                              <span className="text-gray-400"> — {call.summary}</span>
+                              <span className="text-white/35"> — {call.summary}</span>
                             </div>
                           ))}
                         </div>
@@ -221,7 +221,7 @@ export default function AISettingsPageClient({
 function MetricCard({ label, value, className = "" }: { label: string; value: string; className?: string }) {
   return (
     <Card size="2" className={`border border-white/[0.06] bg-white/[0.03] ${className}`.trim()}>
-      <Text as="p" size="1" weight="bold" className="uppercase tracking-wider text-gray-500">{label}</Text>
+      <Text as="p" size="1" weight="bold" className="uppercase tracking-wider text-white/25">{label}</Text>
       <Text as="p" size="3" className="mt-2 text-white">{value}</Text>
     </Card>
   );
@@ -230,8 +230,8 @@ function MetricCard({ label, value, className = "" }: { label: string; value: st
 function RunBlock({ title, value }: { title: string; value: string }) {
   return (
     <div>
-      <Text size="1" weight="bold" className="uppercase tracking-wider text-gray-500">{title}</Text>
-      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-gray-300">{value}</pre>
+      <Text size="1" weight="bold" className="uppercase tracking-wider text-white/25">{title}</Text>
+      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-white/50">{value}</pre>
     </div>
   );
 }

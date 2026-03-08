@@ -112,7 +112,7 @@ export default function AlertsPageClient() {
       </div>
 
       {feedback && (
-        <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-red-500/20 bg-red-500/10 text-red-200" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"}`}>
+        <div className={`mb-6 rounded-xl border px-4 py-3 text-sm animate-fade-in ${feedback.type === "error" ? "border-red-500/20 bg-red-500/8 text-red-300" : "border-emerald-500/20 bg-emerald-500/8 text-emerald-300"}`}>
           {feedback.message}
         </div>
       )}
@@ -124,23 +124,23 @@ export default function AlertsPageClient() {
       </div>
 
       {rules.length === 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-6 py-10 text-center">
+        <div className="glass rounded-xl px-6 py-10 text-center">
           <p className="text-lg font-medium text-white">No alert rules yet</p>
-          <p className="mt-2 text-sm text-gray-500">Save an alert from the homepage to start tracking new matches in this workspace.</p>
+          <p className="mt-2 text-sm text-white/25">Save an alert from the homepage to start tracking new matches in this workspace.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {evaluations.map(({ rule, matching, unread }) => (
-            <section key={rule.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+            <section key={rule.id} className="glass rounded-2xl p-5">
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold text-white">{rule.name}</h2>
-                    <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs text-amber-300">
+                    <span className="badge badge-xs border-amber-500/20 bg-amber-500/8 text-amber-300">
                       {matching.length} matches
                     </span>
                     {unread > 0 && (
-                      <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-xs text-red-300">
+                      <span className="badge badge-xs border-red-500/20 bg-red-500/8 text-red-300">
                         {unread} unread
                       </span>
                     )}
@@ -152,7 +152,7 @@ export default function AlertsPageClient() {
                     {rule.search.cwe && <Chip label={`CWE: ${rule.search.cwe}`} />}
                     {rule.search.minSeverity !== "ANY" && <Chip label={`Min: ${rule.search.minSeverity}`} />}
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-white/25">
                     Last checked {rule.lastCheckedAt ? new Date(rule.lastCheckedAt).toLocaleString("en-US") : "never"}
                   </p>
                 </div>
@@ -169,7 +169,7 @@ export default function AlertsPageClient() {
                           setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to update alert rule." });
                         });
                     }}
-                    className="rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
+                    className="btn-ghost px-3 py-2 text-sm"
                   >
                     Mark Checked
                   </button>
@@ -185,7 +185,7 @@ export default function AlertsPageClient() {
                           setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete alert rule." });
                         });
                     }}
-                    className="rounded-lg border border-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+                    className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-500/15"
                   >
                     Delete
                   </button>
@@ -213,7 +213,7 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function Chip({ label }: { label: string }) {
-  return <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-gray-400">{label}</span>;
+  return <span className="badge badge-xs border-white/[0.06] bg-white/[0.04] text-white/40">{label}</span>;
 }
 
 function isUnreadMatch(cve: CVESummary, lastCheckedAt: string | null): boolean {

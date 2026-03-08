@@ -229,7 +229,7 @@ export default function ReposPageClient() {
             type="button"
             onClick={loadGithubRepos}
             disabled={loadingGithub}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-6 py-8 text-sm text-gray-400 transition-colors hover:border-cyan-500/30 hover:bg-white/[0.04] hover:text-white"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-6 py-8 text-sm text-white/35 transition-colors hover:border-cyan-500/30 hover:bg-white/[0.04] hover:text-white"
           >
             {loadingGithub ? (
               <>
@@ -244,18 +244,18 @@ export default function ReposPageClient() {
             )}
           </button>
         ) : (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="glass rounded-2xl p-5 animate-fade-in">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">
                 GitHub Repositories
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-white/25">
                   {githubRepos.length} found
                 </span>
               </h2>
               <button
                 type="button"
                 onClick={() => setShowRepoBrowser(false)}
-                className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-gray-400 hover:bg-white/[0.06] hover:text-white"
+                className="btn-ghost px-3 py-1.5 text-xs"
               >
                 Close
               </button>
@@ -266,7 +266,7 @@ export default function ReposPageClient() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search repositories..."
-              className="mb-4 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              className="input-base mb-4 w-full px-3 py-2 text-sm"
             />
 
             <div className="max-h-80 space-y-1 overflow-y-auto">
@@ -283,16 +283,16 @@ export default function ReposPageClient() {
                           {repo.full_name}
                         </span>
                         {repo.private && (
-                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          <span className="badge badge-xs border-amber-500/20 bg-amber-500/8 text-amber-300">
                             private
                           </span>
                         )}
                         {repo.language && (
-                          <span className="text-xs text-gray-500">{repo.language}</span>
+                          <span className="text-xs text-white/25">{repo.language}</span>
                         )}
                       </div>
                       {repo.description && (
-                        <p className="mt-0.5 truncate text-xs text-gray-500">
+                        <p className="mt-0.5 truncate text-xs text-white/25">
                           {repo.description}
                         </p>
                       )}
@@ -320,7 +320,7 @@ export default function ReposPageClient() {
               })}
 
               {filteredGithubRepos.length === 0 && (
-                <p className="py-6 text-center text-sm text-gray-500">
+                <p className="py-6 text-center text-sm text-white/25">
                   {searchQuery ? "No repositories match your search." : "No repositories found."}
                 </p>
               )}
@@ -329,7 +329,7 @@ export default function ReposPageClient() {
         )}
 
         {tokenInfo && !tokenInfo.hasRepoScope && (
-          <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-200">
             <strong>Token lacks private repo access.</strong>{" "}
             {tokenInfo.tokenType === "classic" ? (
               <>Your classic PAT needs the <code className="rounded bg-amber-500/20 px-1">repo</code> scope (not just <code className="rounded bg-amber-500/20 px-1">public_repo</code>). Regenerate it at{" "}
@@ -347,7 +347,7 @@ export default function ReposPageClient() {
         )}
 
         {tokenInfo && tokenInfo.hasRepoScope && githubRepos.every((r) => !r.private) && githubRepos.length > 0 && (
-          <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-200">
             <strong>No private repos found.</strong>{" "}
             {tokenInfo.tokenType === "fine-grained" ? (
               <>Your fine-grained PAT might only have access to specific repos. Edit it at{" "}
@@ -361,7 +361,7 @@ export default function ReposPageClient() {
         )}
 
         {githubError && (
-          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">
             {githubError}
           </div>
         )}
@@ -371,10 +371,10 @@ export default function ReposPageClient() {
       {loadingMonitored ? (
         <div className="flex items-center justify-center py-12">
           <SpinnerIcon />
-          <span className="ml-2 text-sm text-gray-500">Loading monitored repos...</span>
+          <span className="ml-2 text-sm text-white/25">Loading monitored repos...</span>
         </div>
       ) : monitoredRepos.length === 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-6 py-10 text-center text-gray-500">
+        <div className="glass rounded-xl px-6 py-10 text-center text-white/25">
           No repositories monitored yet. Click &quot;Browse GitHub Repositories&quot; to add repos.
         </div>
       ) : (
@@ -412,7 +412,7 @@ const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: Monit
   const hasError = scanState?.state === "error";
 
   return (
-    <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+    <section className="glass rounded-2xl p-5">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -425,12 +425,12 @@ const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: Monit
               {repo.fullName}
             </a>
             {repo.isPrivate && (
-              <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+              <span className="badge badge-xs border-amber-500/20 bg-amber-500/8 text-amber-300">
                 private
               </span>
             )}
           </div>
-          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-white/25">
             <span>Branch: {repo.defaultBranch}</span>
             {repo.lastScannedAt && (
               <span>
@@ -480,7 +480,7 @@ const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: Monit
       </div>
 
       {hasError && (
-        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">
           {scanState.error}
         </div>
       )}
@@ -528,7 +528,7 @@ const ScanResults = ({ result, repoFullName }: ScanResultsProps) => {
 
   if (result.dependencyCount === 0) {
     return (
-      <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-sm text-gray-500">
+      <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-sm text-white/25">
         No dependency files found in this repository.
       </div>
     );
@@ -555,13 +555,13 @@ const ScanResults = ({ result, repoFullName }: ScanResultsProps) => {
   return (
     <div className="mt-3">
       <div className="mb-3 flex items-center gap-3 text-sm">
-        <span className="text-gray-400">
+        <span className="text-white/35">
           {result.dependencyCount} dependencies scanned
           {result.locationCount > 1 && (
-            <span className="text-gray-600"> across {result.locationCount} locations</span>
+            <span className="text-white/20"> across {result.locationCount} locations</span>
           )}
         </span>
-        <span className="text-gray-600">|</span>
+        <span className="text-white/15">|</span>
         {result.vulnerabilities.length > 0 ? (
           <span className="font-medium text-red-400">
             {result.vulnerabilities.length} vulnerabilities found
@@ -585,7 +585,7 @@ const ScanResults = ({ result, repoFullName }: ScanResultsProps) => {
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="mt-2 w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 text-xs text-gray-400 hover:bg-white/[0.04] hover:text-white"
+              className="mt-2 w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 text-xs text-white/35 hover:bg-white/[0.04] hover:text-white"
             >
               Show {sortedVulns.length - INITIAL_DISPLAY_COUNT} more vulnerabilities
             </button>
@@ -621,12 +621,12 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
   const severity = getSeverityLabel(match.vulnerability);
 
   const severityStyles: Record<string, string> = {
-    CRITICAL: "border-red-500/20 bg-red-500/5 hover:bg-red-500/10",
-    HIGH: "border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10",
-    MEDIUM: "border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10",
-    LOW: "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10",
-    NONE: "border-gray-500/20 bg-gray-500/5 hover:bg-gray-500/10",
-    UNKNOWN: "border-gray-500/20 bg-gray-500/5 hover:bg-gray-500/10",
+    CRITICAL: "border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/8",
+    HIGH: "border-orange-500/20 bg-orange-500/[0.04] hover:bg-orange-500/8",
+    MEDIUM: "border-yellow-500/20 bg-yellow-500/[0.04] hover:bg-yellow-500/8",
+    LOW: "border-blue-500/20 bg-blue-500/[0.04] hover:bg-blue-500/8",
+    NONE: "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]",
+    UNKNOWN: "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]",
   };
 
   const severityBadgeStyles: Record<string, string> = {
@@ -634,8 +634,8 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
     HIGH: "bg-orange-500/15 text-orange-400 border-orange-500/30",
     MEDIUM: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
     LOW: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    NONE: "bg-gray-500/15 text-gray-400 border-gray-500/30",
-    UNKNOWN: "bg-gray-500/15 text-gray-500 border-gray-500/30",
+    NONE: "bg-white/[0.06] text-white/40 border-white/[0.1]",
+    UNKNOWN: "bg-white/[0.06] text-white/25 border-white/[0.1]",
   };
 
   const { href, isExternal } = getVulnerabilityDetailUrl(match);
@@ -666,14 +666,14 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
           ))}
         </div>
 
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-white/40">
           {match.vulnerability.summary || "No summary available."}
         </p>
 
-        <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-gray-500">
+        <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-white/25">
           <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
             {match.matchedDependency.ecosystem === "Packagist" ? "composer" : match.matchedDependency.ecosystem}:{" "}
-            <span className="text-gray-300">{match.matchedDependency.name}</span>
+            <span className="text-white/50">{match.matchedDependency.name}</span>
             @{match.matchedDependency.version}
           </span>
           {match.matchedDependency.isDev && (
@@ -682,7 +682,7 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
             </span>
           )}
           {match.matchedDependency.manifestPath && (
-            <span className="rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-gray-400">
+            <span className="rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-white/35">
               {match.matchedDependency.manifestPath}
             </span>
           )}
@@ -697,12 +697,12 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
             e.stopPropagation();
             onFix();
           }}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-2.5 py-1 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/15"
         >
           <WrenchIcon />
           AI Fix
         </button>
-        <span className="flex items-center gap-1 text-xs text-gray-500">
+        <span className="flex items-center gap-1 text-xs text-white/25">
           {isExternal ? "OSV" : "CVE"}
           {isExternal ? <ExternalLinkIcon /> : <ChevronRightIcon />}
         </span>
