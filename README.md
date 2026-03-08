@@ -264,7 +264,8 @@ Planning and benchmark docs live in [`docs/`](./docs):
 - `docs/improvement-plan.md`
 - `docs/execution-backlog.md`
 - `docs/opencve-benchmark.md`
-- `docs/test-user-journeys.md`
+- `docs/test-user-journeys.md` - concise QA checklist
+- `docs/feature-validation-playbook.md` - full feature-by-feature validation guide
 - [`CHANGELOG.md`](./CHANGELOG.md)
 
 ## Tech Stack

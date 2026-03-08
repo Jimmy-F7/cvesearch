@@ -1,0 +1,1021 @@
+# Feature Validation Playbook
+
+## Scope
+
+This document is the deep validation companion to `docs/test-user-journeys.md`. It covers the full user-facing feature set currently exposed by the app. Each feature entry includes:
+
+- Entry point
+- Preconditions
+- User journey
+- Expected result
+- Verification status
+
+## Test Date
+
+- March 7, 2026
+
+## Environment
+
+- Build verification: `npm run build`
+- Test suite: `npm test`
+- Lint: `npm run lint`
+- Smoke environment: `npm start -- --hostname 127.0.0.1 --port 3001`
+
+## Verification Legend
+
+- `Smoke-tested`: exercised end to end against the local production server.
+- `Automated`: covered by the automated test suite, but not re-run manually in the browser/API smoke pass for this document.
+- `Partial`: some of the flow was exercised, but not every branch or UI state.
+- `Environment-dependent`: requires external credentials or upstream services to fully validate.
+
+## Verification Summary
+
+- `npm test` passed: 65/65
+- `npm run build` passed
+- `npm run lint` passed with one existing warning in `src/app/layout.tsx` (`@next/next/no-page-custom-font`)
+- Route reachability was smoke-tested for `/`, `/watchlist`, `/alerts`, `/projects`, `/repos`, `/settings`, and `/workspace`
+- Core CRUD and workflow APIs were smoke-tested for watchlist, triage, saved views, alerts, inventory, projects, notifications, workspace conversations, AI digest/search, and workspace export
+- GitHub monitoring was only partially validated locally because a known-good GitHub repository/token combination was not available
+
+## Feature Inventory
+
+### Global Surfaces
+
+1. App route reachability
+2. Header navigation between search, watchlist, alerts, projects, repos, settings, and workspace
+3. Shared CVE card actions
+
+### Search Workspace (`/`)
+
+1. Keyword search
+2. Structured filters
+3. Natural-language AI search assistant
+4. Search summary and active filter chips
+5. Dashboard metrics panel
+6. Saved views
+7. Alert rule creation
+8. AI digest panel
+9. Result export
+10. Pagination
+11. CVE result list
+
+### CVE Detail (`/cve/[id]`)
+
+1. Bookmark to watchlist
+2. Add to project
+3. Copy link
+4. AI insight panel
+5. Triage workspace
+6. AI triage assistant
+7. Human approval checkpoint
+8. AI remediation plan
+9. AI exposure analysis
+10. Aliases
+11. CVSS score breakdown
+12. EPSS enrichment
+13. Affected products
+14. Problem types / CWE
+15. References
+16. Linked vulnerabilities
+17. CAPEC attack patterns
+18. Comments
+19. Raw JSON data
+
+### Watchlist (`/watchlist`)
+
+1. Watchlist summary cards
+2. Status filtering
+3. Bulk selection
+4. Bulk remove
+5. Bulk triage update
+6. Bulk project assignment
+7. Inline project creation for bulk assignment
+8. AI watchlist review
+9. AI digest panel
+10. Selectable CVE list
+
+### Alerts (`/alerts`)
+
+1. Alert metrics
+2. Rule-by-rule match evaluation
+3. Unread match calculation
+4. Mark single rule checked
+5. Mark all checked
+6. Delete rule
+7. AI alert investigation
+8. Matching CVE preview list
+
+### Projects (`/projects`)
+
+1. Create project
+2. Delete project
+3. Edit project metadata
+4. Timeline view
+5. Vulnerability workflow per project item
+6. Update owner/remediation/SLA
+7. Exception workflow
+8. Remove project item
+9. AI project summary
+10. Embedded CVE previews
+
+### Repos (`/repos`)
+
+1. Browse GitHub repositories
+2. Search GitHub repositories
+3. Monitor repository
+4. Unmonitor repository
+5. Token scope warnings
+6. Scan single repository
+7. Scan all monitored repositories
+8. Persisted scan history
+9. Vulnerability result display
+10. Fix workflow modal
+
+### Settings (`/settings`)
+
+1. Server-side AI configuration summary
+2. Available provider badges
+3. Sensitive-data redaction notice
+4. Per-feature AI configuration cards
+5. Prompt version catalog
+6. Tool registry
+7. Inventory mapping
+8. Workspace export
+9. Workspace import in merge mode
+10. Workspace import in replace mode
+11. Recent AI runs
+
+### Workspace (`/workspace`)
+
+1. Create conversation
+2. Open conversation
+3. Suggested questions
+4. Ask workspace assistant
+5. View assistant references
+6. Create notification schedule
+7. Run all due digests
+8. Run a single schedule
+9. Pause or enable a schedule
+10. Delete a schedule
+11. View delivery history
+
+## Detailed User Journeys
+
+### 1. Global Navigation and Reachability
+
+#### 1.1 Load every main route
+
+- Entry point: direct browser navigation
+- Preconditions: app is running locally
+- User journey:
+  1. Open `/`
+  2. Open `/watchlist`
+  3. Open `/alerts`
+  4. Open `/projects`
+  5. Open `/repos`
+  6. Open `/settings`
+  7. Open `/workspace`
+- Expected result: every route returns `200` and renders its primary page shell without crashing
+- Verification: `Smoke-tested`
+
+#### 1.2 Navigate from page actions back to search
+
+- Entry point: any non-home route
+- Preconditions: app is running
+- User journey:
+  1. Open a secondary page such as `/projects`
+  2. Use the page-level `Back to Search` action
+- Expected result: navigation returns to `/`
+- Verification: `Partial`
+
+### 2. Search Workspace
+
+#### 2.1 Run a keyword search
+
+- Entry point: `/`
+- Preconditions: none
+- User journey:
+  1. Enter a keyword such as `openssl`
+  2. Submit the search
+- Expected result: the URL search params update, the result list refreshes, and the summary reflects the active query
+- Verification: `Automated` via `tests/search.test.ts`
+
+#### 2.2 Apply structured filters and sorting
+
+- Entry point: `/`
+- Preconditions: homepage loaded
+- User journey:
+  1. Set vendor, product, or CWE filters
+  2. Set a `since` date
+  3. Change minimum severity
+  4. Change sort order
+- Expected result: result ordering and filtering update, and active filter chips appear above the result list
+- Verification: `Automated` via `tests/search.test.ts`
+
+#### 2.3 Use the natural-language AI search assistant
+
+- Entry point: `/`
+- Preconditions: homepage loaded
+- User journey:
+  1. Ask a natural-language question such as `show critical OpenSSL issues from the last 30 days`
+  2. Apply the generated search parameters
+- Expected result: the assistant translates the prompt into structured search state and the homepage reloads with those filters
+- Verification: `Smoke-tested` through `POST /api/ai/search`, `Automated` via `tests/ai.test.ts` and `tests/ai-platform.test.ts`
+
+#### 2.4 Review dashboard metrics
+
+- Entry point: `/`
+- Preconditions: homepage returns dashboard data
+- User journey:
+  1. Load the homepage with a normal search state
+  2. Review the dashboard cards and summary panels
+- Expected result: dashboard metrics render without blocking the search workflow
+- Verification: `Partial`
+
+#### 2.5 Save the current search as a saved view
+
+- Entry point: `/`
+- Preconditions: a non-trivial search is active
+- User journey:
+  1. Enter a saved-view name or accept the generated default
+  2. Click `Save Current View`
+  3. Open the saved view from the panel
+  4. Delete the saved view
+- Expected result: the search is persisted, reopening the view restores the search params, and deletion removes it from the list
+- Verification: `Smoke-tested` via `POST /api/saved-views` and `DELETE /api/saved-views/[id]`
+
+#### 2.6 Save the current search as an alert rule
+
+- Entry point: `/`
+- Preconditions: a useful search is active
+- User journey:
+  1. Enter an alert-rule name or accept the generated default
+  2. Click `Save Alert`
+  3. Open `/alerts` from the panel
+  4. Delete the alert rule from the panel or Alerts page
+- Expected result: the rule is stored, visible in the panel, and appears in the Alerts workspace
+- Verification: `Smoke-tested` via `POST /api/alerts` and `DELETE /api/alerts/[id]`, `Automated` via `tests/alerts.test.ts`
+
+#### 2.7 Generate an AI digest from the search workspace
+
+- Entry point: `/`
+- Preconditions: homepage loaded
+- User journey:
+  1. Open the digest panel
+  2. Request a digest for the current workspace data
+- Expected result: the digest summarizes current risks and recent activity
+- Verification: `Smoke-tested` through `POST /api/ai/digest`, `Automated` via `tests/ai.test.ts`
+
+#### 2.8 Export visible search results
+
+- Entry point: `/`
+- Preconditions: at least one search result is visible
+- User journey:
+  1. Click `Export CSV`
+  2. Click `Export JSON`
+- Expected result: downloads are generated with search-specific filenames and include the currently visible results
+- Verification: `Partial`
+
+#### 2.9 Move through result pages
+
+- Entry point: `/`
+- Preconditions: enough results exist to paginate
+- User journey:
+  1. Move to the next page
+  2. Move back
+- Expected result: the page number updates in the URL and the viewport scrolls to the top on page change
+- Verification: `Automated` via `tests/search.test.ts`
+
+### 3. Search Result Cards
+
+#### 3.1 Review CVE card metadata
+
+- Entry point: any CVE list
+- Preconditions: results available
+- User journey:
+  1. Open a result list
+  2. Inspect severity, score, KEV/ransomware/EPSS badges, exploit reference count, products, assigner, and CWE metadata
+- Expected result: cards show concise triage-relevant metadata without opening the detail page
+- Verification: `Partial`
+
+#### 3.2 Bookmark a CVE from the card
+
+- Entry point: any CVE list
+- Preconditions: result list loaded
+- User journey:
+  1. Click the bookmark control on a CVE card
+  2. Open `/watchlist`
+- Expected result: the CVE appears in the watchlist
+- Verification: `Smoke-tested` via watchlist API flow
+
+#### 3.3 Add a CVE to a project from the card
+
+- Entry point: any CVE list
+- Preconditions: projects may or may not already exist
+- User journey:
+  1. Open the `Projects` picker on a card
+  2. Create a new project or choose an existing one
+  3. Add the CVE
+- Expected result: the project is created if needed and the CVE is attached to the selected project
+- Verification: `Smoke-tested` via `POST /api/projects` and `POST /api/projects/[id]/items`
+
+#### 3.4 Copy a deep link to a CVE from the card
+
+- Entry point: any CVE list
+- Preconditions: result list loaded
+- User journey:
+  1. Click the copy-link action
+  2. Open the copied URL
+- Expected result: the clipboard receives the `/cve/[id]` URL and the link opens the matching detail page
+- Verification: `Partial`
+
+#### 3.5 Open the CVE detail page from the card
+
+- Entry point: any CVE list
+- Preconditions: result list loaded
+- User journey:
+  1. Click the CVE title or footer link
+- Expected result: the app opens `/cve/[id]`
+- Verification: `Partial`
+
+### 4. CVE Detail Page
+
+#### 4.1 Load the CVE detail shell
+
+- Entry point: `/cve/[id]`
+- Preconditions: valid CVE identifier
+- User journey:
+  1. Navigate directly to a known CVE detail page
+- Expected result: summary metadata, action buttons, AI panels, triage panel, and supporting sections render together
+- Verification: `Partial`
+
+#### 4.2 Bookmark, assign to project, and copy link from detail view
+
+- Entry point: `/cve/[id]`
+- Preconditions: detail page loaded
+- User journey:
+  1. Bookmark the CVE
+  2. Add it to an existing or newly created project
+  3. Copy the deep link
+- Expected result: the actions behave the same as the result-card controls
+- Verification: `Smoke-tested` through the underlying watchlist/project APIs, `Partial` for clipboard UI
+
+#### 4.3 Update triage status, owner, tags, and notes
+
+- Entry point: `/cve/[id]`
+- Preconditions: detail page loaded
+- User journey:
+  1. Change the triage status
+  2. Enter an owner
+  3. Enter comma-separated tags
+  4. Add analyst notes
+- Expected result: the record persists, `updatedAt` changes, and recent activity captures the edits
+- Verification: `Smoke-tested` via `GET /api/triage/[id]` and `PUT /api/triage/[id]`, `Automated` via `tests/triage.test.ts`
+
+#### 4.4 Use the AI triage assistant with human approval
+
+- Entry point: `/cve/[id]`
+- Preconditions: detail page loaded
+- User journey:
+  1. Ask the triage assistant to propose workflow changes
+  2. Review the `Human Approval Checkpoint`
+  3. Approve or cancel the proposed changes
+- Expected result: AI-suggested edits are never silently applied; approval applies the proposed triage state and cancellation discards it
+- Verification: `Automated` via `tests/ai.test.ts` and `tests/triage.test.ts`
+
+#### 4.5 Generate AI insight, remediation, and exposure analysis
+
+- Entry point: `/cve/[id]`
+- Preconditions: detail page loaded
+- User journey:
+  1. Request the AI insight panel
+  2. Request the remediation plan
+  3. Request the exposure analysis
+- Expected result: each panel returns focused output for understanding impact, mitigation, and likely environmental exposure
+- Verification: `Automated` via `tests/ai.test.ts` and `tests/ai-platform.test.ts`
+
+#### 4.6 Review aliases, CVSS, and EPSS enrichment
+
+- Entry point: `/cve/[id]`
+- Preconditions: CVE has alias or scoring data available
+- User journey:
+  1. Review aliases
+  2. Review the CVSS score breakdown
+  3. Review EPSS if available
+- Expected result: normalized upstream data is displayed consistently even when the source shape varies
+- Verification: `Automated` via `tests/validation.test.ts`
+
+#### 4.7 Review affected products, problem types, references, linked vulnerabilities, CAPEC, comments, and raw data
+
+- Entry point: `/cve/[id]`
+- Preconditions: CVE detail loaded
+- User journey:
+  1. Review affected product entries
+  2. Review CWE/problem-type information
+  3. Open references
+  4. Review linked vulnerabilities
+  5. Review CAPEC attack patterns
+  6. Review comments
+  7. Expand raw JSON
+- Expected result: the full investigation context is visible without leaving the detail page
+- Verification: `Partial`
+
+### 5. Watchlist
+
+#### 5.1 Add and remove a watchlist item
+
+- Entry point: any result card or detail page, then `/watchlist`
+- Preconditions: known CVE ID
+- User journey:
+  1. Add a CVE to the watchlist
+  2. Load `/watchlist`
+  3. Remove the CVE
+- Expected result: the watchlist shows the CVE when added and no longer shows it after removal
+- Verification: `Smoke-tested` via `GET /api/watchlist`, `POST /api/watchlist`, and `DELETE /api/watchlist`
+
+#### 5.2 Filter watchlist by triage status
+
+- Entry point: `/watchlist`
+- Preconditions: watchlist contains items across multiple statuses
+- User journey:
+  1. Click `Total`, `New`, `Investigating`, `Mitigated`, `Accepted`, and `Closed`
+- Expected result: the list filters by the selected status and the summary cards remain in sync with triage state
+- Verification: `Partial`
+
+#### 5.3 Select visible items and clear selection
+
+- Entry point: `/watchlist`
+- Preconditions: at least one watchlist item exists
+- User journey:
+  1. Click `Select Visible`
+  2. Confirm item selection counts
+  3. Click `Clear Selection`
+- Expected result: bulk-selection state is accurately reflected across the current filtered list
+- Verification: `Partial`
+
+#### 5.4 Bulk remove selected CVEs
+
+- Entry point: `/watchlist`
+- Preconditions: one or more items selected
+- User journey:
+  1. Select multiple watchlist items
+  2. Click `Remove Selected`
+- Expected result: all selected items are removed and success feedback shows the count
+- Verification: `Smoke-tested` through watchlist delete flow
+
+#### 5.5 Bulk update triage status
+
+- Entry point: `/watchlist`
+- Preconditions: one or more items selected
+- User journey:
+  1. Select a target triage status
+  2. Click `Apply`
+- Expected result: triage records update for all selected CVEs
+- Verification: `Smoke-tested` through the triage API flow
+
+#### 5.6 Bulk assign selected CVEs to an existing project
+
+- Entry point: `/watchlist`
+- Preconditions: one or more items selected and at least one project exists
+- User journey:
+  1. Choose a project
+  2. Click `Add to Project`
+- Expected result: every selected CVE is attached to the chosen project
+- Verification: `Smoke-tested` via `POST /api/projects/[id]/items`
+
+#### 5.7 Create a project inline during bulk assignment
+
+- Entry point: `/watchlist`
+- Preconditions: one or more items selected
+- User journey:
+  1. Choose `Create new project...`
+  2. Enter a project name
+  3. Click `Add to Project`
+- Expected result: the new project is created and the selected CVEs are added to it
+- Verification: `Smoke-tested` via `POST /api/projects` and `POST /api/projects/[id]/items`
+
+#### 5.8 Generate an AI watchlist review
+
+- Entry point: `/watchlist`
+- Preconditions: watchlist has content
+- User journey:
+  1. Open the AI watchlist review panel
+  2. Request a review
+- Expected result: the panel summarizes the most important watchlist items and likely priorities
+- Verification: `Automated` via `tests/ai.test.ts` and `tests/ai-platform.test.ts`
+
+#### 5.9 Generate a digest from the watchlist page
+
+- Entry point: `/watchlist`
+- Preconditions: watchlist has content
+- User journey:
+  1. Open the digest panel
+  2. Request a digest
+- Expected result: digest generation works from the watchlist context as well as the homepage
+- Verification: `Smoke-tested` through `POST /api/ai/digest`
+
+### 6. Alerts
+
+#### 6.1 Review alert metrics and evaluated rules
+
+- Entry point: `/alerts`
+- Preconditions: at least one alert rule exists
+- User journey:
+  1. Open `/alerts`
+  2. Review alert-rule count, unread match count, and sampled CVE count
+  3. Review the rule sections and their current matches
+- Expected result: each rule shows matching CVEs against the sampled latest dataset
+- Verification: `Partial`
+
+#### 6.2 Mark a single alert rule checked
+
+- Entry point: `/alerts`
+- Preconditions: at least one alert rule exists
+- User journey:
+  1. Click `Mark Checked` on a rule
+- Expected result: `lastCheckedAt` updates and unread calculations recalculate accordingly
+- Verification: `Smoke-tested` via `PATCH /api/alerts/[id]`, `Automated` via `tests/alerts.test.ts`
+
+#### 6.3 Mark all alert rules checked
+
+- Entry point: `/alerts`
+- Preconditions: at least one alert rule exists
+- User journey:
+  1. Click `Mark All Checked`
+- Expected result: all rules receive a new `lastCheckedAt`
+- Verification: `Smoke-tested` via `POST /api/alerts/mark-all`, `Automated` via `tests/alerts.test.ts`
+
+#### 6.4 Delete an alert rule
+
+- Entry point: `/alerts`
+- Preconditions: at least one alert rule exists
+- User journey:
+  1. Click `Delete` on a rule
+- Expected result: the rule disappears from the page and from local workspace storage
+- Verification: `Smoke-tested` via `DELETE /api/alerts/[id]`
+
+#### 6.5 Run the AI alert investigation panel
+
+- Entry point: `/alerts`
+- Preconditions: at least one alert rule exists
+- User journey:
+  1. Expand or trigger the AI investigation for a rule
+- Expected result: the assistant summarizes what changed, what matters, and how to triage the matching set
+- Verification: `Automated` via `tests/ai.test.ts` and `tests/ai-platform.test.ts`
+
+### 7. Projects
+
+#### 7.1 Create a project from the Projects page
+
+- Entry point: `/projects`
+- Preconditions: none
+- User journey:
+  1. Enter a new project name
+  2. Click `Create Project`
+- Expected result: a new project card appears immediately
+- Verification: `Smoke-tested` via `POST /api/projects`, `Automated` via `tests/projects-store.test.ts`
+
+#### 7.2 Update project metadata
+
+- Entry point: `/projects`
+- Preconditions: at least one project exists
+- User journey:
+  1. Edit name
+  2. Edit owner
+  3. Set due date
+  4. Change project status
+  5. Edit labels
+  6. Edit description
+  7. Click `Save project`
+- Expected result: the project persists with the new metadata and the card summary reflects the changes
+- Verification: `Smoke-tested` via `PATCH /api/projects/[id]`, `Automated` via `tests/projects-store.test.ts`
+
+#### 7.3 Review project timeline visibility
+
+- Entry point: `/projects`
+- Preconditions: project has prior activity
+- User journey:
+  1. Open a populated project
+  2. Review the `Timeline view`
+- Expected result: recent project events appear with timestamped summaries and event-kind badges
+- Verification: `Partial`
+
+#### 7.4 Add a CVE to a project from other surfaces
+
+- Entry point: search results, watchlist, or detail page
+- Preconditions: target CVE exists
+- User journey:
+  1. Add a CVE to a project using a project picker or bulk assignment
+  2. Open `/projects`
+- Expected result: the project contains the new project item and can preview the linked CVE
+- Verification: `Smoke-tested` via `POST /api/projects/[id]/items`
+
+#### 7.5 Update project-item workflow fields
+
+- Entry point: `/projects`
+- Preconditions: a project contains at least one CVE
+- User journey:
+  1. Set workflow owner
+  2. Change remediation state
+  3. Set an SLA due date
+  4. Add workflow notes
+  5. Click `Save workflow`
+- Expected result: the item persists with the new workflow state and summary counters update
+- Verification: `Smoke-tested` via `PATCH /api/projects/[id]/items`, `Automated` via `tests/projects-store.test.ts`
+
+#### 7.6 Manage a project exception
+
+- Entry point: `/projects`
+- Preconditions: a project item exists
+- User journey:
+  1. Enter exception reason
+  2. Enter approver
+  3. Set exception expiry
+  4. Add exception notes
+  5. Save workflow
+- Expected result: the item is marked as an exception-backed workflow state and exception metadata is persisted
+- Verification: `Smoke-tested` via `PATCH /api/projects/[id]/items`, `Automated` via `tests/projects-store.test.ts`
+
+#### 7.7 Remove a CVE from a project
+
+- Entry point: `/projects`
+- Preconditions: a project contains at least one item
+- User journey:
+  1. Click `Remove` on a workflow item
+- Expected result: the CVE is removed from the project and no longer appears in the embedded preview
+- Verification: `Smoke-tested` via `DELETE /api/projects/[id]/items`
+
+#### 7.8 Delete a project
+
+- Entry point: `/projects`
+- Preconditions: at least one project exists
+- User journey:
+  1. Click `Delete Project`
+- Expected result: the project is removed from storage and from any project pickers
+- Verification: `Smoke-tested` via `DELETE /api/projects/[id]`
+
+#### 7.9 Generate an AI project summary
+
+- Entry point: `/projects`
+- Preconditions: a project with meaningful content exists
+- User journey:
+  1. Request a project summary from the AI panel
+- Expected result: the summary highlights scope, SLA risk, progress, and exceptions
+- Verification: `Automated` via `tests/ai.test.ts` and `tests/ai-platform.test.ts`
+
+### 8. Repos
+
+#### 8.1 Open the GitHub repo browser
+
+- Entry point: `/repos`
+- Preconditions: GitHub integration is configured
+- User journey:
+  1. Click `Browse GitHub Repositories`
+- Expected result: the GitHub repo list loads and the browser panel opens
+- Verification: `Partial`, `Environment-dependent`
+
+#### 8.2 Filter the GitHub repository list
+
+- Entry point: `/repos`
+- Preconditions: repo browser is open and contains results
+- User journey:
+  1. Enter text in `Search repositories...`
+- Expected result: the repo list narrows to matching `full_name` values
+- Verification: `Partial`, `Environment-dependent`
+
+#### 8.3 Monitor and unmonitor repositories
+
+- Entry point: `/repos`
+- Preconditions: GitHub repo browser loaded
+- User journey:
+  1. Click `Monitor` for a repository
+  2. Confirm the repo appears in the monitored list
+  3. Click `Remove`
+- Expected result: the repo moves into and out of the monitored workspace set
+- Verification: `Partial` for UI, `Automated` via `tests/monitored-repos-store.test.ts` and `tests/github.test.ts`
+
+#### 8.4 Surface token-scope guidance
+
+- Entry point: `/repos`
+- Preconditions: GitHub token lacks required access or returns only a subset of repos
+- User journey:
+  1. Open the GitHub repo browser with a limited token
+- Expected result: scope warnings explain missing `repo` access or missing fine-grained repo grants
+- Verification: `Partial`, `Environment-dependent`
+
+#### 8.5 Load monitored repositories
+
+- Entry point: `/repos`
+- Preconditions: monitored repos exist
+- User journey:
+  1. Open `/repos`
+- Expected result: monitored repositories load immediately and existing scan history is fetched for each one
+- Verification: `Smoke-tested` via `GET /api/github/monitored`
+
+#### 8.6 Scan a single monitored repository
+
+- Entry point: `/repos`
+- Preconditions: monitored repository exists and GitHub API access works
+- User journey:
+  1. Click `Scan` on a monitored repo
+- Expected result: the repo enters a scanning state, then shows vulnerabilities or a surfaced scan error
+- Verification: `Partial`, `Environment-dependent`
+
+#### 8.7 Scan all monitored repositories
+
+- Entry point: `/repos`
+- Preconditions: at least one monitored repo exists
+- User journey:
+  1. Click `Scan All`
+- Expected result: all monitored repos begin scanning concurrently and settle individually
+- Verification: `Partial`, `Environment-dependent`
+
+#### 8.8 Review persisted scan history
+
+- Entry point: `/repos`
+- Preconditions: at least one repo has been scanned previously
+- User journey:
+  1. Open the monitored repo card
+  2. Review scan-history entries
+- Expected result: prior scans are listed from persisted SQLite-backed history
+- Verification: `Automated` via `tests/repo-scans-store.test.ts`
+
+#### 8.9 Review repository vulnerability rows
+
+- Entry point: `/repos`
+- Preconditions: a successful scan exists
+- User journey:
+  1. Expand scan results
+  2. Review affected package, severity, advisory, and fix metadata
+- Expected result: vulnerabilities are grouped under the scanned repository with severity context
+- Verification: `Automated` via `tests/dependency-parser.test.ts` and `tests/github.test.ts`
+
+#### 8.10 Open the fix workflow modal
+
+- Entry point: `/repos`
+- Preconditions: successful scan results include actionable vulnerabilities
+- User journey:
+  1. Open the vulnerability fix modal from a finding
+  2. Review proposed fix options and PR flow inputs
+- Expected result: the modal prepares a fix workflow for GitHub PR creation
+- Verification: `Automated` via `tests/github-pr.test.ts`, `Environment-dependent` for live PR creation
+
+#### 8.11 Negative-path repo scanning
+
+- Entry point: `/repos`
+- Preconditions: local environment without a known-good upstream target
+- User journey:
+  1. Submit a scan request for a monitored repository
+- Expected result: the app surfaces the upstream failure instead of crashing
+- Verification: `Smoke-tested`; observed `POST /api/github/scan` returned `502` with `GitHub API error: Not Found`
+
+### 9. Settings
+
+#### 9.1 Review the server-side AI configuration summary
+
+- Entry point: `/settings`
+- Preconditions: settings page loaded
+- User journey:
+  1. Open the page
+  2. Review provider, mode, and model summary cards
+- Expected result: the user can see whether AI is running in configured-provider or heuristic mode
+- Verification: `Partial`
+
+#### 9.2 Review provider availability and redaction posture
+
+- Entry point: `/settings`
+- Preconditions: settings page loaded
+- User journey:
+  1. Review available provider badges
+  2. Review the redaction safeguard callout
+- Expected result: the page clearly communicates whether sensitive metadata is redacted before third-party model calls
+- Verification: `Partial`
+
+#### 9.3 Review per-feature AI configuration
+
+- Entry point: `/settings`
+- Preconditions: settings page loaded
+- User journey:
+  1. Review each feature card in `Per-Feature Configuration`
+- Expected result: every AI feature shows its provider, model, and configured versus heuristic mode
+- Verification: `Partial`
+
+#### 9.4 Review prompt versions and tool registry
+
+- Entry point: `/settings`
+- Preconditions: settings page loaded
+- User journey:
+  1. Review `Prompt Versions`
+  2. Review `Tool Registry`
+- Expected result: prompt-template versions and shared tool capabilities are visible for auditability
+- Verification: `Partial`
+
+#### 9.5 Add an inventory asset
+
+- Entry point: `/settings`
+- Preconditions: none
+- User journey:
+  1. Enter asset name
+  2. Enter vendor and/or product
+  3. Optionally enter version, environment, criticality, and notes
+  4. Click `Add Asset`
+- Expected result: the asset appears in `Tracked Assets` and inventory counts update
+- Verification: `Smoke-tested` via `POST /api/inventory`, `Automated` via related workspace-store coverage
+
+#### 9.6 Remove an inventory asset
+
+- Entry point: `/settings`
+- Preconditions: at least one asset exists
+- User journey:
+  1. Click `Delete` on an asset
+- Expected result: the asset is removed from the tracked list
+- Verification: `Smoke-tested` via `DELETE /api/inventory/[id]`
+
+#### 9.7 Export workspace data
+
+- Entry point: `/settings`
+- Preconditions: workspace has data
+- User journey:
+  1. Click `Export JSON`
+- Expected result: a JSON snapshot downloads containing watchlist, saved views, prompt templates, alert rules, inventory, triage, and projects
+- Verification: `Smoke-tested` via `GET /api/workspace/export`, `Automated` via `tests/workspace-store.test.ts`
+
+#### 9.8 Import workspace data in merge mode
+
+- Entry point: `/settings`
+- Preconditions: valid workspace export file available
+- User journey:
+  1. Choose `Merge Import`
+  2. Select a workspace snapshot JSON
+- Expected result: imported records are upserted without clearing existing workspace data
+- Verification: `Automated` via `tests/workspace-store.test.ts`
+
+#### 9.9 Import workspace data in replace mode
+
+- Entry point: `/settings`
+- Preconditions: valid workspace export file available
+- User journey:
+  1. Choose `Replace Existing`
+  2. Select a workspace snapshot JSON
+- Expected result: current workspace data is cleared and then replaced by the imported snapshot
+- Verification: `Automated` via `tests/workspace-store.test.ts`
+
+#### 9.10 Review recent AI runs
+
+- Entry point: `/settings`
+- Preconditions: AI-enabled flows have been exercised
+- User journey:
+  1. Open `Recent AI Runs`
+  2. Review status, provider, timestamps, latency, token estimate, cost estimate, prompt, output, tool calls, and errors
+- Expected result: the page acts as a read-only operational audit trail for AI activity
+- Verification: `Automated` via `tests/ai-runs-store.test.ts` and `tests/ai-platform.test.ts`
+
+### 10. Workspace
+
+#### 10.1 Create a new empty conversation
+
+- Entry point: `/workspace`
+- Preconditions: workspace page loaded
+- User journey:
+  1. Click `New Conversation`
+- Expected result: a new conversation record is created and becomes active
+- Verification: `Smoke-tested` via `POST /api/workspace/conversations`, `Automated` via `tests/workspace-assistant.test.ts`
+
+#### 10.2 Start a conversation from a prompt
+
+- Entry point: `/workspace`
+- Preconditions: workspace page loaded
+- User journey:
+  1. Ask `Give me a workspace overview`
+- Expected result: a new conversation is created with stored user and assistant messages
+- Verification: `Smoke-tested` via `POST /api/workspace/conversations`
+
+#### 10.3 Append a follow-up question to an existing conversation
+
+- Entry point: `/workspace`
+- Preconditions: a conversation exists
+- User journey:
+  1. Ask `Show project SLA risk`
+- Expected result: the assistant appends a new turn to the active conversation and preserves thread continuity
+- Verification: `Smoke-tested` via `POST /api/workspace/conversations/[id]/messages`, `Automated` via `tests/workspace-assistant.test.ts`
+
+#### 10.4 Use suggested questions
+
+- Entry point: `/workspace`
+- Preconditions: workspace page loaded
+- User journey:
+  1. Click one of the suggested prompts
+- Expected result: the assistant submits the prompt immediately and returns a response
+- Verification: `Partial`
+
+#### 10.5 Open historical conversations
+
+- Entry point: `/workspace`
+- Preconditions: multiple conversations exist
+- User journey:
+  1. Select a prior conversation from the conversation list
+- Expected result: the full stored conversation reloads into the active panel
+- Verification: `Partial`, `Automated` via `tests/workspace-assistant.test.ts`
+
+#### 10.6 Review assistant references
+
+- Entry point: `/workspace`
+- Preconditions: assistant response contains references
+- User journey:
+  1. Inspect assistant messages
+  2. Review attached reference chips
+- Expected result: referenced workspace entities are shown alongside the response
+- Verification: `Smoke-tested` through workspace conversation flow
+
+#### 10.7 Create a notification schedule
+
+- Entry point: `/workspace`
+- Preconditions: workspace page loaded
+- User journey:
+  1. Enter team name
+  2. Choose channel and destination
+  3. Choose cadence
+  4. Save the schedule
+- Expected result: the schedule appears in the preference list
+- Verification: `Smoke-tested` via `GET /api/notifications` and `POST /api/notifications`, `Automated` via `tests/notifications-store.test.ts`
+
+#### 10.8 Run all due digests
+
+- Entry point: `/workspace`
+- Preconditions: at least one schedule exists
+- User journey:
+  1. Click the page-level run action
+- Expected result: due schedules produce delivery records and success feedback
+- Verification: `Smoke-tested` via `POST /api/notifications/run`
+
+#### 10.9 Run a single schedule
+
+- Entry point: `/workspace`
+- Preconditions: at least one schedule exists
+- User journey:
+  1. Trigger digest delivery for a single schedule
+- Expected result: only the selected schedule produces a delivery entry
+- Verification: `Partial`, `Automated` via `tests/notifications-store.test.ts`
+
+#### 10.10 Pause and re-enable a schedule
+
+- Entry point: `/workspace`
+- Preconditions: at least one schedule exists
+- User journey:
+  1. Toggle a schedule off
+  2. Toggle it back on
+- Expected result: the persisted `enabled` state changes without breaking the schedule definition
+- Verification: `Smoke-tested` via `PATCH /api/notifications/[id]`, `Automated` via `tests/notifications-store.test.ts`
+
+#### 10.11 Delete a schedule
+
+- Entry point: `/workspace`
+- Preconditions: at least one schedule exists
+- User journey:
+  1. Delete a schedule
+- Expected result: the schedule disappears while historical deliveries remain available if stored separately
+- Verification: `Smoke-tested` via `DELETE /api/notifications/[id]`
+
+#### 10.12 Review delivery history
+
+- Entry point: `/workspace`
+- Preconditions: at least one digest has been run
+- User journey:
+  1. Review the delivery-history list
+- Expected result: digest deliveries show timestamps and delivery context
+- Verification: `Partial`, `Automated` via `tests/notifications-store.test.ts`
+
+## Automated Coverage Map
+
+- Search, filtering, and result preference logic: `tests/search.test.ts`
+- Triage persistence and workflow behavior: `tests/triage.test.ts`
+- Alert rule persistence and evaluation behavior: `tests/alerts.test.ts`
+- Project storage, workflow updates, timelines, and exceptions: `tests/projects-store.test.ts`
+- Repo monitoring and GitHub integration helpers: `tests/github.test.ts`, `tests/monitored-repos-store.test.ts`
+- Repo scan persistence: `tests/repo-scans-store.test.ts`
+- Fix PR workflow logic: `tests/github-pr.test.ts`
+- Dependency parsing for repo scans: `tests/dependency-parser.test.ts`
+- AI provider behavior and heuristic fallbacks: `tests/ai.test.ts`, `tests/ai-platform.test.ts`
+- AI run history persistence: `tests/ai-runs-store.test.ts`
+- Workspace assistant persistence and response behavior: `tests/workspace-assistant.test.ts`
+- Workspace import/export store behavior: `tests/workspace-store.test.ts`
+- Validation and upstream normalization: `tests/validation.test.ts`
+- General utility coverage: `tests/utils.test.ts`
+- API route guards: `tests/api-route-guard.test.ts`
+
+## Environment Caveats
+
+### GitHub Scanning and Fix PR Creation
+
+- Live repository browsing, dependency scanning, and fix PR creation depend on valid GitHub credentials and repository access.
+- In the March 7, 2026 local verification run, monitored-repo loading worked, but a live scan request returned `502` with `GitHub API error: Not Found`.
+- The negative path was therefore validated, but a successful end-to-end scan plus PR flow still needs a fully provisioned GitHub test environment.
+
+### Browser-Only Interactions
+
+- Clipboard, download, and some visual-state interactions were validated primarily through UI inspection and underlying API behavior rather than automated browser playback.
+- If stricter regression protection is needed, the next best step is to add Playwright journeys for the highest-value flows:
+  1. Search to watchlist to triage
+  2. Search to project workflow
+  3. Workspace notifications and conversation history
+  4. Repo scan happy-path with mocked GitHub responses
