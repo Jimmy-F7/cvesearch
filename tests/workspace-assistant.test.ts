@@ -16,8 +16,8 @@ test("workspace assistant answers with project and watchlist context", async () 
   try {
     const session = getOrCreateWorkspaceSession(new Request("https://example.test/workspace"));
     await toggleWatchlistEntry(session.userId, "CVE-2026-5555");
-    const project = await createProject({ name: "Incident Delta", owner: "Alex", status: "at_risk" });
-    await addProjectItem(project.id, {
+    const project = await createProject(session.userId, { name: "Incident Delta", owner: "Alex", status: "at_risk" });
+    await addProjectItem(session.userId, project.id, {
       cveId: "CVE-2026-5555",
       owner: "Alex",
       remediationState: "in_progress",

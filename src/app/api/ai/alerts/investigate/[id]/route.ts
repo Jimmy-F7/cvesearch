@@ -40,7 +40,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       modified: cve.modified || cve.published || "",
       unread: isUnreadMatch(cve.modified ?? cve.published ?? "", rule.lastCheckedAt),
     })),
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json(investigation), session);
 }, {

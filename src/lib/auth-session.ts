@@ -9,21 +9,32 @@ export interface WorkspaceSession {
   setCookieHeader?: string;
 }
 
-export function getOrCreateWorkspaceSession(request: Request): WorkspaceSession {
+export function getWorkspaceSession(request: Request): WorkspaceSession | null {
   const existingSessionId = readCookie(request.headers.get("cookie"), SESSION_COOKIE_NAME);
-  if (existingSessionId) {
-    const existing = getDb().prepare(`
-      SELECT id, user_id as userId
-      FROM sessions
-      WHERE id = ? AND expires_at > ?
-    `).get(existingSessionId, new Date().toISOString()) as { id: string; userId: string } | undefined;
+  if (!existingSessionId) {
+    return null;
+  }
 
-    if (existing) {
-      return {
-        sessionId: existing.id,
-        userId: existing.userId,
-      };
-    }
+  const existing = getDb().prepare(`
+    SELECT id, user_id as userId
+    FROM sessions
+    WHERE id = ? AND expires_at > ?
+  `).get(existingSessionId, new Date().toISOString()) as { id: string; userId: string } | undefined;
+
+  if (!existing) {
+    return null;
+  }
+
+  return {
+    sessionId: existing.id,
+    userId: existing.userId,
+  };
+}
+
+export function getOrCreateWorkspaceSession(request: Request): WorkspaceSession {
+  const existing = getWorkspaceSession(request);
+  if (existing) {
+    return existing;
   }
 
   const now = new Date();

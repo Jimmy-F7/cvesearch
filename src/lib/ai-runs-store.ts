@@ -3,10 +3,11 @@ import { getDb, withTransaction } from "./db";
 
 const MAX_STORED_AI_RUNS = 200;
 
-export async function listRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
+export async function listRecentAIRuns(userId: string, limit = 25): Promise<AIRunRecord[]> {
   const rows = getDb().prepare(`
     SELECT
       id,
+      user_id as userId,
       feature,
       provider,
       model,
@@ -19,23 +20,25 @@ export async function listRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
       duration_ms as durationMs,
       created_at as createdAt
     FROM ai_runs
+    WHERE user_id = ?
     ORDER BY created_at DESC
     LIMIT ?
-  `).all(normalizeLimit(limit)) as AIRunRow[];
+  `).all(userId, normalizeLimit(limit)) as AIRunRow[];
 
   return rows.map((row) => normalizeAIRunRow(row));
 }
 
-export async function appendAIRun(record: AIRunRecord): Promise<void> {
+export async function appendAIRun(userId: string, record: AIRunRecord): Promise<void> {
   const normalized = normalizeAIRun(record);
 
   withTransaction((db) => {
     db.prepare(`
       INSERT OR REPLACE INTO ai_runs (
-        id, feature, provider, model, mode, status, prompt, output, tool_calls_json, error, duration_ms, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, user_id, feature, provider, model, mode, status, prompt, output, tool_calls_json, error, duration_ms, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       normalized.id,
+      userId,
       normalized.feature,
       normalized.provider,
       normalized.model,
@@ -52,28 +55,30 @@ export async function appendAIRun(record: AIRunRecord): Promise<void> {
     const overflow = db.prepare(`
       SELECT id
       FROM ai_runs
+      WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT -1 OFFSET ?
-    `).all(MAX_STORED_AI_RUNS) as Array<{ id: string }>;
+    `).all(userId, MAX_STORED_AI_RUNS) as Array<{ id: string }>;
 
     for (const row of overflow) {
-      db.prepare("DELETE FROM ai_runs WHERE id = ?").run(row.id);
+      db.prepare("DELETE FROM ai_runs WHERE user_id = ? AND id = ?").run(userId, row.id);
     }
   });
 }
 
-export async function deleteAIRun(id: string): Promise<boolean> {
-  const result = getDb().prepare("DELETE FROM ai_runs WHERE id = ?").run(id);
+export async function deleteAIRun(userId: string, id: string): Promise<boolean> {
+  const result = getDb().prepare("DELETE FROM ai_runs WHERE user_id = ? AND id = ?").run(userId, id);
   return result.changes > 0;
 }
 
-export async function clearAIRuns(): Promise<number> {
-  const result = getDb().prepare("DELETE FROM ai_runs").run();
+export async function clearAIRuns(userId: string): Promise<number> {
+  const result = getDb().prepare("DELETE FROM ai_runs WHERE user_id = ?").run(userId);
   return result.changes;
 }
 
 interface AIRunRow {
   id: string;
+  userId: string;
   feature: string;
   provider: string;
   model: string;

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProject, updateProject } from "@/lib/projects-store";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
 
-export const DELETE = withRouteProtection(async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export const DELETE = withRouteProtection(async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
-  const success = await deleteProject(id);
+  const success = await deleteProject(session.userId, id);
 
   if (!success) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    return applyWorkspaceSession(NextResponse.json({ error: "Project not found" }, { status: 404 }), session);
   }
 
-  return NextResponse.json({ success: true });
+  return applyWorkspaceSession(NextResponse.json({ success: true }), session);
 }, {
   route: "/api/projects/[id]",
   errorMessage: "Failed to delete project",
@@ -18,9 +20,10 @@ export const DELETE = withRouteProtection(async function DELETE(_request: NextRe
 });
 
 export const PATCH = withRouteProtection(async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
-  const project = await updateProject(id, {
+  const project = await updateProject(session.userId, id, {
     name: typeof body?.name === "string" ? body.name : undefined,
     description: typeof body?.description === "string" ? body.description : undefined,
     owner: typeof body?.owner === "string" ? body.owner : undefined,
@@ -30,10 +33,10 @@ export const PATCH = withRouteProtection(async function PATCH(request: NextReque
   });
 
   if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    return applyWorkspaceSession(NextResponse.json({ error: "Project not found" }, { status: 404 }), session);
   }
 
-  return NextResponse.json(project);
+  return applyWorkspaceSession(NextResponse.json(project), session);
 }, {
   route: "/api/projects/[id]",
   errorMessage: "Failed to update project",

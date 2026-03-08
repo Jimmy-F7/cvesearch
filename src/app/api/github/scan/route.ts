@@ -6,18 +6,20 @@ import { updateLastScan } from "@/lib/monitored-repos-store";
 import { DependencyScanResult } from "@/lib/github-types";
 import { listRepoScansForRepo, persistRepoScanResult } from "@/lib/repo-scans-store";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
 
 const isRepoFullName = (value: string): boolean => /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 
 export const GET = withRouteProtection(async function GET(request: NextRequest) {
+  const session = getOrCreateWorkspaceSession(request);
   const fullName = request.nextUrl.searchParams.get("fullName")?.trim() ?? "";
 
   if (!fullName || !isRepoFullName(fullName)) {
-    return NextResponse.json({ error: "fullName is required" }, { status: 400 });
+    return applyWorkspaceSession(NextResponse.json({ error: "fullName is required" }, { status: 400 }), session);
   }
 
-  const scans = await listRepoScansForRepo(fullName);
-  return NextResponse.json(scans);
+  const scans = await listRepoScansForRepo(session.userId, fullName);
+  return applyWorkspaceSession(NextResponse.json(scans), session);
 }, {
   route: "/api/github/scan",
   errorMessage: "Failed to load repository scan history",
@@ -25,11 +27,12 @@ export const GET = withRouteProtection(async function GET(request: NextRequest) 
 });
 
 export const POST = withRouteProtection(async function POST(request: NextRequest) {
+  const session = getOrCreateWorkspaceSession(request);
   if (!isGitHubTokenConfigured()) {
-    return NextResponse.json(
+    return applyWorkspaceSession(NextResponse.json(
       { error: "GITHUB_TOKEN is not configured" },
       { status: 503 }
-    );
+    ), session);
   }
 
   try {
@@ -38,10 +41,10 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     const branch = typeof body?.branch === "string" && body.branch.trim() ? body.branch : undefined;
 
     if (!fullName || !isRepoFullName(fullName)) {
-      return NextResponse.json(
+      return applyWorkspaceSession(NextResponse.json(
         { error: "Missing required field: fullName" },
         { status: 400 }
-      );
+      ), session);
     }
 
     const files = await fetchRepoDependencyFiles(fullName, branch);
@@ -55,9 +58,9 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
         vulnerabilities: [],
       };
 
-      await updateLastScan(fullName, 0);
-      await persistRepoScanResult(fullName, branch ?? "default", emptyResult);
-      return NextResponse.json(emptyResult);
+      await updateLastScan(session.userId, fullName, 0);
+      await persistRepoScanResult(session.userId, fullName, branch ?? "default", emptyResult);
+      return applyWorkspaceSession(NextResponse.json(emptyResult), session);
     }
 
     const { dependencies, locationCount } = parseDependencyFiles(files);
@@ -71,13 +74,13 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       vulnerabilities,
     };
 
-    await updateLastScan(fullName, vulnerabilities.length);
-    await persistRepoScanResult(fullName, branch ?? "default", result);
+    await updateLastScan(session.userId, fullName, vulnerabilities.length);
+    await persistRepoScanResult(session.userId, fullName, branch ?? "default", result);
 
-    return NextResponse.json(result);
+    return applyWorkspaceSession(NextResponse.json(result), session);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scan failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return applyWorkspaceSession(NextResponse.json({ error: message }, { status: 502 }), session);
   }
 }, {
   route: "/api/github/scan",

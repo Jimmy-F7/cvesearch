@@ -51,7 +51,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     },
     mode
   );
-  await importProjects(projects, mode);
+  await importProjects(session.userId, projects, mode);
 
   const response = NextResponse.json({
     success: true,

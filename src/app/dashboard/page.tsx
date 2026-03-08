@@ -11,7 +11,7 @@ export default async function Dashboard({
 }) {
   const resolvedSearchParams = await searchParams;
   const search = parseSearchState(resolvedSearchParams);
-  const dashboard = await getHomeDashboardData(normalizeSearchState({}));
+  const dashboard = await getHomeDashboardData(normalizeSearchState(search));
 
   return <DashboardPageClient dashboard={dashboard} search={search} />;
 }

@@ -147,7 +147,7 @@ test("workspace import supports replace mode for user data and projects", async 
       }],
     }, "replace");
 
-    await importProjects([{
+    await importProjects(session.userId, [{
       id: "project-1",
       name: "Imported Project",
       description: "Imported",
@@ -163,7 +163,7 @@ test("workspace import supports replace mode for user data and projects", async 
     assert.equal((await listAlertRulesForUser(session.userId))[0]?.name, "Critical Alert");
     assert.equal((await listInventoryAssetsForUser(session.userId))[0]?.name, "Gateway");
     assert.equal((await readTriageRecordForUser(session.userId, "CVE-2026-1234")).status, "mitigated");
-    assert.equal((await listProjects())[0]?.name, "Imported Project");
+    assert.equal((await listProjects(session.userId))[0]?.name, "Imported Project");
   } finally {
     if (previousDatabaseFile === undefined) {
       delete process.env.DATABASE_FILE;

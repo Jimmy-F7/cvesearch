@@ -50,14 +50,28 @@ export async function callModel(prompt: string, settings: AISettings): Promise<s
 }
 
 export function resolveAISettings(settings?: Pick<Partial<AISettings>, "provider" | "model">): AISettings {
-  const provider = settings?.provider ?? (process.env.OPENAI_API_KEY ? "openai" : "heuristic");
-  const apiKey =
-    (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY) ??
-    "";
-  const model =
+  const requestedProvider = settings?.provider ?? normalizeProvider(process.env.AI_PROVIDER);
+  const openAIKey = process.env.OPENAI_API_KEY?.trim() ?? "";
+  const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
+
+  const provider = requestedProvider === "heuristic"
+    ? "heuristic"
+    : requestedProvider === "anthropic" && anthropicKey
+      ? "anthropic"
+      : requestedProvider === "openai" && openAIKey
+        ? "openai"
+        : openAIKey
+          ? "openai"
+          : anthropicKey
+            ? "anthropic"
+            : "heuristic";
+
+  const apiKey = provider === "anthropic" ? anthropicKey : provider === "openai" ? openAIKey : "";
+  const model = (
     settings?.model ??
     (provider === "anthropic" ? process.env.ANTHROPIC_MODEL : process.env.OPENAI_MODEL) ??
-    "";
+    ""
+  ).trim();
 
   if (provider !== "heuristic" && !apiKey) {
     return {
@@ -72,6 +86,14 @@ export function resolveAISettings(settings?: Pick<Partial<AISettings>, "provider
     model,
     apiKey,
   };
+}
+
+function normalizeProvider(value: string | undefined): AISettings["provider"] | undefined {
+  if (value === "heuristic" || value === "openai" || value === "anthropic") {
+    return value;
+  }
+
+  return undefined;
 }
 
 async function callOpenAI(prompt: string, settings: AISettings): Promise<string> {

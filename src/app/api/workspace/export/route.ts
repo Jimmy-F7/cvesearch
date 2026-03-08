@@ -21,7 +21,7 @@ export const GET = withRouteProtection(async function GET(request: NextRequest) 
     listAlertRulesForUser(session.userId),
     listInventoryAssetsForUser(session.userId),
     readTriageMapForUser(session.userId),
-    listProjects(),
+    listProjects(session.userId),
   ]);
 
   const snapshot: WorkspaceExportSnapshot = {

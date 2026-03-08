@@ -20,7 +20,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
 
   const [epss, projects] = await Promise.all([
     getEPSSServer(detail.id).catch(() => null),
-    listProjects().catch(() => []),
+    listProjects(session.userId).catch(() => []),
   ]);
   const relatedProjects = projects.filter((project) => project.items.some((item) => item.cveId === detail.id));
   const triage = body?.triage && typeof body.triage === "object"
@@ -35,7 +35,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       items: project.items,
       updatedAt: project.updatedAt,
     })),
-  });
+  }, { userId: session.userId });
   return applyWorkspaceSession(NextResponse.json(insight), session);
 }, {
   route: "/api/ai/cve/[id]",

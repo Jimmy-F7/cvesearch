@@ -201,6 +201,7 @@ interface StructuredTask<T> {
   fallback: () => T;
   sanitize: (value: unknown) => T;
   toolCalls?: AISearchToolTrace[];
+  userId?: string;
 }
 
 interface SearchToolContext {
@@ -246,6 +247,10 @@ interface SearchPlanningResult {
   toolCalls: AISearchToolTrace[];
 }
 
+interface AIExecutionOptions {
+  userId?: string;
+}
+
 export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary {
   const runtime = resolveAIRuntime();
   const availableProviders: AIProvider[] = [];
@@ -282,16 +287,16 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
   };
 }
 
-export async function getRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
-  return listRecentAIRuns(limit);
+export async function getRecentAIRuns(userId: string, limit = 25): Promise<AIRunRecord[]> {
+  return listRecentAIRuns(userId, limit);
 }
 
-export async function deleteRecentAIRun(id: string): Promise<boolean> {
-  return deleteAIRun(id);
+export async function deleteRecentAIRun(userId: string, id: string): Promise<boolean> {
+  return deleteAIRun(userId, id);
 }
 
-export async function clearRecentAIRuns(): Promise<number> {
-  return clearAIRuns();
+export async function clearRecentAIRuns(userId: string): Promise<number> {
+  return clearAIRuns(userId);
 }
 
 export function preparePromptInputForFeature<T>(feature: AIFeature, input: T): T {
@@ -318,7 +323,7 @@ export function preparePromptInputForFeature<T>(feature: AIFeature, input: T): T
   }
 }
 
-export async function generateCveInsight(input: CveInsightInput): Promise<AICveInsight> {
+export async function generateCveInsight(input: CveInsightInput, options: AIExecutionOptions = {}): Promise<AICveInsight> {
   const promptTemplate = getCveInsightPromptTemplate();
   return executeStructuredTask({
     feature: "cve_insight",
@@ -326,10 +331,11 @@ export async function generateCveInsight(input: CveInsightInput): Promise<AICveI
     fallback: () => buildHeuristicCveInsight(input),
     sanitize: sanitizeInsight,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateTriageSuggestion(input: TriageSuggestionInput): Promise<AITriageSuggestion> {
+export async function generateTriageSuggestion(input: TriageSuggestionInput, options: AIExecutionOptions = {}): Promise<AITriageSuggestion> {
   const promptTemplate = getTriageAgentPromptTemplate();
   return executeStructuredTask({
     feature: "triage_agent",
@@ -337,10 +343,11 @@ export async function generateTriageSuggestion(input: TriageSuggestionInput): Pr
     fallback: () => buildHeuristicTriageSuggestion(input),
     sanitize: sanitizeTriageSuggestion,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateRemediationPlan(input: RemediationPlanInput): Promise<AIRemediationPlan> {
+export async function generateRemediationPlan(input: RemediationPlanInput, options: AIExecutionOptions = {}): Promise<AIRemediationPlan> {
   const promptTemplate = getRemediationAgentPromptTemplate();
   return executeStructuredTask({
     feature: "remediation_agent",
@@ -348,10 +355,11 @@ export async function generateRemediationPlan(input: RemediationPlanInput): Prom
     fallback: () => buildHeuristicRemediationPlan(input),
     sanitize: sanitizeRemediationPlan,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateWatchlistReview(input: WatchlistReviewInput): Promise<AIWatchlistReview> {
+export async function generateWatchlistReview(input: WatchlistReviewInput, options: AIExecutionOptions = {}): Promise<AIWatchlistReview> {
   const promptTemplate = getWatchlistAnalystPromptTemplate();
   return executeStructuredTask({
     feature: "watchlist_analyst",
@@ -359,10 +367,11 @@ export async function generateWatchlistReview(input: WatchlistReviewInput): Prom
     fallback: () => buildHeuristicWatchlistReview(input),
     sanitize: sanitizeWatchlistReview,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateProjectSummary(input: ProjectSummaryInput): Promise<AIProjectSummary> {
+export async function generateProjectSummary(input: ProjectSummaryInput, options: AIExecutionOptions = {}): Promise<AIProjectSummary> {
   const promptTemplate = getProjectSummaryPromptTemplate();
   return executeStructuredTask({
     feature: "project_summary",
@@ -370,10 +379,11 @@ export async function generateProjectSummary(input: ProjectSummaryInput): Promis
     fallback: () => buildHeuristicProjectSummary(input),
     sanitize: sanitizeProjectSummary,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateAlertInvestigation(input: AlertInvestigationInput): Promise<AIAlertInvestigation> {
+export async function generateAlertInvestigation(input: AlertInvestigationInput, options: AIExecutionOptions = {}): Promise<AIAlertInvestigation> {
   const promptTemplate = getAlertInvestigationPromptTemplate();
   return executeStructuredTask({
     feature: "alert_investigation",
@@ -381,10 +391,11 @@ export async function generateAlertInvestigation(input: AlertInvestigationInput)
     fallback: () => buildHeuristicAlertInvestigation(input),
     sanitize: sanitizeAlertInvestigation,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateExposureAssessment(input: ExposureAssessmentInput): Promise<AIExposureAssessment> {
+export async function generateExposureAssessment(input: ExposureAssessmentInput, options: AIExecutionOptions = {}): Promise<AIExposureAssessment> {
   const promptTemplate = getExposureAgentPromptTemplate();
   return executeStructuredTask({
     feature: "exposure_agent",
@@ -392,10 +403,11 @@ export async function generateExposureAssessment(input: ExposureAssessmentInput)
     fallback: () => buildHeuristicExposureAssessment(input),
     sanitize: sanitizeExposureAssessment,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
-export async function generateSearchInterpretation(prompt: string): Promise<AISearchInterpretation> {
+export async function generateSearchInterpretation(prompt: string, options: AIExecutionOptions = {}): Promise<AISearchInterpretation> {
   const plan = runSearchPlanning(prompt);
   const heuristic = buildSearchInterpretationFromPlan(prompt, plan);
   const runtime = resolveAIRuntime("search_assistant");
@@ -413,6 +425,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "",
+      userId: options.userId,
     });
     return heuristic;
   }
@@ -438,6 +451,7 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "",
+      userId: options.userId,
     });
     return result;
   } catch {
@@ -450,12 +464,13 @@ export async function generateSearchInterpretation(prompt: string): Promise<AISe
       toolCalls: [...plan.toolCalls, promptTemplateTrace],
       durationMs: Date.now() - startedAt,
       error: "model_generation_failed",
+      userId: options.userId,
     });
     return heuristic;
   }
 }
 
-export async function generateDigest(input: DigestInput): Promise<AIDigest> {
+export async function generateDigest(input: DigestInput, options: AIExecutionOptions = {}): Promise<AIDigest> {
   const promptTemplate = getDailyDigestPromptTemplate();
   return executeStructuredTask({
     feature: "daily_digest",
@@ -463,6 +478,7 @@ export async function generateDigest(input: DigestInput): Promise<AIDigest> {
     fallback: () => buildHeuristicDigest(input),
     sanitize: sanitizeDigest,
     toolCalls: [{ tool: "prompt_template", summary: `${promptTemplate.feature}@${promptTemplate.version}` }],
+    userId: options.userId,
   });
 }
 
@@ -1299,7 +1315,7 @@ export function buildHeuristicDigest(input: DigestInput): AIDigest {
   };
 }
 
-async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, toolCalls = [] }: StructuredTask<T>): Promise<T> {
+async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, toolCalls = [], userId }: StructuredTask<T>): Promise<T> {
   const runtime = resolveAIRuntime(feature);
   const startedAt = Date.now();
   if (runtime.mode === "heuristic") {
@@ -1313,6 +1329,7 @@ async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, t
       toolCalls,
       durationMs: Date.now() - startedAt,
       error: "",
+      userId,
     });
     return result;
   }
@@ -1329,6 +1346,7 @@ async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, t
       toolCalls,
       durationMs: Date.now() - startedAt,
       error: "",
+      userId,
     });
     return result;
   } catch (error) {
@@ -1342,6 +1360,7 @@ async function executeStructuredTask<T>({ feature, prompt, fallback, sanitize, t
       toolCalls,
       durationMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : "unknown_error",
+      userId,
     });
     return result;
   }
@@ -1641,9 +1660,14 @@ async function persistAIRun(input: {
   toolCalls: AISearchToolTrace[];
   durationMs: number;
   error: string;
+  userId?: string;
 }): Promise<void> {
+  if (!input.userId) {
+    return;
+  }
+
   try {
-    await appendAIRun({
+    await appendAIRun(input.userId, {
       id: crypto.randomUUID(),
       feature: input.feature,
       provider: input.runtime.provider,

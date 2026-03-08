@@ -13,8 +13,8 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   const [watchlistEntries, triageMap, projects, recentRuns] = await Promise.all([
     listWatchlistEntriesForUser(session.userId),
     readTriageMapForUser(session.userId),
-    listProjects().catch(() => []),
-    getRecentAIRuns(100).catch(() => []),
+    listProjects(session.userId).catch(() => []),
+    getRecentAIRuns(session.userId, 100).catch(() => []),
   ]);
 
   const details = await Promise.all(
@@ -58,7 +58,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   const review = await generateWatchlistReview({
     items,
     previousReviewAt,
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json(review), session);
 }, {

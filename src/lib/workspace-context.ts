@@ -35,7 +35,7 @@ export async function loadWorkspaceContextSnapshot(userId: string): Promise<Work
     listSavedViewsForUser(userId),
     listAlertRulesForUser(userId),
     readTriageMapForUser(userId),
-    listProjects(),
+    listProjects(userId),
     getLatestCVEsServer(1, WORKSPACE_ALERT_SAMPLE_SIZE).catch(() => []),
   ]);
 

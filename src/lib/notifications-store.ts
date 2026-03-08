@@ -216,7 +216,7 @@ export async function runDueNotificationDigestsForUser(
       items: project.items,
       updatedAt: project.updatedAt,
     })),
-  });
+  }, { userId });
 
   const deliveries: NotificationDeliveryRecord[] = [];
 

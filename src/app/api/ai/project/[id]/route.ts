@@ -10,7 +10,7 @@ import { extractDescription, extractCVEId, getSeverityFromScore } from "@/lib/ut
 export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
-  const project = await getProjectById(id);
+  const project = await getProjectById(session.userId, id);
 
   if (!project) {
     return applyWorkspaceSession(NextResponse.json({ error: "Project not found" }, { status: 404 }), session);
@@ -57,7 +57,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
         published: detail.cveMetadata?.datePublished || detail.published || "",
       }];
     }),
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json({
     ...summary,

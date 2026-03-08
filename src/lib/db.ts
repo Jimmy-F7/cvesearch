@@ -88,6 +88,7 @@ function initializeDatabase(db: DatabaseSync): void {
 
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       name TEXT NOT NULL,
       description TEXT NOT NULL,
       owner TEXT NOT NULL DEFAULT '',
@@ -125,18 +126,21 @@ function initializeDatabase(db: DatabaseSync): void {
 
     CREATE TABLE IF NOT EXISTS monitored_repos (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       github_id INTEGER NOT NULL,
-      full_name TEXT NOT NULL UNIQUE,
+      full_name TEXT NOT NULL,
       html_url TEXT NOT NULL,
       is_private INTEGER NOT NULL,
       default_branch TEXT NOT NULL,
       added_at TEXT NOT NULL,
       last_scanned_at TEXT,
-      last_scan_vulnerability_count INTEGER
+      last_scan_vulnerability_count INTEGER,
+      UNIQUE(user_id, full_name)
     );
 
     CREATE TABLE IF NOT EXISTS monitored_repo_scans (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       repo_id TEXT,
       repo_full_name TEXT NOT NULL,
       branch TEXT NOT NULL,
@@ -150,9 +154,12 @@ function initializeDatabase(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_repo_full_name ON monitored_repo_scans(repo_full_name, scanned_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_monitored_repos_user_id ON monitored_repos(user_id, added_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_user_id ON monitored_repo_scans(user_id, repo_full_name, scanned_at DESC);
 
     CREATE TABLE IF NOT EXISTS ai_runs (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       feature TEXT NOT NULL,
       provider TEXT NOT NULL,
       model TEXT NOT NULL,
@@ -181,6 +188,15 @@ function initializeDatabase(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_api_request_logs_created_at ON api_request_logs(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS api_rate_limits (
+      bucket TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      window_started_at INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (bucket, client_id)
+    );
 
     CREATE TABLE IF NOT EXISTS cached_cves (
       id TEXT PRIMARY KEY,
@@ -338,11 +354,24 @@ function initializeDatabase(db: DatabaseSync): void {
   ensureColumn(db, "projects", "due_at", "TEXT");
   ensureColumn(db, "projects", "labels_json", "TEXT NOT NULL DEFAULT '[]'");
   ensureColumn(db, "projects", "status", "TEXT NOT NULL DEFAULT 'active'");
+  ensureColumn(db, "projects", "user_id", "TEXT NOT NULL DEFAULT ''");
   ensureColumn(db, "project_items", "owner", "TEXT NOT NULL DEFAULT ''");
   ensureColumn(db, "project_items", "remediation_state", "TEXT NOT NULL DEFAULT 'not_started'");
   ensureColumn(db, "project_items", "sla_due_at", "TEXT");
   ensureColumn(db, "project_items", "exception_json", "TEXT NOT NULL DEFAULT ''");
   ensureColumn(db, "project_items", "updated_at", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "ai_runs", "user_id", "TEXT NOT NULL DEFAULT ''");
+
+  migrateMonitoredRepoScope(db);
+  ensureColumn(db, "monitored_repos", "user_id", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "monitored_repo_scans", "user_id", "TEXT NOT NULL DEFAULT ''");
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_monitored_repos_user_id ON monitored_repos(user_id, added_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_user_id ON monitored_repo_scans(user_id, repo_full_name, scanned_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ai_runs_user_id ON ai_runs(user_id, created_at DESC);
+  `);
 
   migrateJsonBackfills(db);
 }
@@ -442,6 +471,7 @@ function migrateMonitoredRepos(db: DatabaseSync): void {
   const insertRepo = db.prepare(`
     INSERT INTO monitored_repos (
       id,
+      user_id,
       github_id,
       full_name,
       html_url,
@@ -450,7 +480,7 @@ function migrateMonitoredRepos(db: DatabaseSync): void {
       added_at,
       last_scanned_at,
       last_scan_vulnerability_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   withTransaction(() => {
@@ -461,6 +491,7 @@ function migrateMonitoredRepos(db: DatabaseSync): void {
 
       insertRepo.run(
         repo.id,
+        "",
         typeof repo.githubId === "number" ? repo.githubId : 0,
         typeof repo.fullName === "string" ? repo.fullName : "",
         typeof repo.htmlUrl === "string" ? repo.htmlUrl : "",
@@ -488,8 +519,8 @@ function migrateAIRuns(db: DatabaseSync): void {
 
   const insertRun = db.prepare(`
     INSERT INTO ai_runs (
-      id, feature, provider, model, mode, status, prompt, output, tool_calls_json, error, duration_ms, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, user_id, feature, provider, model, mode, status, prompt, output, tool_calls_json, error, duration_ms, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   withTransaction(() => {
@@ -500,6 +531,7 @@ function migrateAIRuns(db: DatabaseSync): void {
 
       insertRun.run(
         run.id,
+        "",
         typeof run.feature === "string" ? run.feature : "unknown",
         typeof run.provider === "string" ? run.provider : "unknown",
         typeof run.model === "string" ? run.model : "",
@@ -513,6 +545,115 @@ function migrateAIRuns(db: DatabaseSync): void {
         typeof run.createdAt === "string" ? run.createdAt : new Date().toISOString()
       );
     }
+  });
+}
+
+function migrateMonitoredRepoScope(db: DatabaseSync): void {
+  const repoColumns = db.prepare("PRAGMA table_info(monitored_repos)").all() as Array<{ name: string }>;
+  const scanColumns = db.prepare("PRAGMA table_info(monitored_repo_scans)").all() as Array<{ name: string }>;
+  const hasScopedRepos = repoColumns.some((column) => column.name === "user_id");
+  const hasScopedScans = scanColumns.some((column) => column.name === "user_id");
+
+  if (hasScopedRepos && hasScopedScans) {
+    return;
+  }
+
+  withTransaction((tx) => {
+    tx.exec(`
+      ALTER TABLE monitored_repo_scans RENAME TO monitored_repo_scans_legacy;
+      ALTER TABLE monitored_repos RENAME TO monitored_repos_legacy;
+
+      CREATE TABLE monitored_repos (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT '',
+        github_id INTEGER NOT NULL,
+        full_name TEXT NOT NULL,
+        html_url TEXT NOT NULL,
+        is_private INTEGER NOT NULL,
+        default_branch TEXT NOT NULL,
+        added_at TEXT NOT NULL,
+        last_scanned_at TEXT,
+        last_scan_vulnerability_count INTEGER,
+        UNIQUE(user_id, full_name)
+      );
+
+      CREATE TABLE monitored_repo_scans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT '',
+        repo_id TEXT,
+        repo_full_name TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        scanned_at TEXT NOT NULL,
+        dependency_count INTEGER NOT NULL,
+        location_count INTEGER NOT NULL,
+        vulnerability_count INTEGER NOT NULL,
+        result_json TEXT NOT NULL,
+        error TEXT NOT NULL DEFAULT '',
+        FOREIGN KEY (repo_id) REFERENCES monitored_repos(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX idx_monitored_repos_user_id ON monitored_repos(user_id, added_at DESC);
+      CREATE INDEX idx_monitored_repo_scans_repo_full_name ON monitored_repo_scans(repo_full_name, scanned_at DESC);
+      CREATE INDEX idx_monitored_repo_scans_user_id ON monitored_repo_scans(user_id, repo_full_name, scanned_at DESC);
+    `);
+
+    tx.exec(`
+      INSERT INTO monitored_repos (
+        id,
+        user_id,
+        github_id,
+        full_name,
+        html_url,
+        is_private,
+        default_branch,
+        added_at,
+        last_scanned_at,
+        last_scan_vulnerability_count
+      )
+      SELECT
+        id,
+        COALESCE(user_id, ''),
+        github_id,
+        full_name,
+        html_url,
+        is_private,
+        default_branch,
+        added_at,
+        last_scanned_at,
+        last_scan_vulnerability_count
+      FROM monitored_repos_legacy;
+
+      INSERT INTO monitored_repo_scans (
+        id,
+        user_id,
+        repo_id,
+        repo_full_name,
+        branch,
+        scanned_at,
+        dependency_count,
+        location_count,
+        vulnerability_count,
+        result_json,
+        error
+      )
+      SELECT
+        scans.id,
+        COALESCE(repos.user_id, ''),
+        scans.repo_id,
+        scans.repo_full_name,
+        scans.branch,
+        scans.scanned_at,
+        scans.dependency_count,
+        scans.location_count,
+        scans.vulnerability_count,
+        scans.result_json,
+        scans.error
+      FROM monitored_repo_scans_legacy scans
+      LEFT JOIN monitored_repos repos ON repos.id = scans.repo_id;
+
+      DROP TABLE monitored_repo_scans_legacy;
+      DROP TABLE monitored_repos_legacy;
+    `);
   });
 }
 

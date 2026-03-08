@@ -20,7 +20,7 @@ test("notification store creates delivery records for due digests", async () => 
   try {
     const session = getOrCreateWorkspaceSession(new Request("https://example.test/workspace"));
     await toggleWatchlistEntry(session.userId, "CVE-2026-7777");
-    await createProject({ name: "Digest Project", labels: ["critical"] });
+    await createProject(session.userId, { name: "Digest Project", labels: ["critical"] });
     await createNotificationPreferenceForUser(session.userId, {
       teamName: "Security",
       channel: "in_app",

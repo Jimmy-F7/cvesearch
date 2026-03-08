@@ -35,7 +35,7 @@ interface ProjectItemRow {
   updatedAt: string;
 }
 
-export async function listProjects(): Promise<ProjectRecord[]> {
+export async function listProjects(userId: string): Promise<ProjectRecord[]> {
   const db = getDb();
   const rows = db.prepare(`
     SELECT
@@ -49,13 +49,14 @@ export async function listProjects(): Promise<ProjectRecord[]> {
       created_at as createdAt,
       updated_at as updatedAt
     FROM projects
+    WHERE user_id = ?
     ORDER BY updated_at DESC
-  `).all() as ProjectRow[];
+  `).all(userId) as ProjectRow[];
 
   return rows.map((row) => buildProjectRecord(row, db));
 }
 
-export async function createProject(input: {
+export async function createProject(userId: string, input: {
   name: string;
   description?: string;
   owner?: string;
@@ -81,10 +82,11 @@ export async function createProject(input: {
 
   withTransaction((db) => {
     db.prepare(`
-      INSERT INTO projects (id, name, description, owner, due_at, labels_json, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, user_id, name, description, owner, due_at, labels_json, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       project.id,
+      userId,
       project.name,
       project.description,
       project.owner,
@@ -101,15 +103,16 @@ export async function createProject(input: {
     `).run(project.activity[0].id, project.id, project.activity[0].action, project.activity[0].summary, project.activity[0].createdAt);
   });
 
-  return getProjectRecord(project.id) as ProjectRecord;
+  return getProjectRecord(userId, project.id) as ProjectRecord;
 }
 
 export async function updateProject(
+  userId: string,
   projectId: string,
   input: Partial<Pick<ProjectRecord, "name" | "description" | "owner" | "dueAt" | "labels" | "status">>
 ): Promise<ProjectRecord | null> {
   return withTransaction((db) => {
-    const current = getProjectRecord(projectId, db);
+    const current = getProjectRecord(userId, projectId, db);
     if (!current) {
       return null;
     }
@@ -146,20 +149,21 @@ export async function updateProject(
       appendProjectActivity(projectId, createActivityEntry("project_updated", changes.join(" • "), now), db);
     }
 
-    return getProjectRecord(projectId, db);
+    return getProjectRecord(userId, projectId, db);
   });
 }
 
-export async function deleteProject(projectId: string): Promise<boolean> {
-  const result = getDb().prepare("DELETE FROM projects WHERE id = ?").run(projectId);
+export async function deleteProject(userId: string, projectId: string): Promise<boolean> {
+  const result = getDb().prepare("DELETE FROM projects WHERE user_id = ? AND id = ?").run(userId, projectId);
   return result.changes > 0;
 }
 
-export async function getProjectById(projectId: string): Promise<ProjectRecord | null> {
-  return getProjectRecord(projectId);
+export async function getProjectById(userId: string, projectId: string): Promise<ProjectRecord | null> {
+  return getProjectRecord(userId, projectId);
 }
 
 export async function addProjectItem(
+  userId: string,
   projectId: string,
   item: {
     cveId: string;
@@ -171,7 +175,7 @@ export async function addProjectItem(
   }
 ): Promise<ProjectRecord | null> {
   return withTransaction((db) => {
-    const project = getProjectRecord(projectId, db);
+    const project = getProjectRecord(userId, projectId, db);
     if (!project) return null;
 
     const existing = project.items.find((entry) => entry.cveId === item.cveId);
@@ -218,17 +222,18 @@ export async function addProjectItem(
 
     appendProjectActivity(projectId, createActivityEntry(existing ? "project_item_updated" : "project_item_added", summary, now), db);
 
-    return getProjectRecord(projectId, db);
+    return getProjectRecord(userId, projectId, db);
   });
 }
 
 export async function updateProjectItem(
+  userId: string,
   projectId: string,
   cveId: string,
   input: Partial<Pick<ProjectItem, "note" | "owner" | "remediationState" | "slaDueAt" | "exception">>
 ): Promise<ProjectRecord | null> {
   return withTransaction((db) => {
-    const project = getProjectRecord(projectId, db);
+    const project = getProjectRecord(userId, projectId, db);
     if (!project) return null;
 
     const existing = project.items.find((item) => item.cveId === cveId);
@@ -263,20 +268,20 @@ export async function updateProjectItem(
       appendProjectActivity(projectId, createActivityEntry("project_item_updated", `${cveId}: ${changes.join(" • ")}`, now), db);
     }
 
-    return getProjectRecord(projectId, db);
+    return getProjectRecord(userId, projectId, db);
   });
 }
 
-export async function removeProjectItem(projectId: string, cveId: string): Promise<ProjectRecord | null> {
+export async function removeProjectItem(userId: string, projectId: string, cveId: string): Promise<ProjectRecord | null> {
   return withTransaction((db) => {
-    const project = getProjectRecord(projectId, db);
+    const project = getProjectRecord(userId, projectId, db);
     if (!project) return null;
 
     const now = new Date().toISOString();
     db.prepare("DELETE FROM project_items WHERE project_id = ? AND cve_id = ?").run(projectId, cveId);
     db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(now, projectId);
     appendProjectActivity(projectId, createActivityEntry("project_item_removed", `Removed ${cveId} from project`, now), db);
-    return getProjectRecord(projectId, db);
+    return getProjectRecord(userId, projectId, db);
   });
 }
 
@@ -284,15 +289,15 @@ export function normalizeProjectName(name: string): string {
   return name.trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
-export async function importProjects(projects: ProjectRecord[], mode: WorkspaceImportMode): Promise<void> {
+export async function importProjects(userId: string, projects: ProjectRecord[], mode: WorkspaceImportMode): Promise<void> {
   withTransaction((db) => {
     if (mode === "replace") {
-      db.prepare("DELETE FROM projects").run();
+      db.prepare("DELETE FROM projects WHERE user_id = ?").run(userId);
     }
 
     const upsertProject = db.prepare(`
-      INSERT INTO projects (id, name, description, owner, due_at, labels_json, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, user_id, name, description, owner, due_at, labels_json, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         description = excluded.description,
@@ -314,7 +319,15 @@ export async function importProjects(projects: ProjectRecord[], mode: WorkspaceI
     `);
 
     for (const project of projects) {
-      const projectId = project.id || crypto.randomUUID();
+      const requestedProjectId = project.id || crypto.randomUUID();
+      const existingOwner = db.prepare(`
+        SELECT user_id as userId
+        FROM projects
+        WHERE id = ?
+      `).get(requestedProjectId) as { userId: string } | undefined;
+      const projectId = existingOwner && existingOwner.userId !== userId
+        ? crypto.randomUUID()
+        : requestedProjectId;
       const normalized = normalizeProjectRecord({
         ...project,
         id: projectId,
@@ -322,6 +335,7 @@ export async function importProjects(projects: ProjectRecord[], mode: WorkspaceI
 
       upsertProject.run(
         projectId,
+        userId,
         normalized.name,
         normalized.description,
         normalized.owner ?? "",
@@ -367,7 +381,7 @@ export async function importProjects(projects: ProjectRecord[], mode: WorkspaceI
   });
 }
 
-function getProjectRecord(projectId: string, db = getDb()): ProjectRecord | null {
+function getProjectRecord(userId: string, projectId: string, db = getDb()): ProjectRecord | null {
   const row = db.prepare(`
     SELECT
       id,
@@ -380,8 +394,8 @@ function getProjectRecord(projectId: string, db = getDb()): ProjectRecord | null
       created_at as createdAt,
       updated_at as updatedAt
     FROM projects
-    WHERE id = ?
-  `).get(projectId) as ProjectRow | undefined;
+    WHERE user_id = ? AND id = ?
+  `).get(userId, projectId) as ProjectRow | undefined;
 
   if (!row) {
     return null;

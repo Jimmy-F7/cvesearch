@@ -4,7 +4,7 @@ import { getDb, withTransaction } from "./db";
 
 interface RateLimitWindow {
   count: number;
-  resetAt: number;
+  windowStartedAt: number;
 }
 
 export interface APIRequestLogRecord {
@@ -35,7 +35,8 @@ type RouteHandler<T extends unknown[]> = (...args: T) => Promise<Response> | Res
 
 const MAX_STORED_REQUEST_LOGS = 500;
 const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
-const rateLimitState = new Map<string, RateLimitWindow>();
+const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+const SESSION_COOKIE_NAME = "cvesearch_session";
 
 export function withRouteProtection<T extends [Request, ...unknown[]]>(handler: RouteHandler<T>, config: RouteProtectionConfig): RouteHandler<T> {
   return async (...args: T) => {
@@ -139,42 +140,61 @@ export async function listRecentAPIRequestLogs(limit = 50): Promise<APIRequestLo
 }
 
 export function resetAPIRateLimits(): void {
-  rateLimitState.clear();
+  getDb().prepare("DELETE FROM api_rate_limits").run();
 }
 
 function consumeRateLimit(clientId: string, config: RateLimitConfig): { limited: boolean; remaining: number; resetAt: number } {
   const now = Date.now();
-  const key = `${config.bucket}:${clientId}`;
-  const current = rateLimitState.get(key);
+  const windowStartedAt = now - (now % config.windowMs);
+  const resetAt = windowStartedAt + config.windowMs;
 
-  if (!current || current.resetAt <= now) {
-    const next: RateLimitWindow = {
-      count: 1,
-      resetAt: now + config.windowMs,
-    };
-    rateLimitState.set(key, next);
+  return withTransaction((db) => {
+    const current = db.prepare(`
+      SELECT count, window_started_at as windowStartedAt
+      FROM api_rate_limits
+      WHERE bucket = ? AND client_id = ?
+    `).get(config.bucket, clientId) as RateLimitWindow | undefined;
+
+    db.prepare("DELETE FROM api_rate_limits WHERE window_started_at < ?").run(now - RATE_LIMIT_RETENTION_MS);
+
+    if (!current || current.windowStartedAt < windowStartedAt) {
+      db.prepare(`
+        INSERT INTO api_rate_limits (bucket, client_id, window_started_at, count, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(bucket, client_id) DO UPDATE SET
+          window_started_at = excluded.window_started_at,
+          count = excluded.count,
+          updated_at = excluded.updated_at
+      `).run(config.bucket, clientId, windowStartedAt, 1, new Date(now).toISOString());
+
+      return {
+        limited: false,
+        remaining: Math.max(config.maxRequests - 1, 0),
+        resetAt,
+      };
+    }
+
+    if (current.count >= config.maxRequests) {
+      return {
+        limited: true,
+        remaining: 0,
+        resetAt: current.windowStartedAt + config.windowMs,
+      };
+    }
+
+    const nextCount = current.count + 1;
+    db.prepare(`
+      UPDATE api_rate_limits
+      SET count = ?, updated_at = ?
+      WHERE bucket = ? AND client_id = ?
+    `).run(nextCount, new Date(now).toISOString(), config.bucket, clientId);
+
     return {
       limited: false,
-      remaining: Math.max(config.maxRequests - next.count, 0),
-      resetAt: next.resetAt,
+      remaining: Math.max(config.maxRequests - nextCount, 0),
+      resetAt: current.windowStartedAt + config.windowMs,
     };
-  }
-
-  if (current.count >= config.maxRequests) {
-    return {
-      limited: true,
-      remaining: 0,
-      resetAt: current.resetAt,
-    };
-  }
-
-  current.count += 1;
-  rateLimitState.set(key, current);
-  return {
-    limited: false,
-    remaining: Math.max(config.maxRequests - current.count, 0),
-    resetAt: current.resetAt,
-  };
+  });
 }
 
 function withRateLimitHeaders(response: Response, config: RateLimitConfig, remaining: number, resetAt: number): Response {
@@ -186,11 +206,31 @@ function withRateLimitHeaders(response: Response, config: RateLimitConfig, remai
 }
 
 function getClientIdentifier(request: Request): string {
+  const sessionId = readCookie(request.headers.get("cookie"), SESSION_COOKIE_NAME);
+  if (sessionId) {
+    return `session:${sessionId}`;
+  }
+
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const realIp = request.headers.get("x-real-ip")?.trim();
   const userAgent = request.headers.get("user-agent")?.trim() || "unknown-agent";
   const seed = `${forwarded || realIp || "local"}:${userAgent}`;
   return createHash("sha256").update(seed).digest("hex").slice(0, 16);
+}
+
+function readCookie(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  for (const cookie of cookieHeader.split(";")) {
+    const [key, ...rest] = cookie.trim().split("=");
+    if (key === name) {
+      return rest.join("=") || null;
+    }
+  }
+
+  return null;
 }
 
 async function appendAPIRequestLog(input: Omit<APIRequestLogRecord, "id" | "createdAt">): Promise<void> {

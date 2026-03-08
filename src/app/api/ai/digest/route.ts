@@ -10,7 +10,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     watchlist: Array.isArray(body?.watchlist) ? body.watchlist : [],
     alerts: Array.isArray(body?.alerts) ? body.alerts : [],
     projects: Array.isArray(body?.projects) ? body.projects : [],
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json(digest), session);
 }, {

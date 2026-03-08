@@ -1,9 +1,7 @@
-"use client";
-
-import { useState, useEffect, use } from "react";
+import { ReactNode } from "react";
 import Link from "next/link";
 import { CVEDetail, CWEData, EPSSData } from "@/lib/types";
-import { getCVEById, getCWE, getEPSSQuietly } from "@/lib/api";
+import { getCVEByIdServer, getCWEServer, getEPSSServer } from "@/lib/server-api";
 import { isCveIdQuery } from "@/lib/search";
 import {
   extractDescription,
@@ -20,49 +18,24 @@ import AICveInsightPanel from "@/components/AICveInsightPanel";
 import AIExposurePanel from "@/components/AIExposurePanel";
 import AIRemediationPlanPanel from "@/components/AIRemediationPlanPanel";
 
-export default function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const [cve, setCve] = useState<CVEDetail | null>(null);
-  const [epss, setEpss] = useState<EPSSData | null>(null);
-  const [cweDetail, setCweDetail] = useState<CWEData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function CVEDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  let cve: CVEDetail | null = null;
+  let epss: EPSSData | null = null;
+  let cweDetail: CWEData | null = null;
+  let error: string | null = null;
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const decodedId = decodeURIComponent(id);
-        const cveData = await getCVEById(decodedId);
-        const epssTarget = getEPSSLookupId(cveData);
-        const cweId = getPrimaryCweId(cveData);
-        const [epssData, cweData] = await Promise.all([
-          epssTarget ? getEPSSQuietly(epssTarget) : Promise.resolve(null),
-          cweId ? getCWE(cweId) : Promise.resolve(null),
-        ]);
-        setCve(cveData);
-        setEpss(epssData);
-        setCweDetail(cweData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load CVE");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="app-shell px-4 py-8 sm:px-6">
-        <div className="space-y-6">
-          <div className="skeleton-shimmer h-8 w-48 rounded-lg" />
-          <div className="skeleton-shimmer h-6 w-64 rounded-lg" />
-          <div className="skeleton-shimmer h-32 rounded-xl" />
-          <div className="skeleton-shimmer h-64 rounded-xl" />
-        </div>
-      </div>
-    );
+  try {
+    const { id } = await params;
+    const decodedId = decodeURIComponent(id);
+    cve = await getCVEByIdServer(decodedId);
+    const epssTarget = getEPSSLookupId(cve);
+    const cweId = getPrimaryCweId(cve);
+    [epss, cweDetail] = await Promise.all([
+      epssTarget ? getEPSSServer(epssTarget) : Promise.resolve(null),
+      cweId ? getCWEServer(cweId) : Promise.resolve(null),
+    ]);
+  } catch (err) {
+    error = err instanceof Error ? err.message : "Failed to load CVE";
   }
 
   if (error || !cve) {
@@ -590,36 +563,40 @@ function Section({
   collapsible = false,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   collapsible?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(!collapsible);
+  if (!collapsible) {
+    return (
+      <div className="glass rounded-xl">
+        <div className="rounded-t-xl px-5 py-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">
+            {title}
+          </h2>
+        </div>
+        <div className="px-5 pb-5">{children}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="glass rounded-xl">
-      <button
-        onClick={() => collapsible && setIsOpen(!isOpen)}
-        className={`flex w-full items-center justify-between px-5 py-4 text-left ${
-          collapsible ? "cursor-pointer hover:bg-white/[0.02]" : "cursor-default"
-        } rounded-t-xl`}
-      >
+    <details className="glass rounded-xl">
+      <summary className="flex cursor-pointer items-center justify-between rounded-t-xl px-5 py-4 text-left hover:bg-white/[0.02]">
         <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">
           {title}
         </h2>
-        {collapsible && (
-          <svg
-            className={`h-4 w-4 text-white/25 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-          </svg>
-        )}
-      </button>
-      {isOpen && <div className="px-5 pb-5">{children}</div>}
-    </div>
+        <svg
+          className="h-4 w-4 text-white/25 transition-transform duration-200"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </summary>
+      <div className="px-5 pb-5">{children}</div>
+    </details>
   );
 }
 

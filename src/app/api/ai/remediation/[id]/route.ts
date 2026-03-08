@@ -20,7 +20,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
 
   const [epss, projects] = await Promise.all([
     getEPSSServer(detail.id).catch(() => null),
-    listProjects().catch(() => []),
+    listProjects(session.userId).catch(() => []),
   ]);
   const triage = body?.triage && typeof body.triage === "object"
     ? body.triage
@@ -35,7 +35,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       items: project.items,
       updatedAt: project.updatedAt,
     })),
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json(remediation), session);
 }, {

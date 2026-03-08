@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addProjectItem, removeProjectItem, updateProjectItem } from "@/lib/projects-store";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
 
 export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const cveId = typeof body?.cveId === "string" ? body.cveId.trim() : "";
   const note = typeof body?.note === "string" ? body.note : "";
 
   if (!cveId) {
-    return NextResponse.json({ error: "cveId is required" }, { status: 400 });
+    return applyWorkspaceSession(NextResponse.json({ error: "cveId is required" }, { status: 400 }), session);
   }
 
-  const project = await addProjectItem(id, { cveId, note });
+  const project = await addProjectItem(session.userId, id, { cveId, note });
   if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    return applyWorkspaceSession(NextResponse.json({ error: "Project not found" }, { status: 404 }), session);
   }
 
-  return NextResponse.json(project);
+  return applyWorkspaceSession(NextResponse.json(project), session);
 }, {
   route: "/api/projects/[id]/items",
   errorMessage: "Failed to add project item",
@@ -25,20 +27,21 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
 });
 
 export const DELETE = withRouteProtection(async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const cveId = typeof body?.cveId === "string" ? body.cveId.trim() : "";
 
   if (!cveId) {
-    return NextResponse.json({ error: "cveId is required" }, { status: 400 });
+    return applyWorkspaceSession(NextResponse.json({ error: "cveId is required" }, { status: 400 }), session);
   }
 
-  const project = await removeProjectItem(id, cveId);
+  const project = await removeProjectItem(session.userId, id, cveId);
   if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    return applyWorkspaceSession(NextResponse.json({ error: "Project not found" }, { status: 404 }), session);
   }
 
-  return NextResponse.json(project);
+  return applyWorkspaceSession(NextResponse.json(project), session);
 }, {
   route: "/api/projects/[id]/items",
   errorMessage: "Failed to remove project item",
@@ -46,15 +49,16 @@ export const DELETE = withRouteProtection(async function DELETE(request: NextReq
 });
 
 export const PATCH = withRouteProtection(async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const cveId = typeof body?.cveId === "string" ? body.cveId.trim() : "";
 
   if (!cveId) {
-    return NextResponse.json({ error: "cveId is required" }, { status: 400 });
+    return applyWorkspaceSession(NextResponse.json({ error: "cveId is required" }, { status: 400 }), session);
   }
 
-  const project = await updateProjectItem(id, cveId, {
+  const project = await updateProjectItem(session.userId, id, cveId, {
     note: typeof body?.note === "string" ? body.note : undefined,
     owner: typeof body?.owner === "string" ? body.owner : undefined,
     remediationState: typeof body?.remediationState === "string"
@@ -74,10 +78,10 @@ export const PATCH = withRouteProtection(async function PATCH(request: NextReque
   });
 
   if (!project) {
-    return NextResponse.json({ error: "Project or item not found" }, { status: 404 });
+    return applyWorkspaceSession(NextResponse.json({ error: "Project or item not found" }, { status: 404 }), session);
   }
 
-  return NextResponse.json(project);
+  return applyWorkspaceSession(NextResponse.json(project), session);
 }, {
   route: "/api/projects/[id]/items",
   errorMessage: "Failed to update project item",

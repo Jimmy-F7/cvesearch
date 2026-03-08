@@ -6,6 +6,8 @@ import test from "node:test";
 import { appendAIRun, clearAIRuns, deleteAIRun, listRecentAIRuns } from "../src/lib/ai-runs-store";
 import { AIRunRecord } from "../src/lib/types";
 
+const USER_ID = "user-ai-runs";
+
 test("appendAIRun stores newest runs first and listRecentAIRuns enforces the limit", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-ai-runs-"));
   const previous = process.env.AI_RUNS_FILE;
@@ -35,11 +37,11 @@ test("appendAIRun stores newest runs first and listRecentAIRuns enforces the lim
   };
 
   try {
-    await appendAIRun(first);
-    await appendAIRun(second);
+    await appendAIRun(USER_ID, first);
+    await appendAIRun(USER_ID, second);
 
-    const allRuns = await listRecentAIRuns(10);
-    const limitedRuns = await listRecentAIRuns(1);
+    const allRuns = await listRecentAIRuns(USER_ID, 10);
+    const limitedRuns = await listRecentAIRuns(USER_ID, 1);
 
     assert.equal(allRuns.length, 2);
     assert.equal(allRuns[0].id, "run-2");
@@ -80,8 +82,8 @@ test("listRecentAIRuns estimates tokens and provider cost for configured runs", 
   };
 
   try {
-    await appendAIRun(run);
-    const [stored] = await listRecentAIRuns(1);
+    await appendAIRun(USER_ID, run);
+    const [stored] = await listRecentAIRuns(USER_ID, 1);
     assert.equal(stored.promptTokensEstimate, 100);
     assert.equal(stored.outputTokensEstimate, 50);
     assert.equal((stored.estimatedCostUsd ?? 0) > 0, true);
@@ -124,14 +126,14 @@ test("deleteAIRun removes a single run and clearAIRuns clears the remaining hist
   };
 
   try {
-    await appendAIRun(first);
-    await appendAIRun(second);
+    await appendAIRun(USER_ID, first);
+    await appendAIRun(USER_ID, second);
 
-    assert.equal(await deleteAIRun(first.id), true);
-    assert.deepEqual((await listRecentAIRuns(10)).map((run) => run.id), ["run-delete-2"]);
+    assert.equal(await deleteAIRun(USER_ID, first.id), true);
+    assert.deepEqual((await listRecentAIRuns(USER_ID, 10)).map((run) => run.id), ["run-delete-2"]);
 
-    assert.equal(await clearAIRuns(), 1);
-    assert.equal((await listRecentAIRuns(10)).length, 0);
+    assert.equal(await clearAIRuns(USER_ID), 1);
+    assert.equal((await listRecentAIRuns(USER_ID, 10)).length, 0);
   } finally {
     if (previous === undefined) {
       delete process.env.AI_RUNS_FILE;

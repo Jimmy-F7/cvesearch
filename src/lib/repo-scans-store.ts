@@ -15,7 +15,7 @@ interface RepoScanRow {
   error: string;
 }
 
-export async function listRepoScansForRepo(repoFullName: string, limit = 6): Promise<RepoScanRecord[]> {
+export async function listRepoScansForRepo(userId: string, repoFullName: string, limit = 6): Promise<RepoScanRecord[]> {
   const rows = getDb().prepare(`
     SELECT
       id,
@@ -29,21 +29,22 @@ export async function listRepoScansForRepo(repoFullName: string, limit = 6): Pro
       result_json as resultJson,
       error
     FROM monitored_repo_scans
-    WHERE repo_full_name = ?
+    WHERE user_id = ? AND repo_full_name = ?
     ORDER BY scanned_at DESC
     LIMIT ?
-  `).all(repoFullName, limit) as RepoScanRow[];
+  `).all(userId, repoFullName, limit) as RepoScanRow[];
 
   return rows.map(parseRepoScanRow);
 }
 
 export async function persistRepoScanResult(
+  userId: string,
   repoFullName: string,
   branch: string,
   result: DependencyScanResult,
   error: string | null = null
 ): Promise<RepoScanRecord> {
-  const repo = await getMonitoredRepo(repoFullName);
+  const repo = await getMonitoredRepo(userId, repoFullName);
   const record: RepoScanRecord = {
     id: crypto.randomUUID(),
     repoId: repo?.id ?? null,
@@ -60,6 +61,7 @@ export async function persistRepoScanResult(
   getDb().prepare(`
     INSERT INTO monitored_repo_scans (
       id,
+      user_id,
       repo_id,
       repo_full_name,
       branch,
@@ -69,9 +71,10 @@ export async function persistRepoScanResult(
       vulnerability_count,
       result_json,
       error
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     record.id,
+    userId,
     record.repoId,
     record.repoFullName,
     record.branch,

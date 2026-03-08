@@ -1,6 +1,5 @@
-import { CVEDetail, CVESummary, EPSSData, HomeDashboardData, KnownExploitedVulnerability } from "./types";
+import { CVEDetail, CVESummary, CWEData, EPSSData, HomeDashboardData, KnownExploitedVulnerability } from "./types";
 import { SearchState } from "./search";
-import { persistCVEsFromUpstreamResponse } from "./cve-store";
 import {
   applySearchResultPreferences,
   buildPresetHref,
@@ -13,35 +12,26 @@ import {
   wasPublishedWithinDays,
 } from "./search";
 import { extractCVEId } from "./utils";
-import { parseCVEDetail, parseCVESummaryList, parseEPSSResponse, parseKnownExploitedCatalog } from "./validation";
+import { parseCVEDetail, parseCVESummaryList, parseCWEData, parseEPSSResponse, parseKnownExploitedCatalog } from "./validation";
+import {
+  buildCVEDetailPath,
+  buildCWEPath,
+  buildEPSSPath,
+  buildLatestCVEsPath,
+  buildSearchCVEsPath,
+  buildVendorProductSearchPath,
+  fetchVulnerabilityAPIUpstream,
+  type NextFetchOptions,
+} from "./vulnerability-api";
 
-const API_BASE = "https://vulnerability.circl.lu/api";
 const KEV_CATALOG_URL = "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json";
-type NextFetchOptions = RequestInit & { next?: { revalidate: number } };
 
 async function fetchUpstream<T>(path: string): Promise<T> {
-  const options: NextFetchOptions = {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "CVESearch-WebApp/1.0",
-    },
-    next: { revalidate: 60 },
-  };
-  const res = await fetch(`${API_BASE}${path}`, options);
-
-  if (!res.ok) {
-    throw new Error(`Upstream API error: ${res.status} ${res.statusText}`);
-  }
-
-  const data = await res.json();
-  persistCVEsFromUpstreamResponse(path, data);
-  return data;
+  return fetchVulnerabilityAPIUpstream<T>(path);
 }
 
 export async function getLatestCVEsServer(page: number, perPage: number): Promise<CVESummary[]> {
-  const data = await fetchUpstream<unknown>(
-    `/vulnerability/?per_page=${perPage}&page=${page}&sort_order=desc&date_sort=published`
-  );
+  const data = await fetchUpstream<unknown>(buildLatestCVEsPath(page, perPage));
   return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 
@@ -52,24 +42,12 @@ export async function searchCVEsServer(params: {
   page: number;
   perPage: number;
 }): Promise<CVESummary[]> {
-  const searchParams = new URLSearchParams();
-
-  if (params.product) searchParams.set("product", params.product);
-  if (params.cwe) searchParams.set("cwe", params.cwe);
-  if (params.since) searchParams.set("since", params.since);
-  searchParams.set("page", String(params.page));
-  searchParams.set("per_page", String(params.perPage));
-  searchParams.set("sort_order", "desc");
-  searchParams.set("date_sort", "published");
-
-  const data = await fetchUpstream<unknown>(`/vulnerability/?${searchParams.toString()}`);
+  const data = await fetchUpstream<unknown>(buildSearchCVEsPath(params));
   return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 
 export async function getCVEByIdServer(id: string): Promise<CVEDetail> {
-  const data = await fetchUpstream<unknown>(
-    `/vulnerability/${encodeURIComponent(id)}?with_meta=true&with_linked=true&with_comments=true`
-  );
+  const data = await fetchUpstream<unknown>(buildCVEDetailPath(id));
   const detail = parseCVEDetail(data);
   const kev = await getKnownExploitedVulnerabilityById(extractCVEId(detail));
   return kev ? { ...detail, kev } : detail;
@@ -77,8 +55,17 @@ export async function getCVEByIdServer(id: string): Promise<CVEDetail> {
 
 export async function getEPSSServer(cveId: string): Promise<EPSSData | null> {
   try {
-    const data = await fetchUpstream<unknown>(`/epss/${encodeURIComponent(cveId)}`);
+    const data = await fetchUpstream<unknown>(buildEPSSPath(cveId));
     return parseEPSSResponse(data);
+  } catch {
+    return null;
+  }
+}
+
+export async function getCWEServer(cweId: string): Promise<CWEData | null> {
+  try {
+    const data = await fetchUpstream<unknown>(buildCWEPath(cweId));
+    return parseCWEData(data);
   } catch {
     return null;
   }
@@ -90,9 +77,7 @@ export async function searchByVendorProductServer(
   page: number,
   perPage: number
 ): Promise<CVESummary[]> {
-  const data = await fetchUpstream<unknown>(
-    `/vulnerability/search/${encodeURIComponent(vendor)}/${encodeURIComponent(product)}?page=${page}&per_page=${perPage}`
-  );
+  const data = await fetchUpstream<unknown>(buildVendorProductSearchPath(vendor, product, page, perPage));
   return enrichCVEsWithKev(parseCVESummaryList(data));
 }
 

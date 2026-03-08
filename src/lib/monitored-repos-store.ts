@@ -1,7 +1,7 @@
 import { MonitoredRepo } from "./github-types";
 import { getDb, withTransaction } from "./db";
 
-export const listMonitoredRepos = async (): Promise<MonitoredRepo[]> => {
+export const listMonitoredRepos = async (userId: string): Promise<MonitoredRepo[]> => {
   const rows = getDb().prepare(`
     SELECT
       id,
@@ -14,13 +14,14 @@ export const listMonitoredRepos = async (): Promise<MonitoredRepo[]> => {
       last_scanned_at as lastScannedAt,
       last_scan_vulnerability_count as lastScanVulnerabilityCount
     FROM monitored_repos
+    WHERE user_id = ?
     ORDER BY added_at DESC
-  `).all() as MonitoredRepoRow[];
+  `).all(userId) as MonitoredRepoRow[];
 
   return rows.map((row) => normalizeMonitoredRepoRow(row));
 };
 
-export const addMonitoredRepo = async (input: {
+export const addMonitoredRepo = async (userId: string, input: {
   githubId: number;
   fullName: string;
   htmlUrl: string;
@@ -40,8 +41,8 @@ export const addMonitoredRepo = async (input: {
         last_scanned_at as lastScannedAt,
         last_scan_vulnerability_count as lastScanVulnerabilityCount
       FROM monitored_repos
-      WHERE full_name = ?
-    `).get(input.fullName) as MonitoredRepoRow | undefined;
+      WHERE user_id = ? AND full_name = ?
+    `).get(userId, input.fullName) as MonitoredRepoRow | undefined;
 
     if (existing) {
       return normalizeMonitoredRepoRow(existing);
@@ -62,6 +63,7 @@ export const addMonitoredRepo = async (input: {
     db.prepare(`
       INSERT INTO monitored_repos (
         id,
+        user_id,
         github_id,
         full_name,
         html_url,
@@ -70,9 +72,10 @@ export const addMonitoredRepo = async (input: {
         added_at,
         last_scanned_at,
         last_scan_vulnerability_count
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       repo.id,
+      userId,
       repo.githubId,
       repo.fullName,
       repo.htmlUrl,
@@ -87,23 +90,24 @@ export const addMonitoredRepo = async (input: {
   });
 };
 
-export const removeMonitoredRepo = async (repoId: string): Promise<boolean> => {
-  const result = getDb().prepare("DELETE FROM monitored_repos WHERE id = ?").run(repoId);
+export const removeMonitoredRepo = async (userId: string, repoId: string): Promise<boolean> => {
+  const result = getDb().prepare("DELETE FROM monitored_repos WHERE user_id = ? AND id = ?").run(userId, repoId);
   return result.changes > 0;
 };
 
 export const updateLastScan = async (
+  userId: string,
   repoFullName: string,
   vulnerabilityCount: number
 ): Promise<void> => {
   getDb().prepare(`
     UPDATE monitored_repos
     SET last_scanned_at = ?, last_scan_vulnerability_count = ?
-    WHERE full_name = ?
-  `).run(new Date().toISOString(), vulnerabilityCount, repoFullName);
+    WHERE user_id = ? AND full_name = ?
+  `).run(new Date().toISOString(), vulnerabilityCount, userId, repoFullName);
 };
 
-export const getMonitoredRepo = async (repoIdOrFullName: string): Promise<MonitoredRepo | null> => {
+export const getMonitoredRepo = async (userId: string, repoIdOrFullName: string): Promise<MonitoredRepo | null> => {
   const row = getDb().prepare(`
     SELECT
       id,
@@ -116,9 +120,9 @@ export const getMonitoredRepo = async (repoIdOrFullName: string): Promise<Monito
       last_scanned_at as lastScannedAt,
       last_scan_vulnerability_count as lastScanVulnerabilityCount
     FROM monitored_repos
-    WHERE id = ? OR full_name = ?
+    WHERE user_id = ? AND (id = ? OR full_name = ?)
     LIMIT 1
-  `).get(repoIdOrFullName, repoIdOrFullName) as MonitoredRepoRow | undefined;
+  `).get(userId, repoIdOrFullName, repoIdOrFullName) as MonitoredRepoRow | undefined;
 
   return row ? normalizeMonitoredRepoRow(row) : null;
 };

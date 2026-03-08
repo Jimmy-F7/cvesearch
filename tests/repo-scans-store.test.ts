@@ -12,7 +12,8 @@ test("repo scan store persists scan snapshots for monitored repos", async () => 
   process.env.DATABASE_FILE = path.join(tempDir, "repo-scans.db");
 
   try {
-    await addMonitoredRepo({
+    const userId = "user-repo-scans";
+    await addMonitoredRepo(userId, {
       githubId: 42,
       fullName: "acme/api",
       htmlUrl: "https://github.com/acme/api",
@@ -20,7 +21,7 @@ test("repo scan store persists scan snapshots for monitored repos", async () => 
       defaultBranch: "main",
     });
 
-    await persistRepoScanResult("acme/api", "main", {
+    await persistRepoScanResult(userId, "acme/api", "main", {
       repoFullName: "acme/api",
       scannedAt: new Date().toISOString(),
       dependencyCount: 12,
@@ -28,11 +29,52 @@ test("repo scan store persists scan snapshots for monitored repos", async () => 
       vulnerabilities: [],
     });
 
-    const history = await listRepoScansForRepo("acme/api");
+    const history = await listRepoScansForRepo(userId, "acme/api");
     assert.equal(history.length, 1);
     assert.equal(history[0]?.repoFullName, "acme/api");
     assert.equal(history[0]?.branch, "main");
     assert.equal(history[0]?.dependencyCount, 12);
+  } finally {
+    if (previousDatabaseFile === undefined) {
+      delete process.env.DATABASE_FILE;
+    } else {
+      process.env.DATABASE_FILE = previousDatabaseFile;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("repo scan history is isolated per monitored-repo owner", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-repo-scans-scope-"));
+  const previousDatabaseFile = process.env.DATABASE_FILE;
+  process.env.DATABASE_FILE = path.join(tempDir, "repo-scans-scope.db");
+
+  try {
+    await addMonitoredRepo("user-a", {
+      githubId: 7,
+      fullName: "acme/api",
+      htmlUrl: "https://github.com/acme/api",
+      isPrivate: true,
+      defaultBranch: "main",
+    });
+    await addMonitoredRepo("user-b", {
+      githubId: 7,
+      fullName: "acme/api",
+      htmlUrl: "https://github.com/acme/api",
+      isPrivate: true,
+      defaultBranch: "main",
+    });
+
+    await persistRepoScanResult("user-a", "acme/api", "main", {
+      repoFullName: "acme/api",
+      scannedAt: new Date().toISOString(),
+      dependencyCount: 4,
+      locationCount: 1,
+      vulnerabilities: [],
+    });
+
+    assert.equal((await listRepoScansForRepo("user-a", "acme/api")).length, 1);
+    assert.equal((await listRepoScansForRepo("user-b", "acme/api")).length, 0);
   } finally {
     if (previousDatabaseFile === undefined) {
       delete process.env.DATABASE_FILE;

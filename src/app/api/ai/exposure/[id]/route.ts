@@ -21,7 +21,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   const [triage, inventoryAssets, projects] = await Promise.all([
     readTriageRecordForUser(session.userId, detail.id),
     listInventoryAssetsForUser(session.userId),
-    listProjects().catch(() => []),
+    listProjects(session.userId).catch(() => []),
   ]);
   const relatedProjects = projects.filter((project) => project.items.some((item) => item.cveId === detail.id));
   const assessment = await generateExposureAssessment({
@@ -42,7 +42,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       criticality: asset.criticality,
       notes: asset.notes,
     })),
-  });
+  }, { userId: session.userId });
 
   return applyWorkspaceSession(NextResponse.json(assessment), session);
 }, {

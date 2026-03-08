@@ -15,9 +15,10 @@ test("project store records bounded activity history for create and item changes
   process.env.PROJECTS_FILE = path.join(tempDir, "projects.json");
 
   try {
-    const project = await createProject({ name: "Incident Alpha" });
-    const withItem = await addProjectItem(project.id, { cveId: "CVE-2026-1111", note: "Investigate first" });
-    const withoutItem = await removeProjectItem(project.id, "CVE-2026-1111");
+    const userId = "user-projects";
+    const project = await createProject(userId, { name: "Incident Alpha" });
+    const withItem = await addProjectItem(userId, project.id, { cveId: "CVE-2026-1111", note: "Investigate first" });
+    const withoutItem = await removeProjectItem(userId, project.id, "CVE-2026-1111");
 
     assert.ok(withItem);
     assert.ok(withoutItem);
