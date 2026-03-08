@@ -1,11 +1,30 @@
 export const WATCHLIST_UPDATED_EVENT = "cvesearch:watchlist-updated";
 
 let watchlistCache: string[] = [];
+let watchlistLoaded = false;
+let watchlistPromise: Promise<string[]> | null = null;
 
 export async function loadWatchlist(): Promise<string[]> {
-  const next = await fetchWatchlist();
-  watchlistCache = next;
-  return next;
+  if (watchlistLoaded) {
+    return watchlistCache;
+  }
+
+  if (watchlistPromise) {
+    return watchlistPromise;
+  }
+
+  watchlistPromise = fetchWatchlist()
+    .then((next) => {
+      watchlistCache = next;
+      watchlistLoaded = true;
+      return next;
+    })
+    .catch(() => watchlistCache)
+    .finally(() => {
+      watchlistPromise = null;
+    });
+
+  return watchlistPromise;
 }
 
 export function readWatchlist(): string[] {
@@ -15,6 +34,7 @@ export function readWatchlist(): string[] {
 export async function toggleWatchlistItem(id: string): Promise<string[]> {
   const next = await fetchWatchlistMutation(id);
   watchlistCache = next;
+  watchlistLoaded = true;
   dispatchWatchlistUpdated();
   return next;
 }
@@ -33,6 +53,7 @@ export async function removeWatchlistItems(ids: string[]): Promise<string[]> {
   const data = await res.json().catch(() => []);
   const next = Array.isArray(data) ? data.filter((value): value is string => typeof value === "string") : [];
   watchlistCache = next;
+  watchlistLoaded = true;
   dispatchWatchlistUpdated();
   return next;
 }

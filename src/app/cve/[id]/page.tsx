@@ -172,13 +172,13 @@ export default function CVEDetailPage({ params }: { params: Promise<{ id: string
           <p className="text-sm leading-relaxed text-white/60 whitespace-pre-wrap">{description}</p>
         </Section>
 
-        <AICveInsightPanel cveId={cveId} detail={cve} />
+        <AICveInsightPanel cveId={cveId} />
 
-        <TriagePanel cveId={cveId} detail={cve} />
+        <TriagePanel cveId={cveId} />
 
-        <AIRemediationPlanPanel cveId={cveId} detail={cve} />
+        <AIRemediationPlanPanel cveId={cveId} />
 
-        <AIExposurePanel cveId={cveId} detail={cve} />
+        <AIExposurePanel cveId={cveId} />
 
         {aliases.length > 0 && (
           <Section title="Aliases">

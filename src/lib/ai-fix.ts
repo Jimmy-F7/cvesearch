@@ -213,16 +213,72 @@ const sanitizeFixResult = (value: unknown, input: GenerateFixInput): AIFixResult
 
 export const extractFixedVersion = (
   vulnerability: OSVVulnerability,
-  packageName: string
+  packageName: string,
+  currentVersion?: string
 ): string | null => {
+  const candidates: string[] = [];
+
   for (const affected of vulnerability.affected ?? []) {
     if (affected.package?.name !== packageName) continue;
 
     for (const range of affected.ranges ?? []) {
       for (const event of range.events ?? []) {
-        if (event.fixed) return event.fixed;
+        if (event.fixed) {
+          candidates.push(event.fixed);
+        }
       }
     }
   }
-  return null;
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (!currentVersion) {
+    return pickLowestVersion(candidates);
+  }
+
+  const upgradeCandidates = candidates.filter((candidate) => compareLooseVersions(candidate, currentVersion) > 0);
+  if (upgradeCandidates.length === 0) {
+    return null;
+  }
+
+  return pickLowestVersion(upgradeCandidates);
+};
+
+const pickLowestVersion = (versions: string[]): string | null => {
+  const sorted = [...versions].sort(compareLooseVersions);
+  return sorted[0] ?? null;
+};
+
+const compareLooseVersions = (left: string, right: string): number => {
+  const leftParts = normalizeComparableVersion(left);
+  const rightParts = normalizeComparableVersion(right);
+
+  if (!leftParts || !rightParts) {
+    return 0;
+  }
+
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftValue = leftParts[index] ?? 0;
+    const rightValue = rightParts[index] ?? 0;
+
+    if (leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+  }
+
+  return 0;
+};
+
+const normalizeComparableVersion = (version: string): number[] | null => {
+  const cleaned = version.trim().replace(/^[~^<>=\sv]+/, "");
+  const match = cleaned.match(/^\d+(?:\.\d+){0,3}/);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[0].split(".").map((part) => Number.parseInt(part, 10));
 };

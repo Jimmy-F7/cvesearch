@@ -11,11 +11,10 @@ import {
   TriageStatus,
   writeTriageRecord,
 } from "@/lib/triage";
-import { CVEDetail } from "@/lib/types";
 import AITriageAssistantPanel from "./AITriageAssistantPanel";
 import HumanApprovalCheckpoint from "./HumanApprovalCheckpoint";
 
-export default function TriagePanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
+export default function TriagePanel({ cveId }: { cveId: string }) {
   const [record, setRecord] = useState<TriageRecord>(() => createDefaultTriageRecord(cveId));
   const [tagInput, setTagInput] = useState("");
   const [pendingApproval, setPendingApproval] = useState<ApprovalCheckpoint<TriageRecord> | null>(null);
@@ -132,7 +131,7 @@ export default function TriagePanel({ cveId, detail }: { cveId: string; detail?:
         </div>
       )}
 
-      <AITriageAssistantPanel cveId={cveId} detail={detail} record={record} onRequestApproval={requestApproval} />
+      <AITriageAssistantPanel cveId={cveId} record={record} onRequestApproval={requestApproval} />
 
       {pendingApproval ? (
         <HumanApprovalCheckpoint

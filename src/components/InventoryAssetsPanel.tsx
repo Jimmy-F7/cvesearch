@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Flex, Grid, Heading, Text, TextArea, TextField } from "@radix-ui/themes";
 import { createInventoryAsset, deleteInventoryAsset, INVENTORY_UPDATED_EVENT, loadInventoryAssets } from "@/lib/inventory";
 import { InventoryAssetRecord } from "@/lib/workspace-types";
+import ConfirmationDialog from "./ConfirmationDialog";
 
 const DEFAULT_FORM = {
   name: "",
@@ -21,6 +22,7 @@ export default function InventoryAssetsPanel({ initialAssets }: { initialAssets:
   const [form, setForm] = useState(DEFAULT_FORM);
   const [busy, setBusy] = useState<null | "create" | `delete:${string}`>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<InventoryAssetRecord | null>(null);
 
   useEffect(() => {
     const sync = async () => setAssets(await loadInventoryAssets());
@@ -141,7 +143,7 @@ export default function InventoryAssetsPanel({ initialAssets }: { initialAssets:
                       </Flex>
                       {asset.notes ? <Text as="p" size="2" color="gray" className="mt-3">{asset.notes}</Text> : null}
                     </div>
-                    <Button color="red" variant="soft" disabled={busy !== null} onClick={() => void handleDelete(asset.id)}>
+                    <Button color="red" variant="soft" disabled={busy !== null} onClick={() => setPendingDelete(asset)}>
                       {busy === `delete:${asset.id}` ? "Removing..." : "Delete"}
                     </Button>
                   </Flex>
@@ -161,6 +163,22 @@ export default function InventoryAssetsPanel({ initialAssets }: { initialAssets:
           {message.text}
         </div>
       ) : null}
+
+      <ConfirmationDialog
+        open={pendingDelete !== null}
+        title="Delete inventory asset?"
+        message={pendingDelete ? `${pendingDelete.name} will be removed from the tracked asset inventory.` : ""}
+        confirmLabel="Delete Asset"
+        busy={busy !== null}
+        onConfirm={() => {
+          if (!pendingDelete) {
+            return;
+          }
+          void handleDelete(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+        onClose={() => setPendingDelete(null)}
+      />
     </Card>
   );
 }

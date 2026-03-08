@@ -10,6 +10,7 @@ import {
   VulnerabilityMatch,
 } from "@/lib/github-types";
 import { getSeverityLabel } from "@/lib/osv";
+import ConfirmationDialog from "./ConfirmationDialog";
 import VulnerabilityFixModal from "./VulnerabilityFixModal";
 
 type ScanState = "idle" | "scanning" | "done" | "error";
@@ -37,6 +38,7 @@ export default function ReposPageClient() {
   const [tokenInfo, setTokenInfo] = useState<TokenScopeInfo | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoBrowser, setShowRepoBrowser] = useState(false);
+  const [repoPendingRemoval, setRepoPendingRemoval] = useState<MonitoredRepo | null>(null);
 
   const loadRepoScanHistory = useCallback(async (fullName: string) => {
     try {
@@ -388,12 +390,31 @@ export default function ReposPageClient() {
                 scanState={scan ?? null}
                 history={scanHistory[repo.fullName] ?? []}
                 onScan={() => handleScanRepo(repo.fullName)}
-                onRemove={() => handleRemoveRepo(repo.id)}
+                onRemove={() => setRepoPendingRemoval(repo)}
               />
             );
           })}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={repoPendingRemoval !== null}
+        title="Remove monitored repository?"
+        message={
+          repoPendingRemoval
+            ? `${repoPendingRemoval.fullName} will be removed from monitoring and its in-app scan state will be cleared from this view.`
+            : ""
+        }
+        confirmLabel="Remove Repository"
+        onConfirm={() => {
+          if (!repoPendingRemoval) {
+            return;
+          }
+          void handleRemoveRepo(repoPendingRemoval.id);
+          setRepoPendingRemoval(null);
+        }}
+        onClose={() => setRepoPendingRemoval(null)}
+      />
     </div>
   );
 }

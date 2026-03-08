@@ -22,7 +22,8 @@ import {
   SearchSeverityFilter,
   SearchSortOption,
 } from "./types";
-import { appendAIRun, listRecentAIRuns } from "./ai-runs-store";
+import { appendAIRun, clearAIRuns, deleteAIRun, listRecentAIRuns } from "./ai-runs-store";
+import { callOpenAIText } from "./openai-client";
 import { SearchState, normalizeSearchState } from "./search";
 import { extractCVEId, extractDescription, getSeverityFromScore } from "./utils";
 import {
@@ -39,9 +40,8 @@ import {
 } from "./ai-prompts";
 import { listAITools } from "./ai-tool-registry";
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-  const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
@@ -284,6 +284,14 @@ export function getServerAIConfigurationSummary(): ServerAIConfigurationSummary 
 
 export async function getRecentAIRuns(limit = 25): Promise<AIRunRecord[]> {
   return listRecentAIRuns(limit);
+}
+
+export async function deleteRecentAIRun(id: string): Promise<boolean> {
+  return deleteAIRun(id);
+}
+
+export async function clearRecentAIRuns(): Promise<number> {
+  return clearAIRuns();
 }
 
 export function preparePromptInputForFeature<T>(feature: AIFeature, input: T): T {
@@ -1674,39 +1682,13 @@ function truncateValue(value: string, maxLength: number): string {
 }
 
 async function callOpenAI(prompt: string, settings: AIRuntimeSettings, feature: AIFeature): Promise<string> {
-  const res = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_OPENAI_MODEL,
-      temperature: feature === "daily_digest" ? 0.3 : 0.2,
-      messages: [
-        {
-          role: "system",
-          content: "Return only JSON. No markdown. No prose outside JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
+  return callOpenAIText({
+    apiKey: settings.apiKey,
+    model: settings.model || DEFAULT_OPENAI_MODEL,
+    prompt,
+    instructions: "Return only JSON. No markdown. No prose outside JSON.",
+    temperature: feature === "daily_digest" ? 0.3 : 0.2,
   });
-
-  if (!res.ok) {
-    throw new Error(`OpenAI error: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenAI response did not include content");
-  }
-
-  return content;
 }
 
 async function callAnthropic(prompt: string, settings: AIRuntimeSettings, feature: AIFeature): Promise<string> {

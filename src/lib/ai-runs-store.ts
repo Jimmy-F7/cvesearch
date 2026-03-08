@@ -62,6 +62,16 @@ export async function appendAIRun(record: AIRunRecord): Promise<void> {
   });
 }
 
+export async function deleteAIRun(id: string): Promise<boolean> {
+  const result = getDb().prepare("DELETE FROM ai_runs WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export async function clearAIRuns(): Promise<number> {
+  const result = getDb().prepare("DELETE FROM ai_runs").run();
+  return result.changes;
+}
+
 interface AIRunRow {
   id: string;
   feature: string;

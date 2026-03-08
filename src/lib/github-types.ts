@@ -111,6 +111,7 @@ export interface FixRequestPayload {
   repoFullName: string;
   vulnerability: OSVVulnerability;
   matchedDependency: ParsedDependency;
+  createBranch?: boolean;
   aiSettings?: {
     provider?: string;
     model?: string;
@@ -119,9 +120,10 @@ export interface FixRequestPayload {
 }
 
 export interface FixResponse {
-  prUrl: string;
   analysis: string;
   fileChanges: FixFileChange[];
-  branchName: string;
+  prUrl?: string;
+  branchName?: string;
   existingPr?: boolean;
+  previewOnly?: boolean;
 }

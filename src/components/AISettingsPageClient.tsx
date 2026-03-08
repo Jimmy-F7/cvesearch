@@ -13,6 +13,7 @@ import { ServerAIConfigurationSummary } from "@/lib/ai-service";
 import { AIRunRecord } from "@/lib/types";
 import { InventoryAssetRecord } from "@/lib/workspace-types";
 import InventoryAssetsPanel from "@/components/InventoryAssetsPanel";
+import RecentAIRunsPanel from "@/components/RecentAIRunsPanel";
 import WorkspaceDataPanel from "@/components/WorkspaceDataPanel";
 
 export default function AISettingsPageClient({
@@ -24,8 +25,6 @@ export default function AISettingsPageClient({
   recentRuns: AIRunRecord[];
   inventoryAssets: InventoryAssetRecord[];
 }) {
-  const usageSummary = summarizeAIRunUsage(recentRuns);
-
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
       <Flex justify="between" align={{ initial: "start", sm: "end" }} gap="4" wrap="wrap" className="mb-8">
@@ -46,12 +45,6 @@ export default function AISettingsPageClient({
           <MetricCard label="Mode" value={summary.mode === "configured" ? "Configured provider" : "Heuristic fallback"} />
           <MetricCard label="Model" value={summary.model || "Not required in heuristic mode"} className="sm:col-span-2" />
         </Grid>
-
-        <Callout.Root color="amber" variant="soft">
-          <Callout.Text>
-            Configure AI providers with environment variables such as `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL`. You can override individual flows with `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_SEARCH_ASSISTANT_MODEL`, `AI_CVE_INSIGHT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, `AI_TRIAGE_AGENT_PROVIDER`, `AI_TRIAGE_AGENT_MODEL`, `AI_REMEDIATION_AGENT_PROVIDER`, `AI_REMEDIATION_AGENT_MODEL`, `AI_WATCHLIST_ANALYST_PROVIDER`, `AI_WATCHLIST_ANALYST_MODEL`, `AI_PROJECT_SUMMARY_PROVIDER`, `AI_PROJECT_SUMMARY_MODEL`, `AI_ALERT_INVESTIGATION_PROVIDER`, `AI_ALERT_INVESTIGATION_MODEL`, `AI_EXPOSURE_AGENT_PROVIDER`, `AI_EXPOSURE_AGENT_MODEL`, and `AI_DAILY_DIGEST_PROVIDER`, `AI_DAILY_DIGEST_MODEL`. No provider API key is persisted in browser storage.
-          </Callout.Text>
-        </Callout.Root>
 
         <Callout.Root color={summary.configured ? "cyan" : "gray"} variant="soft">
           <Callout.Text>
@@ -155,64 +148,7 @@ export default function AISettingsPageClient({
 
         <WorkspaceDataPanel />
 
-        <Card size="3" className="border border-white/[0.06] bg-white/[0.03]">
-          <Heading size="4" className="text-white">Recent AI Runs</Heading>
-          <Text as="p" size="2" color="gray" className="mt-1">
-            Read-only history of prompts, outcomes, latency, estimated tokens, and estimated provider cost.
-          </Text>
-
-          <Grid columns={{ initial: "1", md: "4" }} gap="3" className="mt-4">
-            <MetricCard label="Runs" value={String(usageSummary.runCount)} />
-            <MetricCard label="Avg Latency" value={`${usageSummary.averageDurationMs}ms`} />
-            <MetricCard label="Est. Tokens" value={usageSummary.totalTokens.toLocaleString("en-US")} />
-            <MetricCard label="Est. Cost" value={`$${usageSummary.totalCostUsd.toFixed(4)}`} />
-          </Grid>
-
-          {recentRuns.length > 0 ? (
-            <div className="mt-4 space-y-3">
-              {recentRuns.map((run) => (
-                <Card key={run.id} size="2" className="border border-white/[0.06] bg-black/20">
-                  <Flex gap="2" wrap="wrap" align="center">
-                    <Badge color="cyan" variant="soft">{run.feature}</Badge>
-                    <Badge color={run.status === "error" ? "red" : run.status === "fallback" ? "amber" : "green"} variant="soft">{run.status}</Badge>
-                    <Badge color="gray" variant="soft">{run.provider}{run.model ? ` • ${run.model}` : ""}</Badge>
-                    <Text size="1" color="gray">{new Date(run.createdAt).toLocaleString("en-US")}</Text>
-                    <Text size="1" color="gray">{run.durationMs}ms</Text>
-                    <Text size="1" color="gray">~{((run.promptTokensEstimate ?? 0) + (run.outputTokensEstimate ?? 0)).toLocaleString("en-US")} tokens</Text>
-                    <Text size="1" color="gray">${(run.estimatedCostUsd ?? 0).toFixed(4)}</Text>
-                  </Flex>
-
-                  <div className="mt-3 grid gap-3">
-                    <RunBlock title="Prompt" value={run.prompt} />
-                    <RunBlock title="Output" value={run.output} />
-
-                    {run.toolCalls.length > 0 ? (
-                      <div>
-                        <Text size="1" weight="bold" className="uppercase tracking-wider text-white/25">Tool Calls</Text>
-                        <div className="mt-2 space-y-2">
-                          {run.toolCalls.map((call) => (
-                            <div key={`${run.id}-${call.tool}`} className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-white/50">
-                              <span className="font-medium text-white">{call.tool}</span>
-                              <span className="text-white/35"> — {call.summary}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {run.error ? (
-                      <Callout.Root color="amber" variant="soft">
-                        <Callout.Text>{run.error}</Callout.Text>
-                      </Callout.Root>
-                    ) : null}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Text as="p" size="2" color="gray" className="mt-4">No AI runs have been recorded yet.</Text>
-          )}
-        </Card>
+        <RecentAIRunsPanel initialRuns={recentRuns} />
       </div>
     </div>
   );
@@ -225,26 +161,4 @@ function MetricCard({ label, value, className = "" }: { label: string; value: st
       <Text as="p" size="3" className="mt-2 text-white">{value}</Text>
     </Card>
   );
-}
-
-function RunBlock({ title, value }: { title: string; value: string }) {
-  return (
-    <div>
-      <Text size="1" weight="bold" className="uppercase tracking-wider text-white/25">{title}</Text>
-      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-white/50">{value}</pre>
-    </div>
-  );
-}
-
-function summarizeAIRunUsage(runs: AIRunRecord[]) {
-  const totalDurationMs = runs.reduce((sum, run) => sum + run.durationMs, 0);
-  const totalTokens = runs.reduce((sum, run) => sum + (run.promptTokensEstimate ?? 0) + (run.outputTokensEstimate ?? 0), 0);
-  const totalCostUsd = runs.reduce((sum, run) => sum + (run.estimatedCostUsd ?? 0), 0);
-
-  return {
-    runCount: runs.length,
-    averageDurationMs: runs.length > 0 ? Math.round(totalDurationMs / runs.length) : 0,
-    totalTokens,
-    totalCostUsd,
-  };
 }

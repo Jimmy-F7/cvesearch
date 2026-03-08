@@ -15,6 +15,7 @@ import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
 import { CVESummary } from "@/lib/types";
 import CVEList from "@/components/CVEList";
 import AIAlertInvestigationPanel from "@/components/AIAlertInvestigationPanel";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 const ALERT_SAMPLE_SIZE = 80;
 
@@ -23,6 +24,7 @@ export default function AlertsPageClient() {
   const [sample, setSample] = useState<CVESummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [pendingDeleteRule, setPendingDeleteRule] = useState<AlertRule | null>(null);
 
   useEffect(() => {
     const syncRules = async () => setRules(await loadAlertRules());
@@ -175,16 +177,7 @@ export default function AlertsPageClient() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      void deleteAlertRule(rule.id)
-                        .then((next) => {
-                          setRules(next);
-                          setFeedback({ type: "success", message: `Deleted ${rule.name}.` });
-                        })
-                        .catch((error: unknown) => {
-                          setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete alert rule." });
-                        });
-                    }}
+                    onClick={() => setPendingDeleteRule(rule)}
                     className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-500/15"
                   >
                     Delete
@@ -199,6 +192,30 @@ export default function AlertsPageClient() {
           ))}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={pendingDeleteRule !== null}
+        title="Delete alert rule?"
+        message={pendingDeleteRule ? `${pendingDeleteRule.name} will stop tracking new matches in the alerts workspace.` : ""}
+        confirmLabel="Delete Alert Rule"
+        onConfirm={() => {
+          if (!pendingDeleteRule) {
+            return;
+          }
+
+          void deleteAlertRule(pendingDeleteRule.id)
+            .then((next) => {
+              setRules(next);
+              setFeedback({ type: "success", message: `Deleted ${pendingDeleteRule.name}.` });
+              setPendingDeleteRule(null);
+            })
+            .catch((error: unknown) => {
+              setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete alert rule." });
+              setPendingDeleteRule(null);
+            });
+        }}
+        onClose={() => setPendingDeleteRule(null)}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { getCVEById } from "@/lib/api";
 import { ProjectRecord, CVESummary, ProjectStatus, RemediationState, ProjectItem } from "@/lib/types";
 import CVEList from "./CVEList";
 import AIProjectSummaryPanel from "./AIProjectSummaryPanel";
+import ConfirmationDialog from "./ConfirmationDialog";
 
 type ProjectDetails = Record<string, CVESummary[]>;
 type ProjectDrafts = Record<string, {
@@ -61,6 +62,11 @@ export default function ProjectsPageClient() {
   const [newProjectName, setNewProjectName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<
+    | { kind: "delete-project"; projectId: string; name: string }
+    | { kind: "remove-item"; projectId: string; cveId: string }
+    | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,7 +296,7 @@ export default function ProjectsPageClient() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => void handleDeleteProject(project.id)}
+                    onClick={() => setPendingConfirmation({ kind: "delete-project", projectId: project.id, name: project.name })}
                     disabled={busy !== null}
                     className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-50"
                   >
@@ -422,7 +428,7 @@ export default function ProjectsPageClient() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => void handleRemoveItem(project.id, item.cveId)}
+                                onClick={() => setPendingConfirmation({ kind: "remove-item", projectId: project.id, cveId: item.cveId })}
                                 disabled={busy !== null}
                                 className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                               >
@@ -534,6 +540,42 @@ export default function ProjectsPageClient() {
           })}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={pendingConfirmation !== null}
+        title={
+          pendingConfirmation?.kind === "delete-project"
+            ? "Delete project?"
+            : "Remove CVE from project?"
+        }
+        message={
+          pendingConfirmation?.kind === "delete-project"
+            ? `${pendingConfirmation.name} and its workflow history will be removed from this workspace.`
+            : pendingConfirmation
+              ? `${pendingConfirmation.cveId} will be removed from this project's workflow tracking.`
+              : ""
+        }
+        confirmLabel={
+          pendingConfirmation?.kind === "delete-project"
+            ? "Delete Project"
+            : "Remove CVE"
+        }
+        busy={busy !== null}
+        onConfirm={() => {
+          if (!pendingConfirmation) {
+            return;
+          }
+
+          if (pendingConfirmation.kind === "delete-project") {
+            void handleDeleteProject(pendingConfirmation.projectId);
+          } else {
+            void handleRemoveItem(pendingConfirmation.projectId, pendingConfirmation.cveId);
+          }
+
+          setPendingConfirmation(null);
+        }}
+        onClose={() => setPendingConfirmation(null)}
+      />
     </div>
   );
 }

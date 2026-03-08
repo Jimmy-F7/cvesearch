@@ -42,6 +42,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     const repoFullName = typeof body?.repoFullName === "string" ? body.repoFullName.trim() : "";
     const vulnerability = body?.vulnerability;
     const matchedDependency = body?.matchedDependency;
+    const shouldCreateBranch = body?.createBranch !== false;
 
     if (!repoFullName || !REPO_FULL_NAME_PATTERN.test(repoFullName) || !vulnerability || !isValidMatchedDependency(matchedDependency)) {
       return NextResponse.json(
@@ -50,7 +51,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       );
     }
 
-    const fixedVersion = extractFixedVersion(vulnerability, matchedDependency.name);
+    const fixedVersion = extractFixedVersion(vulnerability, matchedDependency.name, matchedDependency.version);
 
     const dependencyFiles = selectRelevantDependencyFiles(
       await fetchRepoDependencyFiles(repoFullName),
@@ -119,6 +120,15 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
         },
         { status: 422 }
       );
+    }
+
+    if (!shouldCreateBranch) {
+      const response: FixResponse = {
+        analysis: fixResult.analysis,
+        fileChanges: fixResult.fileChanges,
+        previewOnly: true,
+      };
+      return NextResponse.json(response);
     }
 
     const repoInfo = await fetchGitHub<{ archived: boolean; default_branch: string; disabled: boolean }>(

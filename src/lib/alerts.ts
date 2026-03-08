@@ -4,13 +4,32 @@ import { AlertRule } from "./workspace-types";
 export const ALERT_RULES_UPDATED_EVENT = "cvesearch:alert-rules-updated";
 
 let alertRulesCache: AlertRule[] = [];
+let alertRulesLoaded = false;
+let alertRulesPromise: Promise<AlertRule[]> | null = null;
 
 export type { AlertRule };
 
 export async function loadAlertRules(): Promise<AlertRule[]> {
-  const next = await fetchAlertRules();
-  alertRulesCache = next;
-  return next;
+  if (alertRulesLoaded) {
+    return alertRulesCache;
+  }
+
+  if (alertRulesPromise) {
+    return alertRulesPromise;
+  }
+
+  alertRulesPromise = fetchAlertRules()
+    .then((next) => {
+      alertRulesCache = next;
+      alertRulesLoaded = true;
+      return next;
+    })
+    .catch(() => alertRulesCache)
+    .finally(() => {
+      alertRulesPromise = null;
+    });
+
+  return alertRulesPromise;
 }
 
 export function readAlertRules(): AlertRule[] {
@@ -39,6 +58,7 @@ export async function markAlertRuleChecked(id: string): Promise<AlertRule[]> {
   const data = await res.json().catch(() => []);
   const next = Array.isArray(data) ? data.filter(isAlertRule) : [];
   alertRulesCache = next;
+  alertRulesLoaded = true;
   dispatchAlertRulesUpdated();
   return next;
 }
@@ -52,6 +72,7 @@ export async function markAllAlertRulesChecked(): Promise<AlertRule[]> {
   const data = await res.json().catch(() => []);
   const next = Array.isArray(data) ? data.filter(isAlertRule) : [];
   alertRulesCache = next;
+  alertRulesLoaded = true;
   dispatchAlertRulesUpdated();
   return next;
 }
@@ -59,6 +80,7 @@ export async function markAllAlertRulesChecked(): Promise<AlertRule[]> {
 async function refreshAlertRules(): Promise<AlertRule[]> {
   const next = await fetchAlertRules();
   alertRulesCache = next;
+  alertRulesLoaded = true;
   dispatchAlertRulesUpdated();
   return next;
 }

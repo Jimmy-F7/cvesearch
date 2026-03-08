@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AICveInsight, CVEDetail } from "@/lib/types";
-import { loadTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { AICveInsight } from "@/lib/types";
+import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
-export default function AICveInsightPanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
+export default function AICveInsightPanel({ cveId }: { cveId: string }) {
   const [insight, setInsight] = useState<AICveInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,11 +17,8 @@ export default function AICveInsightPanel({ cveId, detail }: { cveId: string; de
       setError(null);
 
       try {
-        const triage = await loadTriageRecord(cveId);
         const res = await fetch(`/api/ai/cve/${encodeURIComponent(cveId)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triage, detail }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -48,7 +45,7 @@ export default function AICveInsightPanel({ cveId, detail }: { cveId: string; de
       cancelled = true;
       window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
     };
-  }, [cveId, detail]);
+  }, [cveId]);
 
   return (
     <div className="rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] to-transparent p-5">

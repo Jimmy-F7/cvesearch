@@ -12,6 +12,9 @@ import {
 export const TRIAGE_UPDATED_EVENT = "cvesearch:triage-updated";
 
 let triageCache: Record<string, TriageRecord> = {};
+let triageMapLoaded = false;
+let triageMapPromise: Promise<Record<string, TriageRecord>> | null = null;
+const triageRecordPromises = new Map<string, Promise<TriageRecord>>();
 
 export {
   createDefaultTriageRecord,
@@ -24,9 +27,26 @@ export {
 };
 
 export async function loadTriageMap(): Promise<Record<string, TriageRecord>> {
-  const next = await fetchTriageMap();
-  triageCache = next;
-  return next;
+  if (triageMapLoaded) {
+    return triageCache;
+  }
+
+  if (triageMapPromise) {
+    return triageMapPromise;
+  }
+
+  triageMapPromise = fetchTriageMap()
+    .then((next) => {
+      triageCache = next;
+      triageMapLoaded = true;
+      return next;
+    })
+    .catch(() => triageCache)
+    .finally(() => {
+      triageMapPromise = null;
+    });
+
+  return triageMapPromise;
 }
 
 export function readTriageMap(): Record<string, TriageRecord> {
@@ -34,12 +54,30 @@ export function readTriageMap(): Record<string, TriageRecord> {
 }
 
 export async function loadTriageRecord(cveId: string): Promise<TriageRecord> {
-  const record = await fetchTriageRecord(cveId);
-  triageCache = {
-    ...triageCache,
-    [cveId]: record,
-  };
-  return record;
+  if (triageCache[cveId]) {
+    return triageCache[cveId];
+  }
+
+  const existingPromise = triageRecordPromises.get(cveId);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const nextPromise = fetchTriageRecord(cveId)
+    .then((record) => {
+      triageCache = {
+        ...triageCache,
+        [cveId]: record,
+      };
+      return record;
+    })
+    .catch(() => readTriageRecord(cveId))
+    .finally(() => {
+      triageRecordPromises.delete(cveId);
+    });
+
+  triageRecordPromises.set(cveId, nextPromise);
+  return nextPromise;
 }
 
 export function readTriageRecord(cveId: string): TriageRecord {

@@ -1,4 +1,5 @@
 import { AISettings } from "./types";
+import { callOpenAIText } from "./openai-client";
 
 export {
   buildHeuristicAlertInvestigation,
@@ -36,9 +37,8 @@ export type {
   WatchlistReviewInput,
 } from "./ai-service";
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-  const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
 
 export async function callModel(prompt: string, settings: AISettings): Promise<string> {
@@ -75,39 +75,13 @@ export function resolveAISettings(settings?: Pick<Partial<AISettings>, "provider
 }
 
 async function callOpenAI(prompt: string, settings: AISettings): Promise<string> {
-  const response = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_OPENAI_MODEL,
-      temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: "Return only JSON. No markdown. No prose outside JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
+  return callOpenAIText({
+    apiKey: settings.apiKey,
+    model: settings.model || DEFAULT_OPENAI_MODEL,
+    prompt,
+    instructions: "Return only JSON. No markdown. No prose outside JSON.",
+    temperature: 0.2,
   });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenAI response did not include content");
-  }
-
-  return content;
 }
 
 async function callAnthropic(prompt: string, settings: AISettings): Promise<string> {

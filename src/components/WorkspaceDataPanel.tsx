@@ -3,6 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useRef, useState } from "react";
 import { Badge, Button, Callout, Card, Flex, Heading, Text } from "@radix-ui/themes";
+import ConfirmationDialog from "./ConfirmationDialog";
 
 interface ImportResult {
   success: boolean;
@@ -23,6 +24,7 @@ export default function WorkspaceDataPanel() {
   const [mode, setMode] = useState<"merge" | "replace">("merge");
   const [busy, setBusy] = useState<null | "export" | "import">(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
 
   const handleExport = async () => {
     setBusy("export");
@@ -52,12 +54,7 @@ export default function WorkspaceDataPanel() {
     }
   };
 
-  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
+  const importSnapshot = async (file: File) => {
     setBusy("import");
     setMessage(null);
 
@@ -76,16 +73,33 @@ export default function WorkspaceDataPanel() {
       }
 
       const result = data as ImportResult;
-        setMessage({
-          type: "success",
-          text: `Imported ${result.imported.watchlist} watchlist items, ${result.imported.savedViews} saved views, ${result.imported.promptTemplates} prompt templates, ${result.imported.alertRules} alert rules, ${result.imported.inventoryAssets} inventory assets, ${result.imported.triageRecords} triage records, and ${result.imported.projects} projects using ${result.mode} mode.`,
-        });
-      event.target.value = "";
+      setMessage({
+        type: "success",
+        text: `Imported ${result.imported.watchlist} watchlist items, ${result.imported.savedViews} saved views, ${result.imported.promptTemplates} prompt templates, ${result.imported.alertRules} alert rules, ${result.imported.inventoryAssets} inventory assets, ${result.imported.triageRecords} triage records, and ${result.imported.projects} projects using ${result.mode} mode.`,
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to import workspace data" });
     } finally {
       setBusy(null);
+      setPendingImportFile(null);
     }
+  };
+
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (mode === "replace") {
+      setPendingImportFile(file);
+      return;
+    }
+
+    await importSnapshot(file);
   };
 
   return (
@@ -135,6 +149,26 @@ export default function WorkspaceDataPanel() {
           </Callout.Root>
         </div>
       ) : null}
+
+      <ConfirmationDialog
+        open={pendingImportFile !== null}
+        title="Replace existing workspace data?"
+        message="Replace mode clears the current workspace before importing the selected snapshot. This is intended for full restores, not incremental merges."
+        confirmLabel="Replace and Import"
+        busy={busy !== null}
+        onConfirm={() => {
+          if (!pendingImportFile) {
+            return;
+          }
+          void importSnapshot(pendingImportFile);
+        }}
+        onClose={() => {
+          setPendingImportFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        }}
+      />
     </Card>
   );
 }

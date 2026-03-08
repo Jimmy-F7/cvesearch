@@ -9,10 +9,17 @@ import {
   buildHeuristicRemediationPlan,
   buildHeuristicTriageSuggestion,
   buildHeuristicWatchlistReview,
+  callModel,
   getServerAIConfigurationSummary,
   interpretSearchPromptHeuristically,
   preparePromptInputForFeature,
 } from "../src/lib/ai";
+
+const jsonResponse = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 
 test("interpretSearchPromptHeuristically extracts severity and recent window", () => {
   const result = interpretSearchPromptHeuristically("show me critical OpenSSL vulns from this month");
@@ -395,6 +402,76 @@ test("buildHeuristicExposureAssessment maps CVEs to tracked inventory assets", (
   assert.equal(result.matchedAssets.length, 1);
   assert.equal(result.matchedAssets[0]?.assetName, "Public API Gateway");
   assert.equal(result.recommendedActions.length >= 2, true);
+});
+
+test("callModel uses the OpenAI Responses API for GPT-5 models", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+
+  globalThis.fetch = (async (input, init) => {
+    const url = String(input);
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    requests.push({ url, body });
+
+    return jsonResponse({
+      output: [
+        {
+          type: "message",
+          content: [
+            {
+              type: "output_text",
+              text: "{\"ok\":true}",
+            },
+          ],
+        },
+      ],
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await callModel("generate json", {
+      provider: "openai",
+      model: "gpt-5-mini",
+      apiKey: "test-openai-key",
+    });
+
+    assert.equal(result, "{\"ok\":true}");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.url, "https://api.openai.com/v1/responses");
+    assert.equal(requests[0]?.body.model, "gpt-5-mini");
+    assert.equal(requests[0]?.body.input, "generate json");
+    assert.equal("messages" in (requests[0]?.body ?? {}), false);
+    assert.equal("temperature" in (requests[0]?.body ?? {}), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("callModel includes OpenAI API error details in failures", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () =>
+    jsonResponse(
+      {
+        error: {
+          message: "Unsupported parameter: temperature",
+        },
+      },
+      400
+    )) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      callModel("generate json", {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        apiKey: "test-openai-key",
+      }),
+      /OpenAI error: 400 - Unsupported parameter: temperature/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("preparePromptInputForFeature redacts sensitive notes and project metadata for external providers", () => {

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AIExposureAssessment, CVEDetail } from "@/lib/types";
+import { AIExposureAssessment } from "@/lib/types";
 import { INVENTORY_UPDATED_EVENT } from "@/lib/inventory";
 import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
-export default function AIExposurePanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
+export default function AIExposurePanel({ cveId }: { cveId: string }) {
   const [assessment, setAssessment] = useState<AIExposureAssessment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +19,6 @@ export default function AIExposurePanel({ cveId, detail }: { cveId: string; deta
       try {
         const res = await fetch(`/api/ai/exposure/${encodeURIComponent(cveId)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ detail }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -49,7 +47,7 @@ export default function AIExposurePanel({ cveId, detail }: { cveId: string; deta
       window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
       window.removeEventListener(INVENTORY_UPDATED_EVENT, load);
     };
-  }, [cveId, detail]);
+  }, [cveId]);
 
   return (
     <div className="rounded-xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/[0.06] to-transparent p-5">

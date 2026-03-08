@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AITriageSuggestion, CVEDetail } from "@/lib/types";
+import { AITriageSuggestion } from "@/lib/types";
 import { TRIAGE_UPDATED_EVENT, TriageRecord } from "@/lib/triage";
 
 export default function AITriageAssistantPanel({
   cveId,
-  detail,
   record,
   onRequestApproval,
 }: {
   cveId: string;
-  detail?: CVEDetail | null;
   record: TriageRecord;
   onRequestApproval: (updater: (current: TriageRecord) => TriageRecord, label: string) => void;
 }) {
@@ -28,9 +26,8 @@ export default function AITriageAssistantPanel({
         tags: record.tags,
         updatedAt: record.updatedAt,
       },
-      detail,
     }),
-    [detail, record.cveId, record.notes, record.owner, record.status, record.tags, record.updatedAt]
+    [record.cveId, record.notes, record.owner, record.status, record.tags, record.updatedAt]
   );
 
   useEffect(() => {

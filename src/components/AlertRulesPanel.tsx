@@ -10,6 +10,7 @@ import {
   loadAlertRules,
   saveAlertRule,
 } from "@/lib/alerts";
+import ConfirmationDialog from "./ConfirmationDialog";
 
 interface AlertRulesPanelProps {
   search: SearchState;
@@ -18,6 +19,7 @@ interface AlertRulesPanelProps {
 export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [name, setName] = useState("");
+  const [pendingDeleteRule, setPendingDeleteRule] = useState<AlertRule | null>(null);
 
   useEffect(() => {
     const sync = async () => setRules(await loadAlertRules());
@@ -79,9 +81,7 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    void deleteAlertRule(rule.id).then((next) => setRules(next));
-                  }}
+                  onClick={() => setPendingDeleteRule(rule)}
                   className="text-xs text-white/20 transition-colors hover:text-red-400"
                 >
                   Delete
@@ -103,6 +103,23 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
           ))}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={pendingDeleteRule !== null}
+        title="Delete alert rule?"
+        message={pendingDeleteRule ? `${pendingDeleteRule.name} will no longer be tracked as a saved alert.` : ""}
+        confirmLabel="Delete Alert Rule"
+        onConfirm={() => {
+          if (!pendingDeleteRule) {
+            return;
+          }
+          void deleteAlertRule(pendingDeleteRule.id).then((next) => {
+            setRules(next);
+            setPendingDeleteRule(null);
+          });
+        }}
+        onClose={() => setPendingDeleteRule(null)}
+      />
     </div>
   );
 }

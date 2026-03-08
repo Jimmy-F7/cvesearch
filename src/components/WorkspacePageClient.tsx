@@ -21,6 +21,7 @@ import {
   NotificationPreferenceRecord,
   WorkspaceConversationRecord,
 } from "@/lib/workspace-types";
+import ConfirmationDialog from "./ConfirmationDialog";
 
 const SUGGESTED_QUESTIONS = [
   "Give me a workspace overview",
@@ -44,6 +45,7 @@ export default function WorkspacePageClient() {
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [pendingDeletePreference, setPendingDeletePreference] = useState<NotificationPreferenceRecord | null>(null);
 
   const refreshWorkspace = useCallback(async () => {
     try {
@@ -414,7 +416,7 @@ export default function WorkspacePageClient() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void handleDeletePreference(preference.id)}
+                        onClick={() => setPendingDeletePreference(preference)}
                         disabled={busy !== null}
                         className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                       >
@@ -455,6 +457,26 @@ export default function WorkspacePageClient() {
           </div>
         </section>
       </div>
+
+      <ConfirmationDialog
+        open={pendingDeletePreference !== null}
+        title="Delete notification schedule?"
+        message={
+          pendingDeletePreference
+            ? `${pendingDeletePreference.teamName} (${pendingDeletePreference.channel}) will stop receiving scheduled digests for ${pendingDeletePreference.destination}.`
+            : ""
+        }
+        confirmLabel="Delete Schedule"
+        busy={busy !== null}
+        onConfirm={() => {
+          if (!pendingDeletePreference) {
+            return;
+          }
+          void handleDeletePreference(pendingDeletePreference.id);
+          setPendingDeletePreference(null);
+        }}
+        onClose={() => setPendingDeletePreference(null)}
+      />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AIRemediationPlan, CVEDetail } from "@/lib/types";
-import { loadTriageRecord, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import { AIRemediationPlan } from "@/lib/types";
+import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
-export default function AIRemediationPlanPanel({ cveId, detail }: { cveId: string; detail?: CVEDetail | null }) {
+export default function AIRemediationPlanPanel({ cveId }: { cveId: string }) {
   const [plan, setPlan] = useState<AIRemediationPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,11 +17,8 @@ export default function AIRemediationPlanPanel({ cveId, detail }: { cveId: strin
       setError(null);
 
       try {
-        const triage = await loadTriageRecord(cveId);
         const res = await fetch(`/api/ai/remediation/${encodeURIComponent(cveId)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triage, detail }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -48,7 +45,7 @@ export default function AIRemediationPlanPanel({ cveId, detail }: { cveId: strin
       cancelled = true;
       window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
     };
-  }, [cveId, detail]);
+  }, [cveId]);
 
   return (
     <div className="rounded-xl border border-emerald-500/15 bg-gradient-to-br from-emerald-500/[0.06] to-transparent p-5">
