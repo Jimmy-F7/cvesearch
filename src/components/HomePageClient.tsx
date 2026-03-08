@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CVESummary, HomeDashboardData } from "@/lib/types";
+import { CVESummary } from "@/lib/types";
 import {
   applySearchResultPreferences,
   buildSearchParams,
@@ -17,17 +18,12 @@ import SearchBar from "@/components/SearchBar";
 import Filters from "@/components/Filters";
 import CVEList from "@/components/CVEList";
 import Pagination from "@/components/Pagination";
-import SavedViewsPanel from "@/components/SavedViewsPanel";
 import ExportResultsButtons from "@/components/ExportResultsButtons";
-import DashboardPanel from "@/components/DashboardPanel";
-import AlertRulesPanel from "@/components/AlertRulesPanel";
 import AISearchAssistantPanel from "@/components/AISearchAssistantPanel";
-import AIDigestPanel from "@/components/AIDigestPanel";
 
 interface HomePageClientProps {
   initialState: SearchState;
   cves: CVESummary[];
-  dashboard: HomeDashboardData | null;
   error: string | null;
   totalHint: string;
 }
@@ -35,7 +31,6 @@ interface HomePageClientProps {
 export default function HomePageClient({
   initialState,
   cves,
-  dashboard,
   error,
   totalHint,
 }: HomePageClientProps) {
@@ -43,6 +38,10 @@ export default function HomePageClient({
   const [isPending, startTransition] = useTransition();
   const state = useMemo(() => normalizeSearchState(initialState), [initialState]);
   const visibleCves = useMemo(() => applySearchResultPreferences(cves, state), [cves, state]);
+  const dashboardHref = useMemo(() => {
+    const params = buildSearchParams(state);
+    return params.toString() ? `/dashboard?${params.toString()}` : "/dashboard";
+  }, [state]);
 
   const navigate = useCallback(
     (nextState: SearchState) => {
@@ -134,8 +133,16 @@ export default function HomePageClient({
           Vulnerability Search
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-[15px] text-white/35">
-          Search and explore CVE vulnerability records from the global database
+          Search and filter CVE records without the extra operational widgets getting in the way.
         </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+          <Link href={dashboardHref} className="btn-ghost inline-flex px-4 py-2 text-sm">
+            Open Dashboard
+          </Link>
+          <span className="text-xs uppercase tracking-[0.12em] text-white/20">
+            Digest, saved views, and alert rules moved there
+          </span>
+        </div>
       </div>
 
       <div className="mb-6 space-y-4">
@@ -158,12 +165,7 @@ export default function HomePageClient({
             sort: state.sort,
           }}
         />
-        <SavedViewsPanel search={state} />
-        <AlertRulesPanel search={state} />
       </div>
-
-      {dashboard && !error && <DashboardPanel dashboard={dashboard} />}
-      {!error && <div className="mb-6"><AIDigestPanel /></div>}
 
       {/* Results bar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

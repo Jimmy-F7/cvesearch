@@ -9,6 +9,7 @@ import { loadTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
 
 const NAV_ITEMS = [
   { href: "/", label: "Search", icon: SearchIcon },
+  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { href: "/workspace", label: "Workspace", icon: ChatIcon },
   { href: "/watchlist", label: "Watchlist", icon: BookmarkIcon },
   { href: "/alerts", label: "Alerts", icon: BellIcon },
@@ -135,6 +136,14 @@ function SearchIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    </svg>
+  );
+}
+
+function DashboardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h6.75v6.75H3.75V4.5zm9.75 0h6.75v10.5H13.5V4.5zm-9.75 10.5h6.75v4.5H3.75V15zm9.75 3h6.75v1.5H13.5V18z" />
     </svg>
   );
 }
