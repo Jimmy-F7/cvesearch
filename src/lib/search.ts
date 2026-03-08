@@ -1,12 +1,13 @@
 import { SearchFilters } from "./types";
-import { CVESummary, SearchSeverityFilter } from "./types";
+import { CVESummary, SearchSeverityFilter, SearchSortOption } from "./types";
 import { extractDescription, extractModifiedDate, extractPublishedDate, getSeverityFromScore } from "./utils";
 
 export const DEFAULT_PAGE = 1;
 export const PER_PAGE = 20;
 export const DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
-export const DEFAULT_SORT = "published_desc";
+export const DEFAULT_SORT: SearchSortOption = "published_desc";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const EXPLOIT_REFERENCE_PATTERN = /exploit|proof[ -]?of[ -]?concept|\bpoc\b|weapon|in the wild|ransomware/i;
 
 export type SearchState = SearchFilters;
 
@@ -110,6 +111,25 @@ export function applySearchResultPreferences(cves: CVESummary[], state: SearchSt
   return filtered.sort((left, right) => compareCVEs(left, right, state.sort));
 }
 
+export function getExploitReferenceCount(cve: CVESummary): number {
+  return (cve.references ?? []).filter((reference) => EXPLOIT_REFERENCE_PATTERN.test(reference)).length;
+}
+
+export function hasExploitSignals(cve: CVESummary): boolean {
+  return getExploitReferenceCount(cve) > 0;
+}
+
+export function getRiskScore(cve: CVESummary): number {
+  const severityScore = scoreForSort(cve);
+  const epssScore = Math.round((cve.epss ?? 0) * 100);
+  const exploitScore = Math.min(getExploitReferenceCount(cve), 3) * 15;
+  const kevScore = cve.kev ? 120 : 0;
+  const ransomwareScore = cve.kev?.knownRansomwareCampaignUse === "Known" ? 25 : 0;
+  const recencyScore = Math.min(daysSincePublished(cve), 30);
+
+  return kevScore + ransomwareScore + epssScore + exploitScore + severityScore * 10 + (30 - recencyScore);
+}
+
 export function buildPresetHref(state: Partial<SearchState>): string {
   const params = buildSearchParams(state);
   return params.toString() ? `/?${params.toString()}` : "/";
@@ -201,6 +221,20 @@ function matchesCweFilter(cve: CVESummary, cwe: string): boolean {
 }
 
 function compareCVEs(left: CVESummary, right: CVESummary, sort: SearchState["sort"]): number {
+  if (sort === "risk_desc") {
+    const riskDelta = getRiskScore(right) - getRiskScore(left);
+    if (riskDelta !== 0) {
+      return riskDelta;
+    }
+
+    const scoreDelta = scoreForSort(right) - scoreForSort(left);
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return publishedForSort(right) - publishedForSort(left);
+  }
+
   if (sort === "cvss_desc") {
     return scoreForSort(right) - scoreForSort(left);
   }
@@ -221,6 +255,13 @@ function compareCVEs(left: CVESummary, right: CVESummary, sort: SearchState["sor
 
 function scoreForSort(cve: CVESummary): number {
   return cve.cvss3 ?? cve.cvss ?? -1;
+}
+
+function daysSincePublished(cve: CVESummary, now = Date.now()): number {
+  const published = publishedForSort(cve);
+  if (!published) return 30;
+
+  return Math.max(0, Math.floor((now - published) / DAY_IN_MS));
 }
 
 function publishedForSort(cve: CVESummary): number {
@@ -245,6 +286,6 @@ function normalizeSeverityFilter(value: SearchState["minSeverity"] | undefined):
 }
 
 function normalizeSortOption(value: SearchState["sort"] | undefined): SearchState["sort"] {
-  const allowed: SearchState["sort"][] = ["published_desc", "published_asc", "cvss_desc", "cvss_asc"];
+  const allowed: SearchState["sort"][] = ["published_desc", "published_asc", "cvss_desc", "cvss_asc", "risk_desc"];
   return value && allowed.includes(value) ? value : DEFAULT_SORT;
 }

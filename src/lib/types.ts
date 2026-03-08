@@ -12,8 +12,12 @@ export interface CVESummary {
   published?: string;
   modified?: string;
   references?: string[];
+  referenceMeta?: VulnerabilityReference[];
   vulnerable_product?: string[];
+  affectedProducts?: NormalizedAffectedProduct[];
+  linkedVulnerabilities?: LinkedVulnerability[];
   state?: string;
+  kev?: KnownExploitedVulnerability;
 }
 
 export interface CVEDetail {
@@ -31,8 +35,11 @@ export interface CVEDetail {
   published?: string;
   modified?: string;
   references?: string[];
+  referenceMeta?: VulnerabilityReference[];
   vulnerable_product?: string[];
   vulnerable_configuration?: string[];
+  affectedProducts?: NormalizedAffectedProduct[];
+  linkedVulnerabilities?: LinkedVulnerability[];
   capec?: CAPECItem[];
   state?: string;
   // vulnerability.circl.lu fields
@@ -60,6 +67,40 @@ export interface CVEDetail {
       description?: string;
     };
   };
+  kev?: KnownExploitedVulnerability;
+}
+
+export interface VulnerabilityReference {
+  url: string;
+  host: string;
+  tags: string[];
+  type: string;
+}
+
+export interface LinkedVulnerability {
+  id: string;
+  relationship: string;
+}
+
+export interface NormalizedAffectedProduct {
+  vendor: string;
+  product: string;
+  version: string;
+  ecosystem: string;
+}
+
+export interface KnownExploitedVulnerability {
+  cveID: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction: string;
+  dueDate: string;
+  knownRansomwareCampaignUse?: string;
+  notes?: string;
+  cwes?: string[];
 }
 
 export interface AffectedProduct {
@@ -143,7 +184,7 @@ export interface SearchFilters {
 
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" | "UNKNOWN";
 export type SearchSeverityFilter = "ANY" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc";
+export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc" | "risk_desc";
 
 export interface DashboardPreset {
   title: string;
@@ -157,20 +198,49 @@ export interface DashboardSummary {
   criticalCount: number;
   highOrAboveCount: number;
   publishedThisWeekCount: number;
+  knownExploitedCount: number;
+}
+
+export interface DashboardMetric {
+  label: string;
+  value: string;
+}
+
+export interface DashboardWorkflowView {
+  id: "analyst" | "maintainer" | "incident_response";
+  title: string;
+  description: string;
+  accentClassName: string;
+  href: string;
+  metrics: DashboardMetric[];
+  cves: CVESummary[];
 }
 
 export interface HomeDashboardData {
   summary: DashboardSummary;
   presets: DashboardPreset[];
   latestCritical: CVESummary[];
-  highestCvss: CVESummary[];
+  highestRisk: CVESummary[];
   recentHighImpact: CVESummary[];
+  workflowViews: DashboardWorkflowView[];
 }
 
 export interface ProjectItem {
   cveId: string;
   note?: string;
   addedAt: string;
+  owner?: string;
+  remediationState?: RemediationState;
+  slaDueAt?: string | null;
+  exception?: ProjectExceptionRecord | null;
+  updatedAt?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  summary: string;
+  createdAt: string;
 }
 
 export interface ProjectRecord {
@@ -179,7 +249,35 @@ export interface ProjectRecord {
   description: string;
   createdAt: string;
   updatedAt: string;
+  owner?: string;
+  dueAt?: string | null;
+  labels?: string[];
+  status?: ProjectStatus;
   items: ProjectItem[];
+  activity: AuditLogEntry[];
+  timeline?: ProjectTimelineEvent[];
+}
+
+export type ProjectStatus = "planned" | "active" | "at_risk" | "done";
+export type RemediationState = "not_started" | "planned" | "in_progress" | "validated" | "deferred" | "exception";
+
+export interface ProjectExceptionRecord {
+  reason: string;
+  approvedBy: string;
+  expiresAt: string | null;
+  notes: string;
+}
+
+export interface ProjectTimelineEvent extends AuditLogEntry {
+  kind: "project" | "vulnerability" | "sla";
+}
+
+export interface AITriageContextSnapshot {
+  status: "new" | "investigating" | "mitigated" | "accepted" | "closed";
+  owner: string;
+  notes: string;
+  tags: string[];
+  updatedAt: string;
 }
 
 export interface AIContextCluster {
@@ -189,11 +287,27 @@ export interface AIContextCluster {
   summary: string;
 }
 
+export interface AITriageSignal {
+  label: string;
+  value: string;
+  level: "high" | "medium" | "low";
+  rationale: string;
+}
+
 export interface AITriageRecommendation {
   priority: "critical" | "high" | "medium" | "low";
   status: "new" | "investigating" | "mitigated" | "accepted" | "closed";
+  confidence: "high" | "medium" | "low";
+  ownerRecommendation: string;
   rationale: string;
   nextSteps: string[];
+  signals: AITriageSignal[];
+}
+
+export interface AIProjectContext {
+  projectCount: number;
+  projectNames: string[];
+  summary: string;
 }
 
 export interface AICveInsight {
@@ -201,6 +315,113 @@ export interface AICveInsight {
   triage: AITriageRecommendation;
   remediation: string[];
   cluster: AIContextCluster;
+  projectContext: AIProjectContext;
+}
+
+export interface AITriageSuggestion {
+  summary: string;
+  recommendation: AITriageRecommendation;
+  recommendedTags: string[];
+  recommendedOwner: string;
+  ownershipRationale: string;
+  projectContext: AIProjectContext;
+  requiresHumanApproval: boolean;
+}
+
+export interface AIRemediationPlan {
+  summary: string;
+  strategy: string;
+  compensatingControls: string[];
+  validationSteps: string[];
+  rolloutNotes: string[];
+  changeRisk: "high" | "medium" | "low";
+  recommendedOwner: string;
+  ownerRationale: string;
+  projectContext: AIProjectContext;
+  requiresHumanApproval: boolean;
+}
+
+export interface AIWatchlistReviewCluster {
+  label: string;
+  cveIds: string[];
+  summary: string;
+}
+
+export interface AIWatchlistReview {
+  headline: string;
+  summary: string;
+  newMatches: string[];
+  changedSinceLastReview: string[];
+  clusters: AIWatchlistReviewCluster[];
+  recommendedActions: string[];
+  previousReviewAt: string | null;
+  reviewedAt: string;
+}
+
+export interface AIProjectSummarySection {
+  headline: string;
+  summary: string;
+  bullets: string[];
+}
+
+export interface AIProjectSummary {
+  projectName: string;
+  overview: string;
+  executive: AIProjectSummarySection;
+  analyst: AIProjectSummarySection;
+  engineering: AIProjectSummarySection;
+  metrics: {
+    totalItems: number;
+    criticalCount: number;
+    highCount: number;
+    kevCount: number;
+    investigatingCount: number;
+  };
+}
+
+export interface AIAlertInvestigationMatch {
+  id: string;
+  summary: string;
+  rationale: string;
+  unread: boolean;
+}
+
+export interface AIAlertInvestigation {
+  ruleName: string;
+  summary: string;
+  whyMatched: string[];
+  topMatches: AIAlertInvestigationMatch[];
+  recommendedAction: string;
+  nextSteps: string[];
+}
+
+export interface AIExposureMatch {
+  assetId: string;
+  assetName: string;
+  confidence: "high" | "medium" | "low";
+  rationale: string;
+  matchingSignals: string[];
+}
+
+export interface AIExposureAssessment {
+  summary: string;
+  likelyImpact: "critical" | "high" | "medium" | "low";
+  matchedAssets: AIExposureMatch[];
+  rationale: string[];
+  recommendedActions: string[];
+}
+
+export type AISearchFilterField = "query" | "vendor" | "product" | "cwe" | "since" | "minSeverity" | "sort";
+
+export interface AISearchAppliedFilter {
+  field: AISearchFilterField;
+  value: string;
+  reason: string;
+}
+
+export interface AISearchToolTrace {
+  tool: string;
+  summary: string;
 }
 
 export interface AISearchInterpretation {
@@ -212,6 +433,11 @@ export interface AISearchInterpretation {
   minSeverity: SearchSeverityFilter;
   sort: SearchSortOption;
   explanation: string;
+  assumptions: string[];
+  appliedFilters: AISearchAppliedFilter[];
+  toolCalls: AISearchToolTrace[];
+  needsClarification: boolean;
+  clarificationQuestion: string;
 }
 
 export interface AIDigestSection {
@@ -225,7 +451,29 @@ export interface AIDigest {
   sections: AIDigestSection[];
 }
 
+export type AIRunStatus = "success" | "fallback" | "error";
+
+export interface AIRunRecord {
+  id: string;
+  feature: AIFeature;
+  provider: AIProvider;
+  model: string;
+  mode: "heuristic" | "configured";
+  status: AIRunStatus;
+  prompt: string;
+  output: string;
+  toolCalls: AISearchToolTrace[];
+  error: string;
+  durationMs: number;
+  promptTokensEstimate?: number;
+  outputTokensEstimate?: number;
+  estimatedCostUsd?: number;
+  createdAt: string;
+}
+
 export type AIProvider = "heuristic" | "openai" | "anthropic";
+
+export type AIFeature = "search_assistant" | "cve_insight" | "daily_digest" | "triage_agent" | "remediation_agent" | "watchlist_analyst" | "project_summary" | "alert_investigation" | "exposure_agent";
 
 export interface AISettings {
   provider: AIProvider;

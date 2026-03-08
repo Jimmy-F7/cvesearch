@@ -1,18 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCVEByIdServer } from "@/lib/server-api";
-import { generateCveInsight } from "@/lib/ai";
+import { getCVEByIdServer, getEPSSServer } from "@/lib/server-api";
+import { listProjects } from "@/lib/projects-store";
+import { generateCveInsight } from "@/lib/ai-service";
+import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { applyWorkspaceSession, getOrCreateWorkspaceSession } from "@/lib/auth-session";
+import { readTriageRecordForUser } from "@/lib/workspace-store";
+import { CVEDetail } from "@/lib/types";
 
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await context.params;
-    const body = await request.json().catch(() => null);
-    const detail = await getCVEByIdServer(decodeURIComponent(id));
-    const insight = await generateCveInsight(detail, body?.settings);
-    return NextResponse.json(insight);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate AI CVE insight" },
-      { status: 500 }
-    );
+export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = getOrCreateWorkspaceSession(request);
+  const { id } = await context.params;
+  const body = await request.json().catch(() => null);
+  const requestDetail = isCVEDetail(body?.detail) ? body.detail : null;
+  const detail = await getCVEByIdServer(decodeURIComponent(id)).catch(() => requestDetail);
+
+  if (!detail) {
+    return applyWorkspaceSession(NextResponse.json({ error: "Failed to load CVE detail for AI insight" }, { status: 502 }), session);
   }
+
+  const [epss, projects] = await Promise.all([
+    getEPSSServer(detail.id).catch(() => null),
+    listProjects().catch(() => []),
+  ]);
+  const relatedProjects = projects.filter((project) => project.items.some((item) => item.cveId === detail.id));
+  const triage = body?.triage && typeof body.triage === "object"
+    ? body.triage
+    : await readTriageRecordForUser(session.userId, detail.id);
+  const insight = await generateCveInsight({
+    detail,
+    epss,
+    triage,
+    relatedProjects: relatedProjects.map((project) => ({
+      name: project.name,
+      items: project.items,
+      updatedAt: project.updatedAt,
+    })),
+  });
+  return applyWorkspaceSession(NextResponse.json(insight), session);
+}, {
+  route: "/api/ai/cve/[id]",
+  errorMessage: "Failed to generate AI CVE insight",
+  rateLimit: API_RATE_LIMITS.aiWrite,
+});
+
+function isCVEDetail(value: unknown): value is CVEDetail {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value) && typeof (value as Record<string, unknown>).id === "string";
 }

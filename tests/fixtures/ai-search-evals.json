@@ -1,0 +1,32 @@
+[
+  {
+    "prompt": "show me critical OpenSSL vulns from this month",
+    "expected": {
+      "minSeverity": "CRITICAL",
+      "sort": "cvss_desc",
+      "queryIncludes": "openssl",
+      "requiresClarification": false,
+      "hasSince": true
+    }
+  },
+  {
+    "prompt": "kev ransomware cves this week",
+    "expected": {
+      "minSeverity": "ANY",
+      "sort": "risk_desc",
+      "queryIncludes": "ransomware",
+      "requiresClarification": false,
+      "hasSince": true
+    }
+  },
+  {
+    "prompt": "recent",
+    "expected": {
+      "minSeverity": "ANY",
+      "sort": "published_desc",
+      "queryIncludes": "",
+      "requiresClarification": true,
+      "hasSince": false
+    }
+  }
+]

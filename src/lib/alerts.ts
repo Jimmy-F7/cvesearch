@@ -1,73 +1,96 @@
-import { SearchState, normalizeSearchState } from "./search";
+import { SearchState } from "./search";
+import { AlertRule } from "./workspace-types";
 
-const ALERT_RULES_STORAGE_KEY = "cvesearch.alert-rules";
 export const ALERT_RULES_UPDATED_EVENT = "cvesearch:alert-rules-updated";
 
-export interface AlertRule {
-  id: string;
-  name: string;
-  search: SearchState;
-  createdAt: string;
-  lastCheckedAt: string | null;
+let alertRulesCache: AlertRule[] = [];
+
+export type { AlertRule };
+
+export async function loadAlertRules(): Promise<AlertRule[]> {
+  const next = await fetchAlertRules();
+  alertRulesCache = next;
+  return next;
 }
 
 export function readAlertRules(): AlertRule[] {
-  if (typeof window === "undefined") return [];
+  return alertRulesCache;
+}
 
-  try {
-    const raw = window.localStorage.getItem(ALERT_RULES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isAlertRule).map(normalizeAlertRule) : [];
-  } catch {
-    return [];
+export async function saveAlertRule(name: string, search: SearchState): Promise<AlertRule[]> {
+  await mutateAlertRules("/api/alerts", {
+    method: "POST",
+    body: JSON.stringify({ name, search }),
+  });
+  return refreshAlertRules();
+}
+
+export async function deleteAlertRule(id: string): Promise<AlertRule[]> {
+  await mutateAlertRules(`/api/alerts/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return refreshAlertRules();
+}
+
+export async function markAlertRuleChecked(id: string): Promise<AlertRule[]> {
+  const res = await fetch(`/api/alerts/${encodeURIComponent(id)}`, { method: "PATCH" });
+  if (!res.ok) {
+    throw new Error("Failed to mark alert rule checked");
+  }
+
+  const data = await res.json().catch(() => []);
+  const next = Array.isArray(data) ? data.filter(isAlertRule) : [];
+  alertRulesCache = next;
+  dispatchAlertRulesUpdated();
+  return next;
+}
+
+export async function markAllAlertRulesChecked(): Promise<AlertRule[]> {
+  const res = await fetch("/api/alerts/mark-all", { method: "POST" });
+  if (!res.ok) {
+    throw new Error("Failed to mark all alerts checked");
+  }
+
+  const data = await res.json().catch(() => []);
+  const next = Array.isArray(data) ? data.filter(isAlertRule) : [];
+  alertRulesCache = next;
+  dispatchAlertRulesUpdated();
+  return next;
+}
+
+async function refreshAlertRules(): Promise<AlertRule[]> {
+  const next = await fetchAlertRules();
+  alertRulesCache = next;
+  dispatchAlertRulesUpdated();
+  return next;
+}
+
+function dispatchAlertRulesUpdated(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(ALERT_RULES_UPDATED_EVENT));
   }
 }
 
-export function saveAlertRule(name: string, search: SearchState): AlertRule[] {
-  const current = readAlertRules();
-  const next: AlertRule[] = [
-    {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      search: normalizeSearchState(search),
-      createdAt: new Date().toISOString(),
-      lastCheckedAt: null,
+async function fetchAlertRules(): Promise<AlertRule[]> {
+  const res = await fetch("/api/alerts", { cache: "no-store" });
+  if (!res.ok) {
+    return [];
+  }
+
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data.filter(isAlertRule) : [];
+}
+
+async function mutateAlertRules(path: string, init: RequestInit): Promise<void> {
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
     },
-    ...current,
-  ];
+  });
 
-  writeAlertRules(next);
-  return next;
-}
-
-export function deleteAlertRule(id: string): AlertRule[] {
-  const next = readAlertRules().filter((rule) => rule.id !== id);
-  writeAlertRules(next);
-  return next;
-}
-
-export function markAlertRuleChecked(id: string): AlertRule[] {
-  const now = new Date().toISOString();
-  const next = readAlertRules().map((rule) =>
-    rule.id === id ? { ...rule, lastCheckedAt: now } : rule
-  );
-  writeAlertRules(next);
-  return next;
-}
-
-export function markAllAlertRulesChecked(): AlertRule[] {
-  const now = new Date().toISOString();
-  const next = readAlertRules().map((rule) => ({ ...rule, lastCheckedAt: now }));
-  writeAlertRules(next);
-  return next;
-}
-
-function writeAlertRules(rules: AlertRule[]): void {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(ALERT_RULES_STORAGE_KEY, JSON.stringify(rules));
-  window.dispatchEvent(new CustomEvent(ALERT_RULES_UPDATED_EVENT));
+  if (!res.ok) {
+    throw new Error("Alert rules request failed");
+  }
 }
 
 function isAlertRule(value: unknown): value is AlertRule {
@@ -83,12 +106,4 @@ function isAlertRule(value: unknown): value is AlertRule {
     typeof value.search === "object" &&
     typeof value.createdAt === "string"
   );
-}
-
-function normalizeAlertRule(rule: AlertRule): AlertRule {
-  return {
-    ...rule,
-    search: normalizeSearchState(rule.search),
-    lastCheckedAt: typeof rule.lastCheckedAt === "string" ? rule.lastCheckedAt : null,
-  };
 }

@@ -1,48 +1,35 @@
 import { buildSearchParams, SearchState } from "./search";
+import { SavedView } from "./workspace-types";
 
-const SAVED_VIEWS_STORAGE_KEY = "cvesearch.saved-views";
 export const SAVED_VIEWS_UPDATED_EVENT = "cvesearch:saved-views-updated";
 
-export interface SavedView {
-  id: string;
-  name: string;
-  search: SearchState;
-  createdAt: string;
+let savedViewsCache: SavedView[] = [];
+
+export type { SavedView };
+
+export async function loadSavedViews(): Promise<SavedView[]> {
+  const next = await fetchSavedViews();
+  savedViewsCache = next;
+  return next;
 }
 
 export function readSavedViews(): SavedView[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(SAVED_VIEWS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isSavedView) : [];
-  } catch {
-    return [];
-  }
+  return savedViewsCache;
 }
 
-export function saveView(name: string, search: SearchState): SavedView[] {
-  const current = readSavedViews();
-  const next: SavedView[] = [
-    {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      search,
-      createdAt: new Date().toISOString(),
-    },
-    ...current,
-  ];
-
-  writeSavedViews(next);
-  return next;
+export async function saveView(name: string, search: SearchState): Promise<SavedView[]> {
+  await fetchSavedViewsMutation("/api/saved-views", {
+    method: "POST",
+    body: JSON.stringify({ name, search }),
+  });
+  return refreshSavedViews();
 }
 
-export function deleteSavedView(id: string): SavedView[] {
-  const next = readSavedViews().filter((view) => view.id !== id);
-  writeSavedViews(next);
-  return next;
+export async function deleteSavedView(id: string): Promise<SavedView[]> {
+  await fetchSavedViewsMutation(`/api/saved-views/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  return refreshSavedViews();
 }
 
 export function getSavedViewHref(view: SavedView): string {
@@ -50,11 +37,41 @@ export function getSavedViewHref(view: SavedView): string {
   return params.toString() ? `/?${params.toString()}` : "/";
 }
 
-function writeSavedViews(views: SavedView[]): void {
-  if (typeof window === "undefined") return;
+async function refreshSavedViews(): Promise<SavedView[]> {
+  const next = await fetchSavedViews();
+  savedViewsCache = next;
+  dispatchSavedViewsUpdated();
+  return next;
+}
 
-  window.localStorage.setItem(SAVED_VIEWS_STORAGE_KEY, JSON.stringify(views));
-  window.dispatchEvent(new CustomEvent(SAVED_VIEWS_UPDATED_EVENT));
+function dispatchSavedViewsUpdated(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(SAVED_VIEWS_UPDATED_EVENT));
+  }
+}
+
+async function fetchSavedViews(): Promise<SavedView[]> {
+  const res = await fetch("/api/saved-views", { cache: "no-store" });
+  if (!res.ok) {
+    return [];
+  }
+
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data.filter(isSavedView) : [];
+}
+
+async function fetchSavedViewsMutation(path: string, init: RequestInit): Promise<void> {
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Saved views request failed");
+  }
 }
 
 function isSavedView(value: unknown): value is SavedView {

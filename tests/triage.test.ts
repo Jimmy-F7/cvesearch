@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getTriageStatusLabel, parseTags } from "../src/lib/triage";
+import { buildTriageApprovalCheckpoint } from "../src/lib/approval-checkpoints";
+import { createDefaultTriageRecord, getTriageStatusLabel, parseTags, summarizeTriageChanges } from "../src/lib/triage";
 
 test("parseTags normalizes comma-separated tag input", () => {
   assert.deepEqual(parseTags(" internet-facing, patch-window, internet-facing "), [
@@ -13,4 +14,50 @@ test("getTriageStatusLabel returns user-facing labels", () => {
   assert.equal(getTriageStatusLabel("new"), "New");
   assert.equal(getTriageStatusLabel("investigating"), "Investigating");
   assert.equal(getTriageStatusLabel("accepted"), "Accepted Risk");
+});
+
+test("createDefaultTriageRecord starts with empty activity history", () => {
+  const record = createDefaultTriageRecord("CVE-2026-0001");
+  assert.deepEqual(record.activity, []);
+});
+
+test("summarizeTriageChanges describes meaningful field updates", () => {
+  const previous = createDefaultTriageRecord("CVE-2026-0001");
+  const next = {
+    ...previous,
+    status: "investigating" as const,
+    owner: "secops",
+    notes: "Internet-facing service",
+    tags: ["internet-facing", "patch-window"],
+    updatedAt: "2026-03-06T12:00:00.000Z",
+  };
+
+  assert.deepEqual(summarizeTriageChanges(previous, next), [
+    "Status changed to Investigating",
+    "Owner set to secops",
+    "Notes updated",
+    "Tags updated: internet-facing, patch-window",
+  ]);
+});
+
+test("buildTriageApprovalCheckpoint captures proposed triage updates", () => {
+  const previous = createDefaultTriageRecord("CVE-2026-0001");
+  const next = {
+    ...previous,
+    status: "investigating" as const,
+    owner: "secops",
+    tags: ["internet-facing"],
+  };
+
+  const checkpoint = buildTriageApprovalCheckpoint(previous, next, "AI triage full recommendation");
+
+  assert.equal(checkpoint?.scope, "triage_state");
+  assert.match(checkpoint?.summary || "", /Status changed|Owner set|Tags updated/);
+  assert.equal(checkpoint?.changes.some((change) => change.field === "Status" && change.proposedValue === "investigating"), true);
+  assert.equal(checkpoint?.changes.some((change) => change.field === "Owner" && change.proposedValue === "secops"), true);
+});
+
+test("buildTriageApprovalCheckpoint returns null when nothing changes", () => {
+  const previous = createDefaultTriageRecord("CVE-2026-0001");
+  assert.equal(buildTriageApprovalCheckpoint(previous, previous), null);
 });

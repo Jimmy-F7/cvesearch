@@ -1,6 +1,6 @@
 import HomePageClient from "@/components/HomePageClient";
 import { parseSearchState } from "@/lib/search";
-import { getHomeDashboardData, getHomePageResults } from "@/lib/server-api";
+import { getHomePageResults } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +11,12 @@ export default async function Home({
 }) {
   const resolvedSearchParams = await searchParams;
   const state = parseSearchState(resolvedSearchParams);
-  const [{ cves, error, totalHint }, dashboard] = await Promise.all([
-    getHomePageResults(state),
-    getHomeDashboardData(state),
-  ]);
+  const { cves, error, totalHint } = await getHomePageResults(state);
 
   return (
     <HomePageClient
       initialState={state}
       cves={cves}
-      dashboard={dashboard}
       error={error}
       totalHint={totalHint}
     />

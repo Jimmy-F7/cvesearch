@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applySearchResultPreferences,
   buildPresetHref,
   buildSearchParams,
   getSearchSummary,
@@ -122,6 +123,39 @@ test("wasPublishedWithinDays matches recent publication windows", () => {
     ),
     false
   );
+});
+
+test("applySearchResultPreferences prioritizes KEV and exploit signals in risk-first sort", () => {
+  const result = applySearchResultPreferences(
+    [
+      {
+        id: "CVE-2026-1000",
+        cvss3: 9.8,
+        published: "2026-03-02T00:00:00.000Z",
+      },
+      {
+        id: "CVE-2026-2000",
+        cvss3: 7.5,
+        epss: 0.91,
+        published: "2026-03-04T00:00:00.000Z",
+        references: ["https://research.example/exploit-poc"],
+        kev: {
+          cveID: "CVE-2026-2000",
+          vendorProject: "Acme",
+          product: "Gateway",
+          vulnerabilityName: "Known exploited flaw",
+          dateAdded: "2026-03-05",
+          shortDescription: "Known exploited.",
+          requiredAction: "Patch now.",
+          dueDate: "2026-03-19",
+          knownRansomwareCampaignUse: "Known",
+        },
+      },
+    ],
+    normalizeSearchState({ sort: "risk_desc" })
+  );
+
+  assert.equal(result[0].id, "CVE-2026-2000");
 });
 
 test("matchesSearchState applies text, product, CWE, severity, and date filters locally", () => {

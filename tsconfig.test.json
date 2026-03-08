@@ -9,6 +9,7 @@
   },
   "include": [
     "src/lib/**/*.ts",
+    "src/types/**/*.d.ts",
     "tests/**/*.ts"
   ],
   "exclude": [

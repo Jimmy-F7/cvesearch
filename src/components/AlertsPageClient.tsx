@@ -7,13 +7,14 @@ import {
   AlertRule,
   ALERT_RULES_UPDATED_EVENT,
   deleteAlertRule,
+  loadAlertRules,
   markAllAlertRulesChecked,
   markAlertRuleChecked,
-  readAlertRules,
 } from "@/lib/alerts";
 import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
 import { CVESummary } from "@/lib/types";
 import CVEList from "@/components/CVEList";
+import AIAlertInvestigationPanel from "@/components/AIAlertInvestigationPanel";
 
 const ALERT_SAMPLE_SIZE = 80;
 
@@ -21,10 +22,11 @@ export default function AlertsPageClient() {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [sample, setSample] = useState<CVESummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
-    const syncRules = () => setRules(readAlertRules());
-    syncRules();
+    const syncRules = async () => setRules(await loadAlertRules());
+    void syncRules();
     window.addEventListener(ALERT_RULES_UPDATED_EVENT, syncRules);
 
     let cancelled = false;
@@ -35,6 +37,13 @@ export default function AlertsPageClient() {
         const latest = await getLatestCVEs(1, ALERT_SAMPLE_SIZE);
         if (!cancelled) {
           setSample(latest);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setFeedback({
+            type: "error",
+            message: error instanceof Error ? error.message : "Failed to load the latest CVE sample.",
+          });
         }
       } finally {
         if (!cancelled) {
@@ -71,30 +80,42 @@ export default function AlertsPageClient() {
   const totalUnread = evaluations.reduce((sum, item) => sum + item.unread, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="app-shell px-4 py-8 sm:px-6">
+      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Alerts</h1>
-          <p className="mt-2 text-base text-gray-500">
-            Browser-local alert rules evaluated against the latest upstream sample.
+          <p className="mt-2 text-[15px] text-white/35">
+            Workspace alert rules evaluated against the latest upstream sample.
           </p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setRules(markAllAlertRulesChecked())}
-            className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
+            onClick={() => {
+              void markAllAlertRulesChecked()
+                .then((next) => {
+                  setRules(next);
+                  setFeedback({ type: "success", message: "Marked all alert rules as checked." });
+                })
+                .catch((error: unknown) => {
+                  setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to mark alerts checked." });
+                });
+            }}
+            className="btn-ghost px-4 py-2 text-sm"
           >
             Mark All Checked
           </button>
-          <Link
-            href="/"
-            className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
-          >
+          <Link href="/" className="btn-ghost inline-flex px-4 py-2 text-sm">
             Back to Search
           </Link>
         </div>
       </div>
+
+      {feedback && (
+        <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-red-500/20 bg-red-500/10 text-red-200" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"}`}>
+          {feedback.message}
+        </div>
+      )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <Metric label="Alert rules" value={rules.length} />
@@ -105,7 +126,7 @@ export default function AlertsPageClient() {
       {rules.length === 0 ? (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-6 py-10 text-center">
           <p className="text-lg font-medium text-white">No alert rules yet</p>
-          <p className="mt-2 text-sm text-gray-500">Save an alert from the homepage to start tracking new matches.</p>
+          <p className="mt-2 text-sm text-gray-500">Save an alert from the homepage to start tracking new matches in this workspace.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -138,20 +159,40 @@ export default function AlertsPageClient() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setRules(markAlertRuleChecked(rule.id))}
+                    onClick={() => {
+                      void markAlertRuleChecked(rule.id)
+                        .then((next) => {
+                          setRules(next);
+                          setFeedback({ type: "success", message: `Marked ${rule.name} as checked.` });
+                        })
+                        .catch((error: unknown) => {
+                          setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to update alert rule." });
+                        });
+                    }}
                     className="rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
                   >
                     Mark Checked
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRules(deleteAlertRule(rule.id))}
+                    onClick={() => {
+                      void deleteAlertRule(rule.id)
+                        .then((next) => {
+                          setRules(next);
+                          setFeedback({ type: "success", message: `Deleted ${rule.name}.` });
+                        })
+                        .catch((error: unknown) => {
+                          setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete alert rule." });
+                        });
+                    }}
                     className="rounded-lg border border-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
                   >
                     Delete
                   </button>
                 </div>
               </div>
+
+              <AIAlertInvestigationPanel ruleId={rule.id} />
 
               <CVEList cves={matching.slice(0, 8)} loading={loading} />
             </section>
@@ -164,9 +205,9 @@ export default function AlertsPageClient() {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-4">
-      <div className="text-2xl font-semibold text-white">{value}</div>
-      <div className="mt-1 text-sm text-gray-400">{label}</div>
+    <div className="glass rounded-xl px-4 py-4">
+      <div className="font-mono text-2xl font-semibold text-white">{value}</div>
+      <div className="mt-1 text-sm text-white/35">{label}</div>
     </div>
   );
 }

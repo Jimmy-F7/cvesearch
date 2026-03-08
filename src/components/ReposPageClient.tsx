@@ -6,6 +6,7 @@ import {
   GitHubRepo,
   MonitoredRepo,
   DependencyScanResult,
+  RepoScanRecord,
   VulnerabilityMatch,
 } from "@/lib/github-types";
 import { getSeverityLabel } from "@/lib/osv";
@@ -29,6 +30,7 @@ export default function ReposPageClient() {
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
   const [monitoredRepos, setMonitoredRepos] = useState<MonitoredRepo[]>([]);
   const [scanStates, setScanStates] = useState<Record<string, RepoScanState>>({});
+  const [scanHistory, setScanHistory] = useState<Record<string, RepoScanRecord[]>>({});
   const [loadingGithub, setLoadingGithub] = useState(false);
   const [loadingMonitored, setLoadingMonitored] = useState(true);
   const [githubError, setGithubError] = useState<string | null>(null);
@@ -36,18 +38,30 @@ export default function ReposPageClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoBrowser, setShowRepoBrowser] = useState(false);
 
+  const loadRepoScanHistory = useCallback(async (fullName: string) => {
+    try {
+      const response = await fetch(`/api/github/scan?fullName=${encodeURIComponent(fullName)}`);
+      if (!response.ok) throw new Error("Failed to load repo scan history");
+      const scans: RepoScanRecord[] = await response.json();
+      setScanHistory((current) => ({ ...current, [fullName]: scans }));
+    } catch {
+      setScanHistory((current) => ({ ...current, [fullName]: [] }));
+    }
+  }, []);
+
   const loadMonitoredRepos = useCallback(async () => {
     try {
       const response = await fetch("/api/github/monitored");
       if (!response.ok) throw new Error("Failed to load monitored repos");
       const repos: MonitoredRepo[] = await response.json();
       setMonitoredRepos(repos);
+      await Promise.all(repos.map((repo) => loadRepoScanHistory(repo.fullName)));
     } catch {
       setMonitoredRepos([]);
     } finally {
       setLoadingMonitored(false);
     }
-  }, []);
+  }, [loadRepoScanHistory]);
 
   useEffect(() => {
     loadMonitoredRepos();
@@ -109,6 +123,12 @@ export default function ReposPageClient() {
         if (repo) delete next[repo.fullName];
         return next;
       });
+      setScanHistory((current) => {
+        const next = { ...current };
+        const repo = monitoredRepos.find((r) => r.id === repoId);
+        if (repo) delete next[repo.fullName];
+        return next;
+      });
     } catch {
       // silently fail
     }
@@ -138,6 +158,7 @@ export default function ReposPageClient() {
         [fullName]: { state: "done", result, error: null },
       }));
       await loadMonitoredRepos();
+      await loadRepoScanHistory(fullName);
     } catch (error) {
       setScanStates((current) => ({
         ...current,
@@ -164,13 +185,13 @@ export default function ReposPageClient() {
   const isAnyScanRunning = Object.values(scanStates).some((s) => s.state === "scanning");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="app-shell px-4 py-8 sm:px-6">
+      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Repos
           </h1>
-          <p className="mt-2 text-base text-gray-500">
+          <p className="mt-2 text-[15px] text-white/35">
             Monitor GitHub repositories for dependency vulnerabilities.
           </p>
         </div>
@@ -180,7 +201,7 @@ export default function ReposPageClient() {
               type="button"
               onClick={handleScanAll}
               disabled={isAnyScanRunning}
-              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
             >
               {isAnyScanRunning ? (
                 <>
@@ -195,10 +216,7 @@ export default function ReposPageClient() {
               )}
             </button>
           )}
-          <Link
-            href="/"
-            className="inline-flex rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white"
-          >
+          <Link href="/" className="btn-ghost inline-flex px-4 py-2 text-sm">
             Back to Search
           </Link>
         </div>
@@ -368,6 +386,7 @@ export default function ReposPageClient() {
                 key={repo.id}
                 repo={repo}
                 scanState={scan ?? null}
+                history={scanHistory[repo.fullName] ?? []}
                 onScan={() => handleScanRepo(repo.fullName)}
                 onRemove={() => handleRemoveRepo(repo.id)}
               />
@@ -382,11 +401,12 @@ export default function ReposPageClient() {
 interface MonitoredRepoCardProps {
   repo: MonitoredRepo;
   scanState: RepoScanState | null;
+  history: RepoScanRecord[];
   onScan: () => void;
   onRemove: () => void;
 }
 
-const MonitoredRepoCard = ({ repo, scanState, onScan, onRemove }: MonitoredRepoCardProps) => {
+const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: MonitoredRepoCardProps) => {
   const isScanning = scanState?.state === "scanning";
   const hasResults = scanState?.state === "done" && scanState.result;
   const hasError = scanState?.state === "error";
@@ -468,6 +488,31 @@ const MonitoredRepoCard = ({ repo, scanState, onScan, onRemove }: MonitoredRepoC
       {hasResults && scanState.result && (
         <ScanResults result={scanState.result} repoFullName={repo.fullName} />
       )}
+
+      {history.length > 0 && (
+        <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Persisted scan history</h3>
+            <span className="text-[11px] text-white/20">{history.length} snapshots</span>
+          </div>
+          <div className="space-y-2">
+            {history.slice(0, 4).map((entry) => (
+              <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-white/50">
+                  <span>{new Date(entry.scannedAt).toLocaleString()}</span>
+                  <span className="text-white/15">/</span>
+                  <span>branch {entry.branch}</span>
+                  <span className="text-white/15">/</span>
+                  <span>{entry.dependencyCount} deps</span>
+                </div>
+                <span className={entry.vulnerabilityCount > 0 ? "text-red-300" : "text-emerald-300"}>
+                  {entry.vulnerabilityCount} vuln{entry.vulnerabilityCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 };
@@ -530,7 +575,7 @@ const ScanResults = ({ result, repoFullName }: ScanResultsProps) => {
         <div className="space-y-2">
           {displayedVulns.map((match) => (
             <VulnerabilityRow
-              key={`${match.vulnerability.id}-${match.matchedDependency.name}`}
+              key={`${match.vulnerability.id}-${match.matchedDependency.name}-${match.matchedDependency.manifestPath ?? "root"}`}
               match={match}
               onFix={() => setFixingMatch(match)}
             />
@@ -634,6 +679,11 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
           {match.matchedDependency.isDev && (
             <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-purple-400">
               dev dependency
+            </span>
+          )}
+          {match.matchedDependency.manifestPath && (
+            <span className="rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-gray-400">
+              {match.matchedDependency.manifestPath}
             </span>
           )}
         </div>
