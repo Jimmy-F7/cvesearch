@@ -23,6 +23,7 @@ import {
   SearchSortOption,
 } from "./types";
 import { appendAIRun, clearAIRuns, deleteAIRun, listRecentAIRuns } from "./ai-runs-store";
+import { callAnthropicText } from "./anthropic-client";
 import { callOpenAIText } from "./openai-client";
 import { SearchState, normalizeSearchState } from "./search";
 import { extractCVEId, extractDescription, getSeverityFromScore } from "./utils";
@@ -40,9 +41,8 @@ import {
 } from "./ai-prompts";
 import { listAITools } from "./ai-tool-registry";
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
-const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
+const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const SEARCH_DEFAULT_SORT: SearchSortOption = "published_desc";
 const SEARCH_DEFAULT_MIN_SEVERITY: SearchSeverityFilter = "ANY";
 const AI_FEATURES: AIFeature[] = ["search_assistant", "cve_insight", "daily_digest", "triage_agent", "remediation_agent", "watchlist_analyst", "project_summary", "alert_investigation", "exposure_agent"];
@@ -1691,37 +1691,13 @@ async function callOpenAI(prompt: string, settings: AIRuntimeSettings): Promise<
 }
 
 async function callAnthropic(prompt: string, settings: AIRuntimeSettings, feature: AIFeature): Promise<string> {
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": settings.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: feature === "daily_digest" ? 1200 : 800,
-      temperature: feature === "daily_digest" ? 0.3 : 0.2,
-      messages: [
-        {
-          role: "user",
-          content: `Return only JSON. No markdown. No prose outside JSON.\n\n${prompt}`,
-        },
-      ],
-    }),
+  return callAnthropicText({
+    apiKey: settings.apiKey,
+    model: settings.model || DEFAULT_ANTHROPIC_MODEL,
+    prompt,
+    maxTokens: feature === "daily_digest" ? 1200 : 800,
+    temperature: feature === "daily_digest" ? 0.3 : 0.2,
   });
-
-  if (!res.ok) {
-    throw new Error(`Anthropic error: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const content = data?.content?.find?.((item: { type?: string }) => item.type === "text")?.text;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Anthropic response did not include content");
-  }
-
-  return content;
 }
 
 function resolveAIRuntime(feature?: AIFeature): AIRuntimeSettings {

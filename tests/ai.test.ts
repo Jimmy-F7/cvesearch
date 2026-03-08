@@ -481,6 +481,71 @@ test("callModel includes OpenAI API error details in failures", async () => {
   }
 });
 
+test("callModel uses the Anthropic Messages API consistently", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+
+  globalThis.fetch = (async (input, init) => {
+    const url = String(input);
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    requests.push({ url, body });
+
+    return jsonResponse({
+      content: [
+        {
+          type: "text",
+          text: "{\"ok\":true}",
+        },
+      ],
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await callModel("generate json", {
+      provider: "anthropic",
+      model: "claude-haiku-4-5-20251001",
+      apiKey: "test-anthropic-key",
+    });
+
+    assert.equal(result, "{\"ok\":true}");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.url, "https://api.anthropic.com/v1/messages");
+    assert.equal(requests[0]?.body.model, "claude-haiku-4-5-20251001");
+    assert.equal(requests[0]?.body.max_tokens, 800);
+    assert.equal(requests[0]?.body.temperature, 0.2);
+    assert.equal(Array.isArray(requests[0]?.body.messages), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("callModel includes Anthropic API error details in failures", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () =>
+    jsonResponse(
+      {
+        error: {
+          message: "model not found",
+        },
+      },
+      400
+    )) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      callModel("generate json", {
+        provider: "anthropic",
+        model: "claude-invalid",
+        apiKey: "test-anthropic-key",
+      }),
+      /Anthropic error: 400 - model not found/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("preparePromptInputForFeature redacts sensitive notes and project metadata for external providers", () => {
   const previous = {
     AI_PROVIDER: process.env.AI_PROVIDER,

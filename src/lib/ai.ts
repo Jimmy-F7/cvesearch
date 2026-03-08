@@ -1,4 +1,5 @@
 import { AISettings } from "./types";
+import { callAnthropicText } from "./anthropic-client";
 import { callOpenAIText } from "./openai-client";
 
 export {
@@ -37,9 +38,8 @@ export type {
   WatchlistReviewInput,
 } from "./ai-service";
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
-const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest";
+const DEFAULT_ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 
 export async function callModel(prompt: string, settings: AISettings): Promise<string> {
   if (settings.provider === "anthropic") {
@@ -84,35 +84,11 @@ async function callOpenAI(prompt: string, settings: AISettings): Promise<string>
 }
 
 async function callAnthropic(prompt: string, settings: AISettings): Promise<string> {
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": settings.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: 800,
-      temperature: 0.2,
-      messages: [
-        {
-          role: "user",
-          content: `Return only JSON. No markdown. No prose outside JSON.\n\n${prompt}`,
-        },
-      ],
-    }),
+  return callAnthropicText({
+    apiKey: settings.apiKey,
+    model: settings.model || DEFAULT_ANTHROPIC_MODEL,
+    prompt,
+    maxTokens: 800,
+    temperature: 0.2,
   });
-
-  if (!response.ok) {
-    throw new Error(`Anthropic error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data?.content?.find?.((item: { type?: string }) => item.type === "text")?.text;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Anthropic response did not include content");
-  }
-
-  return content;
 }
