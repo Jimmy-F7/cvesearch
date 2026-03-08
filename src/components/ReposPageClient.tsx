@@ -407,9 +407,10 @@ interface MonitoredRepoCardProps {
 }
 
 const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: MonitoredRepoCardProps) => {
-  const isScanning = scanState?.state === "scanning";
-  const hasResults = scanState?.state === "done" && scanState.result;
-  const hasError = scanState?.state === "error";
+  const effectiveScanState = scanState ?? getPersistedScanState(history[0]);
+  const isScanning = effectiveScanState?.state === "scanning";
+  const hasResults = effectiveScanState?.state === "done" && effectiveScanState.result;
+  const hasError = effectiveScanState?.state === "error";
 
   return (
     <section className="glass rounded-2xl p-5">
@@ -481,12 +482,12 @@ const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: Monit
 
       {hasError && (
         <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">
-          {scanState.error}
+          {effectiveScanState?.error}
         </div>
       )}
 
-      {hasResults && scanState.result && (
-        <ScanResults result={scanState.result} repoFullName={repo.fullName} />
+      {hasResults && effectiveScanState?.result && (
+        <ScanResults result={effectiveScanState.result} repoFullName={repo.fullName} />
       )}
 
       {history.length > 0 && (
@@ -516,6 +517,32 @@ const MonitoredRepoCard = ({ repo, scanState, history, onScan, onRemove }: Monit
     </section>
   );
 };
+
+function getPersistedScanState(record: RepoScanRecord | undefined): RepoScanState | null {
+  if (!record) {
+    return null;
+  }
+
+  if (record.error) {
+    return {
+      state: "error",
+      result: null,
+      error: record.error,
+    };
+  }
+
+  return {
+    state: "done",
+    result: {
+      repoFullName: record.repoFullName,
+      scannedAt: record.scannedAt,
+      dependencyCount: record.dependencyCount,
+      locationCount: record.locationCount,
+      vulnerabilities: record.vulnerabilities,
+    },
+    error: null,
+  };
+}
 
 interface ScanResultsProps {
   result: DependencyScanResult;

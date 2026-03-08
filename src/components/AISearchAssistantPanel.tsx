@@ -26,7 +26,7 @@ const BUILT_IN_PROMPTS = [
     name: "Exchange Patch First",
     prompt: "what should we patch first for microsoft exchange since 2026-01-15",
   },
-];
+] as const;
 
 export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPanelProps) {
   const [prompt, setPrompt] = useState("");
@@ -49,6 +49,15 @@ export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPan
     if (!prompt.trim()) return "Prompt template";
     return prompt.trim().slice(0, 48);
   }, [prompt]);
+
+  const resultSummary = useMemo(() => {
+    if (!result) return null;
+    return {
+      filterCount: result.appliedFilters.length,
+      assumptionCount: result.assumptions.length,
+      traceCount: result.toolCalls.length,
+    };
+  }, [result]);
 
   async function handleInterpret(nextPrompt = prompt) {
     if (!nextPrompt.trim()) return;
@@ -113,200 +122,316 @@ export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPan
   }
 
   return (
-    <div className="rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] to-transparent p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15">
-            <svg className="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-            </svg>
+    <section className="glass-raised rounded-2xl border border-cyan-500/15 p-5 sm:p-6">
+      <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                AI Search Assistant
+              </div>
+              <h2 className="mt-3 text-lg font-semibold text-white">Describe the search you want in plain language.</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/40">
+                Ask for products, CWE families, exploit context, time windows, or remediation intent and the assistant will turn that into structured filters.
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/25">Examples</div>
+              <div className="mt-1 text-sm text-white/55">{BUILT_IN_PROMPTS.length} ready-made prompts</div>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200">AI Search Assistant</h2>
-            <p className="text-[11px] text-white/25">Natural language search with aliases, CWE families, date windows, and remediation intent.</p>
-          </div>
-        </div>
-        <div className="flex w-full flex-col gap-2 lg:w-2/3">
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            rows={2}
-            placeholder="What should we patch first for Microsoft Exchange since 2026-01-15?"
-            className="input-base w-full px-3 py-2 text-sm"
-          />
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <span className="text-xs text-white/25">{message}</span>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={templateName}
-                onChange={(event) => setTemplateName(event.target.value)}
-                placeholder={defaultTemplateName}
-                className="input-base min-w-52 px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={() => void handleSaveTemplate()}
-                disabled={loading || templateBusy !== null}
-                className="btn-ghost px-4 py-2 text-sm disabled:opacity-50"
-              >
-                {templateBusy === "save" ? "Saving..." : "Save Prompt"}
-              </button>
+
+          <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-3 sm:p-4">
+            <label htmlFor="ai-search-prompt" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">
+              Prompt
+            </label>
+            <textarea
+              id="ai-search-prompt"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              rows={4}
+              placeholder="What should we patch first for Microsoft Exchange since 2026-01-15?"
+              className="input-base min-h-[116px] w-full resize-y px-3 py-3 text-sm leading-relaxed"
+            />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {BUILT_IN_PROMPTS.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => setPrompt(template.prompt)}
+                  className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white/75"
+                >
+                  {template.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="ai-template-name" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">
+                  Save prompt as template
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="ai-template-name"
+                    type="text"
+                    value={templateName}
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    placeholder={defaultTemplateName}
+                    className="input-base min-w-0 flex-1 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveTemplate()}
+                    disabled={loading || templateBusy !== null}
+                    className="btn-ghost px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    {templateBusy === "save" ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => void handleInterpret()}
-                disabled={loading}
-                className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                disabled={loading || !prompt.trim()}
+                className="btn-primary min-w-44 px-5 py-2.5 text-sm disabled:opacity-50"
               >
-                {loading ? "Thinking..." : "Apply AI Search"}
+                {loading ? "Interpreting..." : "Apply AI Search"}
               </button>
             </div>
+
+            {(message || templateMessage) && (
+              <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-white/45">
+                {message || templateMessage}
+              </div>
+            )}
           </div>
-          {templateMessage ? <span className="text-xs text-white/25">{templateMessage}</span> : null}
         </div>
-      </div>
 
-      <div className="mt-4 grid gap-3 xl:grid-cols-2">
-        <section className="glass rounded-xl p-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Analyst Templates</h3>
-          <div className="mt-3 grid gap-3">
-            {BUILT_IN_PROMPTS.map((template) => (
-              <PromptCard
-                key={template.id}
-                name={template.name}
-                prompt={template.prompt}
-                actionLabel="Run"
-                onAction={() => void handleInterpret(template.prompt)}
-                disabled={loading}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="glass rounded-xl p-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Saved Prompt Templates</h3>
-          {promptTemplates.length > 0 ? (
-            <div className="mt-3 grid gap-3">
-              {promptTemplates.map((template) => (
-                <PromptCard
+        <div className="space-y-4">
+          <AssistantSidebarSection
+            title="Quick Start"
+            description="Run one of the built-in analyst prompts immediately."
+          >
+            <div className="space-y-2">
+              {BUILT_IN_PROMPTS.map((template) => (
+                <TemplateListItem
                   key={template.id}
                   name={template.name}
                   prompt={template.prompt}
-                  actionLabel="Apply"
-                  onAction={() => {
-                    setPrompt(template.prompt);
-                    void handleInterpret(template.prompt);
-                  }}
-                  onDelete={() => void handleDeleteTemplate(template.id)}
-                  disabled={loading || templateBusy !== null}
-                  deleteBusy={templateBusy === `delete:${template.id}`}
+                  primaryLabel="Run"
+                  onPrimary={() => void handleInterpret(template.prompt)}
+                  disabled={loading}
                 />
               ))}
             </div>
-          ) : (
-            <p className="mt-3 text-sm text-white/25">No saved prompt templates yet. Save frequently used analyst questions here and reuse them across the workspace.</p>
-          )}
-        </section>
+          </AssistantSidebarSection>
+
+          <AssistantSidebarSection
+            title="Saved Templates"
+            description="Keep reusable prompts here for fast search setup."
+          >
+            {promptTemplates.length > 0 ? (
+              <div className="space-y-2">
+                {promptTemplates.map((template) => (
+                  <TemplateListItem
+                    key={template.id}
+                    name={template.name}
+                    prompt={template.prompt}
+                    primaryLabel="Apply"
+                    onPrimary={() => {
+                      setPrompt(template.prompt);
+                      void handleInterpret(template.prompt);
+                    }}
+                    onSecondary={() => void handleDeleteTemplate(template.id)}
+                    secondaryLabel={templateBusy === `delete:${template.id}` ? "Deleting..." : "Delete"}
+                    disabled={loading || templateBusy !== null}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-white/[0.08] px-4 py-5 text-sm text-white/30">
+                No saved prompt templates yet. Save the prompts you reuse most often and they will show up here.
+              </div>
+            )}
+          </AssistantSidebarSection>
+        </div>
       </div>
 
-      {result && (
-        <div className="mt-4 space-y-4 glass rounded-xl p-4 animate-fade-in">
-          {result.needsClarification && result.clarificationQuestion ? (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-sm text-amber-200">
-              {result.clarificationQuestion}
+      {result && resultSummary && (
+        <div className="mt-5 rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.05] p-4 sm:p-5 animate-fade-in">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">Last AI Search</div>
+              <p className="mt-2 text-sm leading-relaxed text-white/75">{result.explanation}</p>
+              {result.needsClarification && result.clarificationQuestion ? (
+                <div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  {result.clarificationQuestion}
+                </div>
+              ) : null}
             </div>
-          ) : null}
 
-          <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Applied Filters</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {result.appliedFilters.length > 0 ? (
-                result.appliedFilters.map((filter) => (
-                  <span key={`${filter.field}-${filter.value}`} className="badge badge-xs border-cyan-500/20 bg-cyan-500/8 text-cyan-200">
-                    {filter.field}: {filter.value}
-                  </span>
-                ))
-              ) : (
-                <span className="text-sm text-white/25">No additional filters were applied.</span>
-              )}
+            <div className="grid grid-cols-3 gap-2 sm:min-w-[280px]">
+              <ResultStat label="Filters" value={String(resultSummary.filterCount)} />
+              <ResultStat label="Assumptions" value={String(resultSummary.assumptionCount)} />
+              <ResultStat label="Trace" value={String(resultSummary.traceCount)} />
             </div>
           </div>
 
-          {result.assumptions.length > 0 ? (
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Assumptions</h3>
-              <ul className="mt-3 space-y-2 text-sm text-white/50">
-                {result.assumptions.map((assumption) => (
-                  <li key={assumption} className="rounded-lg bg-white/[0.03] px-3 py-2">
-                    {assumption}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Agent Trace</h3>
-            <ul className="mt-3 space-y-2 text-sm text-white/50">
-              {result.toolCalls.map((call) => (
-                <li key={call.tool} className="rounded-lg bg-white/[0.03] px-3 py-2">
-                  <span className="font-medium text-white">{call.tool}</span>
-                  <span className="text-white/40"> - {call.summary}</span>
-                </li>
-              ))}
-            </ul>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {result.appliedFilters.length > 0 ? (
+              result.appliedFilters.map((filter) => (
+                <span key={`${filter.field}-${filter.value}`} className="badge badge-xs border-cyan-500/25 bg-cyan-500/10 text-cyan-100">
+                  {filter.field}: {filter.value}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-white/40">No additional filters were applied.</span>
+            )}
           </div>
+
+          {(result.assumptions.length > 0 || result.toolCalls.length > 0) && (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {result.assumptions.length > 0 ? (
+                <DisclosurePanel title="Assumptions" defaultOpen>
+                  <ul className="space-y-2 text-sm text-white/55">
+                    {result.assumptions.map((assumption) => (
+                      <li key={assumption} className="rounded-lg bg-white/[0.04] px-3 py-2">
+                        {assumption}
+                      </li>
+                    ))}
+                  </ul>
+                </DisclosurePanel>
+              ) : null}
+
+              {result.toolCalls.length > 0 ? (
+                <DisclosurePanel title="Agent Trace">
+                  <ul className="space-y-2 text-sm text-white/55">
+                    {result.toolCalls.map((call) => (
+                      <li key={`${call.tool}-${call.summary}`} className="rounded-lg bg-white/[0.04] px-3 py-2">
+                        <span className="font-medium text-white">{call.tool}</span>
+                        <span className="text-white/40"> - {call.summary}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </DisclosurePanel>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-function PromptCard({
+function AssistantSidebarSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="glass rounded-2xl p-4">
+      <div className="mb-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">{title}</h3>
+        <p className="mt-1 text-sm text-white/35">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TemplateListItem({
   name,
   prompt,
-  actionLabel,
-  onAction,
-  onDelete,
+  primaryLabel,
+  onPrimary,
+  onSecondary,
+  secondaryLabel = "Delete",
   disabled,
-  deleteBusy = false,
 }: {
   name: string;
   prompt: string;
-  actionLabel: string;
-  onAction: () => void;
-  onDelete?: () => void;
+  primaryLabel: string;
+  onPrimary: () => void;
+  onSecondary?: () => void;
+  secondaryLabel?: string;
   disabled: boolean;
-  deleteBusy?: boolean;
 }) {
   return (
-    <div className="glass rounded-lg p-3">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition-colors hover:bg-white/[0.05]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-medium text-white">{name}</div>
-          <p className="mt-1 text-sm text-white/40">{prompt}</p>
+          <p className="mt-1 text-sm leading-relaxed text-white/40">{prompt}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            onClick={onAction}
+            onClick={onPrimary}
             disabled={disabled}
-            className="rounded-lg border border-cyan-500/20 bg-cyan-500/8 px-3 py-1.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
+            className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
           >
-            {actionLabel}
+            {primaryLabel}
           </button>
-          {onDelete ? (
+          {onSecondary ? (
             <button
               type="button"
-              onClick={onDelete}
+              onClick={onSecondary}
               disabled={disabled}
               className="btn-ghost px-3 py-1.5 text-xs disabled:opacity-50"
             >
-              {deleteBusy ? "Deleting..." : "Delete"}
+              {secondaryLabel}
             </button>
           ) : null}
         </div>
       </div>
     </div>
+  );
+}
+
+function ResultStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-center">
+      <div className="text-lg font-semibold text-white">{value}</div>
+      <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{label}</div>
+    </div>
+  );
+}
+
+function DisclosurePanel({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 group"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-white">
+        <span>{title}</span>
+        <svg
+          className="h-4 w-4 text-white/35 transition-transform group-open:rotate-180"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.8}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
