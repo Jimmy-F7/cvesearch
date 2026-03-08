@@ -22,13 +22,11 @@ import {
   ParsedDependency,
   RepoFileContent,
 } from "@/lib/github-types";
-import { AISettings, AIProvider } from "@/lib/types";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
 
 const MAX_SOURCE_FILES = 5;
 const MAX_ALLOWED_FILE_CHANGES = 8;
 const MAX_FILE_CONTENT_BYTES = 200_000;
-const VALID_PROVIDERS: AIProvider[] = ["heuristic", "openai", "anthropic"];
 const REPO_FULL_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
 export const POST = withRouteProtection(async function POST(request: NextRequest) {
@@ -51,8 +49,6 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
         { status: 400 }
       );
     }
-
-    const aiSettings = body?.aiSettings;
 
     const fixedVersion = extractFixedVersion(vulnerability, matchedDependency.name);
 
@@ -100,7 +96,6 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
         dependencyFiles,
         sourceFiles,
       },
-      aiSettings ? normalizeAISettingsFromRequest(aiSettings) : undefined
     );
 
     try {
@@ -251,20 +246,6 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   errorMessage: "Failed to create GitHub fix pull request",
   rateLimit: API_RATE_LIMITS.githubWrites,
 });
-
-const normalizeAISettingsFromRequest = (
-  raw: Record<string, unknown>
-): Partial<AISettings> => {
-  const provider = VALID_PROVIDERS.includes(raw.provider as AIProvider)
-    ? (raw.provider as AIProvider)
-    : undefined;
-
-  return {
-    provider,
-    model: typeof raw.model === "string" ? raw.model : undefined,
-    apiKey: typeof raw.apiKey === "string" ? raw.apiKey : undefined,
-  };
-};
 
 const isValidMatchedDependency = (value: unknown): value is ParsedDependency => {
   if (!value || typeof value !== "object") {

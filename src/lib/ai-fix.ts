@@ -6,7 +6,6 @@ import {
   ParsedDependency,
   RepoFileContent,
 } from "./github-types";
-import { AISettings } from "./types";
 
 interface GenerateFixInput {
   vulnerability: OSVVulnerability;
@@ -18,9 +17,8 @@ interface GenerateFixInput {
 
 export const generateVulnerabilityFix = async (
   input: GenerateFixInput,
-  settings?: Partial<AISettings>
 ): Promise<AIFixResult> => {
-  const runtime = resolveAISettings(settings);
+  const runtime = resolveAISettings();
 
   if (runtime.provider === "heuristic") {
     return buildHeuristicFix(input);

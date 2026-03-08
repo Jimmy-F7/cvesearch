@@ -49,10 +49,9 @@ export async function callModel(prompt: string, settings: AISettings): Promise<s
   return callOpenAI(prompt, settings);
 }
 
-export function resolveAISettings(settings?: Partial<AISettings>): AISettings {
+export function resolveAISettings(settings?: Pick<Partial<AISettings>, "provider" | "model">): AISettings {
   const provider = settings?.provider ?? (process.env.OPENAI_API_KEY ? "openai" : "heuristic");
   const apiKey =
-    settings?.apiKey ??
     (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY) ??
     "";
   const model =

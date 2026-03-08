@@ -115,6 +115,18 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 - Automated lint, test, and build checks in CI
 - Heuristic AI fallback when no model provider is configured
 
+## Security Model
+
+> **This application is designed as a single-user local tool.** It does not include user authentication. Any visitor who can reach the server has full access to all features, including creating GitHub pull requests and triggering AI analysis.
+
+If you expose this application on a network:
+
+- **Place it behind a reverse proxy** with authentication (e.g., HTTP basic auth, OAuth proxy, VPN).
+- **Do not expose it to the public internet** without an authentication layer in front.
+- The session system assigns anonymous workspace sessions automatically — it provides data isolation between browser sessions, not access control.
+
+The application applies rate limiting, input validation, parameterized SQL, and security headers, but none of these replace authentication for a multi-user or networked deployment.
+
 ## Current Boundaries
 
 - Vendor-only filtering is intentionally blocked because the current upstream flow is only trustworthy when vendor is paired with product.

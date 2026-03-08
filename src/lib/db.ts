@@ -548,7 +548,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+const SAFE_SQL_IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
+const SAFE_COLUMN_DEFINITION = /^[A-Z ]+(?:DEFAULT (?:'[^']*'|[0-9]+|NULL))?$/;
+
+function assertSafeSQLIdentifier(value: string, label: string): void {
+  if (!SAFE_SQL_IDENTIFIER.test(value)) {
+    throw new Error(`Unsafe ${label} identifier rejected: ${value}`);
+  }
+}
+
 function ensureColumn(db: DatabaseSync, table: string, column: string, definition: string): void {
+  assertSafeSQLIdentifier(table, "table");
+  assertSafeSQLIdentifier(column, "column");
+  if (!SAFE_COLUMN_DEFINITION.test(definition)) {
+    throw new Error(`Unsafe column definition rejected: ${definition}`);
+  }
+
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (columns.some((entry) => entry.name === column)) {
     return;

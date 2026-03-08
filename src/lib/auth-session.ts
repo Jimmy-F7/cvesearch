@@ -47,7 +47,7 @@ export function getOrCreateWorkspaceSession(request: Request): WorkspaceSession 
   return {
     sessionId,
     userId,
-    setCookieHeader: `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE_SECONDS}`,
+    setCookieHeader: `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
   };
 }
 
