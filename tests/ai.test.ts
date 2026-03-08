@@ -404,7 +404,7 @@ test("buildHeuristicExposureAssessment maps CVEs to tracked inventory assets", (
   assert.equal(result.recommendedActions.length >= 2, true);
 });
 
-test("callModel uses the OpenAI Responses API for GPT-5 models", async () => {
+test("callModel uses the OpenAI Responses API for all OpenAI models", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
 
@@ -429,19 +429,26 @@ test("callModel uses the OpenAI Responses API for GPT-5 models", async () => {
   }) as typeof fetch;
 
   try {
-    const result = await callModel("generate json", {
-      provider: "openai",
-      model: "gpt-5-mini",
-      apiKey: "test-openai-key",
-    });
+    const models = ["gpt-5-mini", "gpt-4o-mini"];
 
-    assert.equal(result, "{\"ok\":true}");
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0]?.url, "https://api.openai.com/v1/responses");
-    assert.equal(requests[0]?.body.model, "gpt-5-mini");
-    assert.equal(requests[0]?.body.input, "generate json");
-    assert.equal("messages" in (requests[0]?.body ?? {}), false);
-    assert.equal("temperature" in (requests[0]?.body ?? {}), false);
+    for (const model of models) {
+      const result = await callModel("generate json", {
+        provider: "openai",
+        model,
+        apiKey: "test-openai-key",
+      });
+
+      assert.equal(result, "{\"ok\":true}");
+    }
+
+    assert.equal(requests.length, models.length);
+    for (const [index, request] of requests.entries()) {
+      assert.equal(request.url, "https://api.openai.com/v1/responses");
+      assert.equal(request.body.model, models[index]);
+      assert.equal(request.body.input, "generate json");
+      assert.equal("messages" in request.body, false);
+      assert.equal("temperature" in request.body, false);
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -454,7 +461,7 @@ test("callModel includes OpenAI API error details in failures", async () => {
     jsonResponse(
       {
         error: {
-          message: "Unsupported parameter: temperature",
+          message: "Invalid request payload",
         },
       },
       400
@@ -467,7 +474,7 @@ test("callModel includes OpenAI API error details in failures", async () => {
         model: "gpt-4o-mini",
         apiKey: "test-openai-key",
       }),
-      /OpenAI error: 400 - Unsupported parameter: temperature/
+      /OpenAI error: 400 - Invalid request payload/
     );
   } finally {
     globalThis.fetch = originalFetch;

@@ -80,7 +80,6 @@ async function callOpenAI(prompt: string, settings: AISettings): Promise<string>
     model: settings.model || DEFAULT_OPENAI_MODEL,
     prompt,
     instructions: "Return only JSON. No markdown. No prose outside JSON.",
-    temperature: 0.2,
   });
 }
 

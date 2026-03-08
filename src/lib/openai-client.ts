@@ -1,4 +1,3 @@
-const OPENAI_CHAT_API_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_RESPONSES_API_URL = "https://api.openai.com/v1/responses";
 
 interface OpenAITextRequest {
@@ -6,7 +5,6 @@ interface OpenAITextRequest {
   model: string;
   prompt: string;
   instructions: string;
-  temperature?: number;
 }
 
 export async function callOpenAIText({
@@ -14,37 +12,13 @@ export async function callOpenAIText({
   model,
   prompt,
   instructions,
-  temperature,
 }: OpenAITextRequest): Promise<string> {
-  const requestModel = model.trim();
-
-  if (shouldUseResponsesAPI(requestModel)) {
-    return callResponsesAPI({
-      apiKey,
-      model: requestModel,
-      prompt,
-      instructions,
-    });
-  }
-
-  return callChatCompletionsAPI({
+  return callResponsesAPI({
     apiKey,
-    model: requestModel,
+    model: model.trim(),
     prompt,
     instructions,
-    temperature,
   });
-}
-
-function shouldUseResponsesAPI(model: string): boolean {
-  const normalized = model.toLowerCase();
-  return (
-    normalized.startsWith("gpt-5") ||
-    normalized.startsWith("gpt-4.1") ||
-    normalized.startsWith("o1") ||
-    normalized.startsWith("o3") ||
-    normalized.startsWith("o4")
-  );
 }
 
 async function callResponsesAPI({
@@ -52,7 +26,7 @@ async function callResponsesAPI({
   model,
   prompt,
   instructions,
-}: Omit<OpenAITextRequest, "temperature">): Promise<string> {
+}: OpenAITextRequest): Promise<string> {
   const response = await fetch(OPENAI_RESPONSES_API_URL, {
     method: "POST",
     headers: {
@@ -78,48 +52,6 @@ async function callResponsesAPI({
   const data = await response.json();
   const content = extractResponsesText(data);
   if (!content.trim()) {
-    throw new Error("OpenAI response did not include content");
-  }
-
-  return content;
-}
-
-async function callChatCompletionsAPI({
-  apiKey,
-  model,
-  prompt,
-  instructions,
-  temperature,
-}: OpenAITextRequest): Promise<string> {
-  const response = await fetch(OPENAI_CHAT_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      messages: [
-        {
-          role: "system",
-          content: instructions,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw await buildOpenAIError(response);
-  }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
     throw new Error("OpenAI response did not include content");
   }
 

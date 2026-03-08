@@ -1629,7 +1629,7 @@ async function callModel(prompt: string, settings: AIRuntimeSettings, feature: A
     return callAnthropic(prompt, settings, feature);
   }
 
-  return callOpenAI(prompt, settings, feature);
+  return callOpenAI(prompt, settings);
 }
 
 async function persistAIRun(input: {
@@ -1681,13 +1681,12 @@ function truncateValue(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
-async function callOpenAI(prompt: string, settings: AIRuntimeSettings, feature: AIFeature): Promise<string> {
+async function callOpenAI(prompt: string, settings: AIRuntimeSettings): Promise<string> {
   return callOpenAIText({
     apiKey: settings.apiKey,
     model: settings.model || DEFAULT_OPENAI_MODEL,
     prompt,
     instructions: "Return only JSON. No markdown. No prose outside JSON.",
-    temperature: feature === "daily_digest" ? 0.3 : 0.2,
   });
 }
 
