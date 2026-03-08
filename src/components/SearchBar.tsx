@@ -22,19 +22,23 @@ export default function SearchBar({ onSearch, initialQuery = "", loading }: Sear
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className={`relative rounded-xl transition-all duration-300 ${
-        focused
-          ? "shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_40px_-8px_rgba(34,211,238,0.15),0_4px_24px_-4px_rgba(0,0,0,0.3)]"
-          : "shadow-[0_2px_12px_-4px_rgba(0,0,0,0.3)]"
-      }`}>
-        {/* Gradient border effect */}
-        <div className={`absolute -inset-px rounded-xl bg-gradient-to-r transition-opacity duration-300 ${
+      <div
+        className={`relative rounded-xl transition-all duration-300 ${
           focused
-            ? "from-cyan-500/30 via-cyan-400/10 to-cyan-500/30 opacity-100"
-            : "from-white/[0.06] to-white/[0.06] opacity-100"
-        }`} />
+            ? "shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_40px_-8px_rgba(34,211,238,0.15),0_4px_24px_-4px_rgba(0,0,0,0.18)]"
+            : "shadow-[0_2px_12px_-4px_rgba(15,23,42,0.18)]"
+        }`}
+      >
+        {/* Gradient border effect */}
+        <div
+          className={`absolute -inset-px rounded-xl bg-gradient-to-r transition-opacity duration-300 ${
+            focused
+              ? "from-cyan-500/30 via-cyan-400/10 to-cyan-500/30 opacity-100"
+              : "from-[color:var(--color-border)] to-[color:var(--color-border)] opacity-100"
+          }`}
+        />
 
-        <div className="relative rounded-xl bg-[#0a0a14]">
+        <div className="relative rounded-xl bg-[color:var(--color-surface-raised)]">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             {loading ? (
               <svg className="h-5 w-5 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24">
@@ -43,7 +47,7 @@ export default function SearchBar({ onSearch, initialQuery = "", loading }: Sear
               </svg>
             ) : (
               <svg
-                className={`h-5 w-5 transition-colors duration-200 ${focused ? "text-cyan-400" : "text-white/25"}`}
+                className={`h-5 w-5 transition-colors duration-200 ${focused ? "text-cyan-400" : "text-[color:rgb(var(--color-foreground-rgb)/0.35)]"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -60,7 +64,7 @@ export default function SearchBar({ onSearch, initialQuery = "", loading }: Sear
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder="Search by CVE ID, keyword, or describe what you're looking for..."
-            className="h-13 w-full rounded-xl bg-transparent pl-12 pr-28 text-[15px] text-white placeholder-white/20 outline-none"
+            className="h-13 w-full rounded-xl bg-transparent pl-12 pr-28 text-[15px] text-[color:var(--color-foreground)] placeholder:text-[color:rgb(var(--color-foreground-rgb)/0.3)] outline-none"
           />
           <button
             type="submit"

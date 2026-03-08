@@ -182,6 +182,20 @@ function initializeDatabase(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_api_request_logs_created_at ON api_request_logs(created_at DESC);
 
+    CREATE TABLE IF NOT EXISTS cached_cves (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL DEFAULT '',
+      summary_json TEXT NOT NULL DEFAULT '',
+      detail_json TEXT NOT NULL DEFAULT '',
+      published_at TEXT,
+      modified_at TEXT,
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cached_cves_modified_at ON cached_cves(modified_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_cached_cves_published_at ON cached_cves(published_at DESC);
+
     CREATE TABLE IF NOT EXISTS user_watchlist (
       user_id TEXT NOT NULL,
       cve_id TEXT NOT NULL,

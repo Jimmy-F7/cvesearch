@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
+import { persistCVEsFromUpstreamResponse } from "@/lib/cve-store";
 
 const API_BASE = "https://vulnerability.circl.lu/api";
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -50,6 +51,7 @@ export const GET = withRouteProtection(async function GET(request: NextRequest) 
     }
 
     const data = await res.json();
+    persistCVEsFromUpstreamResponse(path, data);
     return NextResponse.json(data);
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {

@@ -1,5 +1,6 @@
 import { CVEDetail, CVESummary, EPSSData, HomeDashboardData, KnownExploitedVulnerability } from "./types";
 import { SearchState } from "./search";
+import { persistCVEsFromUpstreamResponse } from "./cve-store";
 import {
   applySearchResultPreferences,
   buildPresetHref,
@@ -32,7 +33,9 @@ async function fetchUpstream<T>(path: string): Promise<T> {
     throw new Error(`Upstream API error: ${res.status} ${res.statusText}`);
   }
 
-  return res.json();
+  const data = await res.json();
+  persistCVEsFromUpstreamResponse(path, data);
+  return data;
 }
 
 export async function getLatestCVEsServer(page: number, perPage: number): Promise<CVESummary[]> {

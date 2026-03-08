@@ -1,24 +1,68 @@
 @import "tailwindcss";
 
-@theme inline {
+:root {
+  --color-background: #f3f7fc;
+  --color-background-rgb: 243 247 252;
+  --color-foreground: #0f172a;
+  --color-foreground-rgb: 15 23 42;
+  --color-surface: #ffffff;
+  --color-surface-raised: rgba(255, 255, 255, 0.88);
+  --color-border: rgba(15, 23, 42, 0.12);
+  --color-border-hover: rgba(15, 23, 42, 0.18);
+  --color-accent: #0891b2;
+  --color-accent-muted: rgba(8, 145, 178, 0.12);
+  --color-glow: rgba(8, 145, 178, 0.12);
+  --color-header-bg: rgba(243, 247, 252, 0.82);
+  --color-nav-hover-bg: rgba(15, 23, 42, 0.05);
+  --color-nav-active-bg: rgba(15, 23, 42, 0.08);
+  --color-grid: rgba(15, 23, 42, 0.06);
+  --color-scan-line: rgba(15, 23, 42, 0.04);
+}
+
+html.dark {
   --color-background: #06060b;
+  --color-background-rgb: 6 6 11;
   --color-foreground: #e8eaed;
+  --color-foreground-rgb: 232 234 237;
   --color-surface: #0c0c14;
-  --color-surface-raised: #12121e;
+  --color-surface-raised: rgba(18, 18, 30, 0.92);
   --color-border: rgba(255, 255, 255, 0.06);
   --color-border-hover: rgba(255, 255, 255, 0.12);
   --color-accent: #22d3ee;
   --color-accent-muted: rgba(34, 211, 238, 0.15);
-  --color-glow: rgba(34, 211, 238, 0.08);
-  --font-sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
-  --font-display: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --color-glow: rgba(34, 211, 238, 0.12);
+  --color-header-bg: rgba(6, 6, 11, 0.8);
+  --color-nav-hover-bg: rgba(255, 255, 255, 0.04);
+  --color-nav-active-bg: rgba(255, 255, 255, 0.08);
+  --color-grid: rgba(255, 255, 255, 0.012);
+  --color-scan-line: rgba(255, 255, 255, 0.008);
+}
+
+@theme inline {
+  --font-sans: var(--font-dm-sans), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "SF Mono", "Fira Code", Consolas, monospace;
+  --font-display: var(--font-dm-sans), "Segoe UI", system-ui, sans-serif;
 }
 
 /* ── Base ────────────────────────────────────────────────── */
-body {
+html {
   background: var(--color-background);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(circle at top center, var(--color-glow), transparent 45%),
+    linear-gradient(180deg, rgb(var(--color-background-rgb)) 0%, var(--color-background) 100%);
   color: var(--color-foreground);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .rt-Theme {
@@ -41,8 +85,8 @@ body {
 
 /* ── Selection ───────────────────────────────────────────── */
 ::selection {
-  background: rgba(34, 211, 238, 0.25);
-  color: white;
+  background: var(--color-accent-muted);
+  color: rgb(var(--color-foreground-rgb));
 }
 
 /* ── Scrollbar ───────────────────────────────────────────── */
@@ -56,35 +100,55 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--color-foreground-rgb) / 0.12);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgb(var(--color-foreground-rgb) / 0.2);
 }
 
 /* ── Utility: glass surface ──────────────────────────────── */
 .glass {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.03) 0%,
-    rgba(255, 255, 255, 0.01) 100%
+    rgb(255 255 255 / 0.78) 0%,
+    rgb(255 255 255 / 0.56) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border);
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: 0 18px 48px -32px rgb(15 23 42 / 0.28);
 }
 
 .glass-raised {
   background: linear-gradient(
     135deg,
+    rgb(255 255 255 / 0.92) 0%,
+    rgb(255 255 255 / 0.72) 100%
+  );
+  border: 1px solid var(--color-border-hover);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: 0 24px 64px -40px rgb(15 23 42 / 0.35);
+}
+
+html.dark .glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  box-shadow: none;
+}
+
+html.dark .glass-raised {
+  background: linear-gradient(
+    135deg,
     rgba(255, 255, 255, 0.05) 0%,
     rgba(255, 255, 255, 0.02) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: none;
 }
 
 /* ── Utility: glow borders ───────────────────────────────── */
@@ -186,8 +250,8 @@ body {
 /* ── Grid background ─────────────────────────────────────── */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
@@ -201,8 +265,8 @@ body {
     0deg,
     transparent,
     transparent 2px,
-    rgba(255, 255, 255, 0.008) 2px,
-    rgba(255, 255, 255, 0.008) 4px
+    var(--color-scan-line) 2px,
+    var(--color-scan-line) 4px
   );
 }
 
@@ -214,39 +278,39 @@ body {
 
 /* ── Input base styling ──────────────────────────────────── */
 .input-base {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: white;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-foreground);
   border-radius: 10px;
   transition: all 0.2s ease;
 }
 
 .input-base::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgb(var(--color-foreground-rgb) / 0.35);
 }
 
 .input-base:focus {
-  border-color: rgba(34, 211, 238, 0.4);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: rgb(34 211 238 / 0.4);
+  background: var(--color-surface);
   box-shadow:
-    0 0 0 3px rgba(34, 211, 238, 0.08),
-    0 0 20px -4px rgba(34, 211, 238, 0.1);
+    0 0 0 3px rgb(34 211 238 / 0.08),
+    0 0 20px -4px rgb(34 211 238 / 0.1);
   outline: none;
 }
 
 /* ── Button variants ─────────────────────────────────────── */
 .btn-primary {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
-  color: white;
+  background: linear-gradient(135deg, var(--color-accent), #0891b2);
+  color: #f8fafc;
   font-weight: 600;
   border-radius: 10px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 12px -2px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 2px 12px -2px rgb(8 145 178 / 0.3);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #22d3ee, #06b6d4);
-  box-shadow: 0 4px 20px -2px rgba(34, 211, 238, 0.4);
+  background: linear-gradient(135deg, #22d3ee, var(--color-accent));
+  box-shadow: 0 4px 20px -2px rgb(34 211 238 / 0.35);
   transform: translateY(-1px);
 }
 
@@ -256,16 +320,16 @@ body {
 
 .btn-ghost {
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgb(var(--color-foreground-rgb) / 0.6);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   transition: all 0.2s ease;
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--color-nav-hover-bg);
+  color: var(--color-foreground);
+  border-color: var(--color-border-hover);
 }
 
 /* ── Card hover lift ─────────────────────────────────────── */
@@ -274,12 +338,19 @@ body {
 }
 
 .card-hover:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--color-border-hover);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow:
+    0 16px 40px -32px rgb(15 23 42 / 0.35),
+    0 0 0 1px var(--color-border);
+  transform: translateY(-1px);
+}
+
+html.dark .card-hover:hover {
   background: rgba(255, 255, 255, 0.04);
   box-shadow:
     0 4px 24px -4px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
 }
 
 /* ── Badge base ──────────────────────────────────────────── */
@@ -323,8 +394,8 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(34, 211, 238, 0.2) 30%,
-    rgba(34, 211, 238, 0.2) 70%,
+    rgb(34 211 238 / 0.2) 30%,
+    rgb(34 211 238 / 0.2) 70%,
     transparent
   );
 }
@@ -335,8 +406,181 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.08) 20%,
-    rgba(255, 255, 255, 0.08) 80%,
+    rgb(var(--color-foreground-rgb) / 0.08) 20%,
+    rgb(var(--color-foreground-rgb) / 0.08) 80%,
     transparent
   );
+}
+
+/* ── Light-mode compatibility for existing utility classes ─ */
+html.light .text-white,
+html.light .hover\:text-white:hover {
+  color: rgb(var(--color-foreground-rgb)) !important;
+}
+
+html.light .text-white\/80 {
+  color: rgb(var(--color-foreground-rgb) / 0.8) !important;
+}
+
+html.light .text-white\/70,
+html.light .hover\:text-white\/70:hover {
+  color: rgb(var(--color-foreground-rgb) / 0.7) !important;
+}
+
+html.light .text-white\/65 {
+  color: rgb(var(--color-foreground-rgb) / 0.65) !important;
+}
+
+html.light .text-white\/60,
+html.light .hover\:text-white\/60:hover {
+  color: rgb(var(--color-foreground-rgb) / 0.6) !important;
+}
+
+html.light .text-white\/55 {
+  color: rgb(var(--color-foreground-rgb) / 0.55) !important;
+}
+
+html.light .text-white\/50,
+html.light .hover\:text-white\/50:hover {
+  color: rgb(var(--color-foreground-rgb) / 0.5) !important;
+}
+
+html.light .text-white\/45 {
+  color: rgb(var(--color-foreground-rgb) / 0.45) !important;
+}
+
+html.light .text-white\/40 {
+  color: rgb(var(--color-foreground-rgb) / 0.4) !important;
+}
+
+html.light .text-white\/35 {
+  color: rgb(var(--color-foreground-rgb) / 0.35) !important;
+}
+
+html.light .text-white\/30 {
+  color: rgb(var(--color-foreground-rgb) / 0.3) !important;
+}
+
+html.light .text-white\/25 {
+  color: rgb(var(--color-foreground-rgb) / 0.25) !important;
+}
+
+html.light .text-white\/20 {
+  color: rgb(var(--color-foreground-rgb) / 0.2) !important;
+}
+
+html.light .text-white\/15 {
+  color: rgb(var(--color-foreground-rgb) / 0.15) !important;
+}
+
+html.light .bg-white\/\[0\.02\] {
+  background-color: rgb(255 255 255 / 0.74) !important;
+}
+
+html.light .bg-white\/\[0\.03\] {
+  background-color: rgb(255 255 255 / 0.8) !important;
+}
+
+html.light .bg-white\/\[0\.04\] {
+  background-color: rgb(255 255 255 / 0.86) !important;
+}
+
+html.light .bg-white\/\[0\.05\] {
+  background-color: rgb(255 255 255 / 0.9) !important;
+}
+
+html.light .bg-white\/\[0\.06\] {
+  background-color: rgb(255 255 255 / 0.94) !important;
+}
+
+html.light .bg-white\/\[0\.08\] {
+  background-color: rgb(var(--color-foreground-rgb) / 0.08) !important;
+}
+
+html.light .bg-black\/10 {
+  background-color: rgb(var(--color-foreground-rgb) / 0.05) !important;
+}
+
+html.light .bg-black\/15 {
+  background-color: rgb(var(--color-foreground-rgb) / 0.07) !important;
+}
+
+html.light .bg-black\/20 {
+  background-color: rgb(var(--color-foreground-rgb) / 0.1) !important;
+}
+
+html.light .bg-black\/40,
+html.light .bg-black\/60 {
+  background-color: rgb(var(--color-foreground-rgb) / 0.22) !important;
+}
+
+html.light .border-white\/10 {
+  border-color: rgb(var(--color-foreground-rgb) / 0.14) !important;
+}
+
+html.light .border-white\/20 {
+  border-color: rgb(var(--color-foreground-rgb) / 0.2) !important;
+}
+
+html.light .border-white\/\[0\.05\] {
+  border-color: rgb(var(--color-foreground-rgb) / 0.1) !important;
+}
+
+html.light .border-white\/\[0\.06\] {
+  border-color: rgb(var(--color-foreground-rgb) / 0.12) !important;
+}
+
+html.light .border-white\/\[0\.08\] {
+  border-color: rgb(var(--color-foreground-rgb) / 0.14) !important;
+}
+
+html.light .border-white\/\[0\.1\] {
+  border-color: rgb(var(--color-foreground-rgb) / 0.16) !important;
+}
+
+html.light .border-white\/\[0\.12\] {
+  border-color: rgb(var(--color-foreground-rgb) / 0.2) !important;
+}
+
+html.light .hover\:bg-white\/\[0\.02\]:hover {
+  background-color: rgb(255 255 255 / 0.8) !important;
+}
+
+html.light .hover\:bg-white\/\[0\.04\]:hover {
+  background-color: rgb(var(--color-foreground-rgb) / 0.06) !important;
+}
+
+html.light .hover\:bg-white\/\[0\.05\]:hover {
+  background-color: rgb(var(--color-foreground-rgb) / 0.08) !important;
+}
+
+html.light .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: rgb(var(--color-foreground-rgb) / 0.09) !important;
+}
+
+html.light .hover\:bg-white\/\[0\.08\]:hover {
+  background-color: rgb(var(--color-foreground-rgb) / 0.12) !important;
+}
+
+html.light .hover\:border-white\/20:hover {
+  border-color: rgb(var(--color-foreground-rgb) / 0.2) !important;
+}
+
+html.light .hover\:border-white\/\[0\.1\]:hover {
+  border-color: rgb(var(--color-foreground-rgb) / 0.16) !important;
+}
+
+html.light .hover\:border-white\/\[0\.12\]:hover {
+  border-color: rgb(var(--color-foreground-rgb) / 0.2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { loadWatchlist, WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
 import { ALERT_RULES_UPDATED_EVENT, loadAlertRules } from "@/lib/alerts";
 import { loadTriageMap, TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Search", icon: SearchIcon },
@@ -60,7 +61,7 @@ export default function Header() {
   }
 
   return (
-    <header className="scan-line sticky top-0 z-50 border-b border-white/[0.06] bg-[#06060b]/80 backdrop-blur-2xl">
+    <header className="scan-line sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-header-bg)] backdrop-blur-2xl">
       <div className="app-shell flex h-14 items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
@@ -71,13 +72,13 @@ export default function Header() {
             </svg>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[15px] font-semibold tracking-tight text-white">CVE Search</span>
-            <span className="hidden text-[11px] font-medium uppercase tracking-[0.12em] text-white/30 sm:inline">vuln db</span>
+            <span className="text-[15px] font-semibold tracking-tight text-[color:var(--color-foreground)]">CVE Search</span>
+            <span className="hidden text-[11px] font-medium uppercase tracking-[0.12em] text-[color:rgb(var(--color-foreground-rgb)/0.45)] sm:inline">vuln db</span>
           </div>
         </Link>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-0.5">
+        <nav aria-label="Primary" className="flex items-center gap-0.5">
           {NAV_ITEMS.map((item) => {
             const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const badge = getBadge(item.href);
@@ -87,10 +88,12 @@ export default function Header() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                aria-label={item.label}
                 className={`relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all duration-200 ${
                   isActive
-                    ? "bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                    : "text-white/40 hover:bg-white/[0.04] hover:text-white/70"
+                    ? "bg-[color:var(--color-nav-active-bg)] text-[color:var(--color-foreground)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    : "text-[color:rgb(var(--color-foreground-rgb)/0.55)] hover:bg-[color:var(--color-nav-hover-bg)] hover:text-[color:rgb(var(--color-foreground-rgb)/0.82)]"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -107,19 +110,21 @@ export default function Header() {
                   </span>
                 )}
                 {isActive && (
-                  <span className="absolute -bottom-[9px] left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                  <span className="absolute -bottom-[9px] left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-[color:var(--color-accent)] shadow-[0_0_8px_var(--color-glow)]" />
                 )}
               </Link>
             );
           })}
 
-          <span className="mx-1 h-4 w-px bg-white/[0.06]" />
+          <span className="mx-1 h-4 w-px bg-[color:var(--color-border)]" />
+
+          <ThemeToggle />
 
           <a
             href="https://vulnerability.circl.lu"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-white/30 transition-colors hover:text-white/60"
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[color:rgb(var(--color-foreground-rgb)/0.45)] transition-colors hover:text-[color:rgb(var(--color-foreground-rgb)/0.78)]"
           >
             API
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
