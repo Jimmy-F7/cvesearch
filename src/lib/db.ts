@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -10,7 +11,7 @@ let currentDb: DatabaseSync | null = null;
 export function getDatabaseFile(): string {
   const explicit = process.env.DATABASE_FILE?.trim();
   if (explicit) {
-    return explicit;
+    return assertSafeDbPath(explicit);
   }
 
   const scopedFile = [
@@ -21,10 +22,19 @@ export function getDatabaseFile(): string {
   ].find((value) => typeof value === "string" && value.trim());
 
   if (scopedFile) {
-    return path.join(path.dirname(scopedFile), "state.db");
+    return assertSafeDbPath(path.join(path.dirname(scopedFile), "state.db"));
   }
 
   return path.join(DATA_DIR, "app.db");
+}
+
+function assertSafeDbPath(filePath: string): string {
+  const resolved = path.resolve(filePath);
+  const allowed = [DATA_DIR, os.tmpdir()].map((dir) => path.resolve(dir));
+  if (!allowed.some((dir) => resolved.startsWith(dir + path.sep) || resolved === dir)) {
+    throw new Error(`Database path must be inside the data or temp directory, got: ${resolved}`);
+  }
+  return resolved;
 }
 
 export function getDb(): DatabaseSync {

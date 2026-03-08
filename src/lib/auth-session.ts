@@ -42,6 +42,8 @@ export function getOrCreateWorkspaceSession(request: Request): WorkspaceSession 
       INSERT INTO sessions (id, user_id, created_at, expires_at)
       VALUES (?, ?, ?, ?)
     `).run(sessionId, userId, createdAt, expiresAt);
+
+    db.prepare(`DELETE FROM sessions WHERE expires_at <= ?`).run(createdAt);
   });
 
   return {

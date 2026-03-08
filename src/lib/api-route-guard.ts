@@ -34,12 +34,19 @@ interface RouteProtectionConfig {
 type RouteHandler<T extends unknown[]> = (...args: T) => Promise<Response> | Response;
 
 const MAX_STORED_REQUEST_LOGS = 500;
+const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
 const rateLimitState = new Map<string, RateLimitWindow>();
 
 export function withRouteProtection<T extends [Request, ...unknown[]]>(handler: RouteHandler<T>, config: RouteProtectionConfig): RouteHandler<T> {
   return async (...args: T) => {
     const request = args[0];
     const startedAt = Date.now();
+
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    if (contentLength > MAX_REQUEST_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    }
+
     const clientId = getClientIdentifier(request);
     const limit = consumeRateLimit(clientId, config.rateLimit);
 
@@ -76,9 +83,11 @@ export function withRouteProtection<T extends [Request, ...unknown[]]>(handler: 
       });
       return nextResponse;
     } catch (error) {
+      const internalMessage = error instanceof Error ? error.message : config.errorMessage;
+      console.error(`[${config.route}]`, internalMessage);
       const response = withRateLimitHeaders(
         NextResponse.json(
-          { error: error instanceof Error ? error.message : config.errorMessage },
+          { error: config.errorMessage },
           { status: 500 }
         ),
         config.rateLimit,
@@ -92,7 +101,7 @@ export function withRouteProtection<T extends [Request, ...unknown[]]>(handler: 
         durationMs: Date.now() - startedAt,
         limited: false,
         clientId,
-        error: error instanceof Error ? error.message : config.errorMessage,
+        error: internalMessage,
       });
       return response;
     }
@@ -217,7 +226,8 @@ async function appendAPIRequestLog(input: Omit<APIRequestLogRecord, "id" | "crea
         db.prepare("DELETE FROM api_request_logs WHERE id = ?").run(row.id);
       }
     });
-  } catch {
+  } catch (error) {
+    console.error("[api-route-guard] Failed to persist request log:", error instanceof Error ? error.message : error);
   }
 }
 

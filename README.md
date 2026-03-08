@@ -127,6 +127,10 @@ If you expose this application on a network:
 
 The application applies rate limiting, input validation, parameterized SQL, and security headers, but none of these replace authentication for a multi-user or networked deployment.
 
+Rate limiting uses in-memory state that resets on restart and identifies clients via request headers (`X-Forwarded-For`, `User-Agent`), which are spoofable without a trusted reverse proxy. For networked deployments, enforce client identity at the proxy layer.
+
+The `data/` directory contains the SQLite database with all workspace state. Ensure your deployment does not serve this directory — Next.js does not expose it by default, but a misconfigured reverse proxy could make it downloadable.
+
 ## Current Boundaries
 
 - Vendor-only filtering is intentionally blocked because the current upstream flow is only trustworthy when vendor is paired with product.

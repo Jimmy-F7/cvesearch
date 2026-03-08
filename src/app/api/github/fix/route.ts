@@ -166,7 +166,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[fix-route] Failed to get SHA for branch "${defaultBranch}" in ${repoFullName}:`, msg);
       return NextResponse.json(
-        { error: `Failed to get branch SHA (branch: ${defaultBranch}): ${msg}`, analysis: fixResult.analysis },
+        { error: "Failed to resolve the repository default branch", analysis: fixResult.analysis },
         { status: 500 }
       );
     }
@@ -178,7 +178,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[fix-route] Failed to generate branch name:`, msg);
       return NextResponse.json(
-        { error: `Failed to generate branch name: ${msg}`, analysis: fixResult.analysis },
+        { error: "Failed to generate a fix branch name", analysis: fixResult.analysis },
         { status: 500 }
       );
     }
@@ -189,7 +189,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[fix-route] Failed to create branch "${branchName}":`, msg);
       return NextResponse.json(
-        { error: `Failed to create branch "${branchName}": ${msg}`, analysis: fixResult.analysis },
+        { error: "Failed to create the fix branch on GitHub", analysis: fixResult.analysis },
         { status: 500 }
       );
     }
@@ -205,7 +205,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[fix-route] Failed to commit file changes:`, msg);
       return NextResponse.json(
-        { error: `Failed to commit changes: ${msg}`, analysis: fixResult.analysis },
+        { error: "Failed to commit file changes to the fix branch", analysis: fixResult.analysis },
         { status: 500 }
       );
     }
@@ -223,7 +223,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[fix-route] Failed to create PR:`, msg);
       return NextResponse.json(
-        { error: `Failed to create pull request: ${msg}`, analysis: fixResult.analysis },
+        { error: "Failed to create the pull request on GitHub", analysis: fixResult.analysis },
         { status: 500 }
       );
     }
@@ -239,7 +239,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
   } catch (error) {
     const message = error instanceof Error ? error.message : "Fix failed";
     console.error(`[fix-route] Unexpected error:`, message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "An unexpected error occurred while creating the fix" }, { status: 500 });
   }
 }, {
   route: "/api/github/fix",
