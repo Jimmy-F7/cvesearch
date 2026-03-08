@@ -1,5 +1,7 @@
 # Execution Backlog
 
+> **Historical document.** All backlog tasks described below have been completed as of v2.0.0 (2026-03-08). This document is preserved for project history.
+
 ## Purpose
 
 This backlog turns the improvement plan into implementation-ready tasks. It is ordered by leverage, not by novelty. The top of the backlog focuses on correctness, trust, and delivery safety.

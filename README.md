@@ -34,7 +34,7 @@ Structured vulnerability detail with AI insight, triage state, CVSS context, aff
 
 ### AI Settings
 
-Browser-local AI provider settings for choosing the provider, model, and API key used by AI workflows.
+Server-side AI configuration dashboard showing active provider, per-feature overrides, prompt versions, tool registry, inventory, and workspace data management.
 
 ![AI Settings](docs/images/screenshot-settings.png)
 
@@ -110,8 +110,12 @@ Browser-local AI provider settings for choosing the provider, model, and API key
 
 - Server-rendered initial result loading
 - URL-first state management
+- SQLite-backed persistence for all workspace data
 - Server-side API proxy with allowlisting and timeout handling
 - Upstream response validation for key CIRCL payloads
+- Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+- Rate limiting and request logging on every API route
+- Parameterized SQL queries throughout
 - Automated lint, test, and build checks in CI
 - Heuristic AI fallback when no model provider is configured
 
@@ -167,18 +171,20 @@ Open `http://localhost:3000`.
 | Variable | Required | Description |
 |---|---|---|
 | `GITHUB_TOKEN` | For Repos feature | GitHub Personal Access Token. Classic PAT needs `repo` scope. Fine-grained PAT needs **Contents: Read and write** and **Pull requests: Read and write**. |
+| `DATABASE_FILE` | No | Custom path for the SQLite database file. Defaults to `data/app.db`. |
+| `AI_ALLOW_SENSITIVE_MODEL_DATA` | No | Set to `true` to disable redaction of sensitive triage notes, owners, and project metadata in prompts sent to third-party AI providers. Defaults to `false` (redaction enabled). |
 
 ### AI Configuration
 
 To use model-backed AI features instead of the built-in heuristic fallback, configure server-side environment variables such as:
 
-- `AI_PROVIDER`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `ANTHROPIC_API_KEY`
-- `ANTHROPIC_MODEL`
+- `AI_PROVIDER` — global provider: `heuristic`, `openai`, or `anthropic`
+- `OPENAI_API_KEY` / `OPENAI_MODEL`
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
 
-You can also override individual flows with feature-specific variables such as `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_PROJECT_SUMMARY_MODEL`, or `AI_DAILY_DIGEST_MODEL`. The `/settings` page shows the active configuration, prompt versions, tool registry, inventory assets, workspace import/export, and recent AI runs.
+You can also override individual flows with feature-specific variables such as `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, or `AI_DAILY_DIGEST_MODEL`. The `/settings` page shows the active configuration, prompt versions, tool registry, inventory assets, workspace import/export, and recent AI runs.
+
+See `.env.example` for the full list of supported variables.
 
 ## Scripts
 
@@ -192,16 +198,23 @@ npm start
 
 ## Testing
 
-The project includes lightweight TypeScript tests for:
+The project includes 65 TypeScript tests across 19 test files covering:
 
 - search-state parsing and URL generation
 - prioritization and local alert matching
 - triage helpers
 - upstream response validation
-- project workflow logic
+- project workflow logic and store persistence
 - repository scan persistence
 - notification scheduling and digest delivery
 - workspace assistant behavior
+- workspace import/export
+- AI platform heuristics and evaluation
+- AI runs store persistence
+- dependency parsing
+- GitHub PR workflow and scan logic
+- API route guard and rate limiting
+- utility functions
 - CVSS and description extraction
 
 GitHub Actions runs `lint`, `test`, and `build` on pushes and pull requests.
@@ -212,15 +225,22 @@ GitHub Actions runs `lint`, `test`, and `build` on pushes and pull requests.
 src/
 ├── app/
 │   ├── api/
-│   │   ├── ai/              # AI summary, search, and digest APIs
-│   │   ├── github/          # GitHub integration APIs
-│   │   │   ├── fix/         # AI fix generation and PR creation
-│   │   │   ├── repos/       # Repository listing
-│   │   │   └── scan/        # Dependency scanning
-│   │   ├── projects/        # Workspace project APIs
-│   │   └── proxy/           # CIRCL proxy
+│   │   ├── ai/              # AI insight, search, triage, digest, remediation,
+│   │   │                    # exposure, alerts, watchlist, and project APIs
+│   │   ├── alerts/          # Alert rule CRUD
+│   │   ├── github/          # GitHub integration (repos, scan, fix)
+│   │   ├── inventory/       # Asset inventory CRUD
+│   │   ├── notifications/   # Notification schedules and delivery
+│   │   ├── projects/        # Project and project-item CRUD
+│   │   ├── prompt-templates/ # Saved prompt template CRUD
+│   │   ├── proxy/           # CIRCL vulnerability-lookup proxy
+│   │   ├── saved-views/     # Saved view CRUD
+│   │   ├── triage/          # Triage state CRUD
+│   │   ├── watchlist/       # Watchlist CRUD
+│   │   └── workspace/       # Conversations, export, and import
 │   ├── alerts/              # Alerts route
 │   ├── cve/[id]/            # CVE detail route
+│   ├── dashboard/           # Analyst dashboard route
 │   ├── projects/            # Projects route
 │   ├── repos/               # GitHub repository monitoring route
 │   ├── settings/            # Server-side AI configuration, inventory, and workspace data
@@ -274,15 +294,21 @@ Used for repository monitoring, dependency file discovery, and PR creation:
 
 ## Docs
 
-Planning and benchmark docs live in [`docs/`](./docs):
+Project documentation lives in [`docs/`](./docs):
+
+- `docs/security-audit.md` — security audit report with findings and recommendations
+- `docs/todo.md` — feature backlog and completion status
+- `docs/test-user-journeys.md` — concise QA checklist
+- `docs/feature-validation-playbook.md` — full feature-by-feature validation guide
+- `docs/ai-platform.md` — AI platform architecture notes
+- [`CHANGELOG.md`](./CHANGELOG.md)
+
+Historical planning docs (all items completed):
 
 - `docs/review-findings.md`
 - `docs/improvement-plan.md`
 - `docs/execution-backlog.md`
 - `docs/opencve-benchmark.md`
-- `docs/test-user-journeys.md` - concise QA checklist
-- `docs/feature-validation-playbook.md` - full feature-by-feature validation guide
-- [`CHANGELOG.md`](./CHANGELOG.md)
 
 ## Tech Stack
 

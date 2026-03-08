@@ -1,5 +1,7 @@
 # App Review Findings
 
+> **Historical document.** All findings listed below have been resolved as of v2.0.0 (2026-03-08). This document is preserved for project history.
+
 ## Summary
 
 The app already has a clean UI and a decent starting structure, but it is still closer to a polished demo than a trustworthy security workflow. The biggest gaps are correctness, shareability, operational hardening, and feature completeness versus the README promise.

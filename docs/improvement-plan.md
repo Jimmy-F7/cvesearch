@@ -1,5 +1,7 @@
 # Improvement Plan
 
+> **Historical document.** All phases described below have been completed as of v2.0.0 (2026-03-08). This document is preserved for project history.
+
 ## Objective
 
 Make the app trustworthy, shareable, fast, and operationally sound before expanding it into a richer vulnerability research workflow.
