@@ -11,13 +11,13 @@ import {
   buildCWEPath,
   buildEPSSPath,
   buildLatestCVEsPath,
+  buildProxyRequestPath,
   buildSearchCVEsPath,
   buildVendorProductsPath,
   buildVendorProductSearchPath,
   buildVendorsPath,
   fetchVulnerabilityAPIProxy,
-  buildProxyRequestPath,
-} from "./vulnerability-api";
+} from "./vulnerability-api-shared";
 
 async function fetchAPI<T>(path: string): Promise<T> {
   return fetchVulnerabilityAPIProxy<T>(path);

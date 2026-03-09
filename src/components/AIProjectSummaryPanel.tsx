@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AIProjectSummary } from "@/lib/types";
 
+interface CachedAIProjectSummary extends AIProjectSummary {
+  _cachedAt?: string;
+}
+
 export default function AIProjectSummaryPanel({ projectId }: { projectId: string }) {
-  const [summary, setSummary] = useState<AIProjectSummary | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<CachedAIProjectSummary | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"executive" | "analyst" | "engineering">("executive");
 
-  async function handleLoad() {
+  async function load(regenerate = false) {
     setLoading(true);
     setError(null);
 
@@ -17,6 +21,7 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
       const res = await fetch(`/api/ai/project/${encodeURIComponent(projectId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -30,6 +35,12 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(() => { if (cancelled) setSummary(null); });
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   const active = summary ? summary[view] : null;
 
@@ -47,19 +58,25 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
             <p className="text-[11px] text-white/25">Executive, analyst, and engineering views.</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleLoad()}
-          disabled={loading}
-          className="rounded-lg bg-gradient-to-r from-indigo-400 to-indigo-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(99,102,241,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(99,102,241,0.4)] hover:-translate-y-px disabled:opacity-50"
-        >
-          {loading ? "Summarizing..." : summary ? "Refresh Summary" : "Generate Summary"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {summary?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(summary._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+            className="rounded-lg bg-gradient-to-r from-indigo-400 to-indigo-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(99,102,241,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(99,102,241,0.4)] hover:-translate-y-px disabled:opacity-50"
+          >
+            {loading ? "Summarizing..." : summary ? "Regenerate" : "Generate Summary"}
+          </button>
+        </div>
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+      {loading && !summary ? <p className="mt-4 text-sm text-white/25">Loading summary...</p> : null}
 
-      {summary ? (
+      {summary && !loading ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm text-white/50">{summary.overview}</p>
 
@@ -109,4 +126,15 @@ function Metric({ label, value }: { label: string; value: string }) {
       {label}: {value}
     </span>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

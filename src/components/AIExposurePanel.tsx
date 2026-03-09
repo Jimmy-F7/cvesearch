@@ -2,51 +2,42 @@
 
 import { useEffect, useState } from "react";
 import { AIExposureAssessment } from "@/lib/types";
-import { INVENTORY_UPDATED_EVENT } from "@/lib/inventory";
-import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+
+interface CachedAIExposureAssessment extends AIExposureAssessment {
+  _cachedAt?: string;
+}
 
 export default function AIExposurePanel({ cveId }: { cveId: string }) {
-  const [assessment, setAssessment] = useState<AIExposureAssessment | null>(null);
+  const [assessment, setAssessment] = useState<CachedAIExposureAssessment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  async function load(regenerate = false) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/exposure/${encodeURIComponent(cveId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load AI exposure assessment");
+      }
+
+      setAssessment(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load AI exposure assessment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/ai/exposure/${encodeURIComponent(cveId)}`, {
-          method: "POST",
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to load AI exposure assessment");
-        }
-
-        if (!cancelled) {
-          setAssessment(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load AI exposure assessment");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-    window.addEventListener(TRIAGE_UPDATED_EVENT, load);
-    window.addEventListener(INVENTORY_UPDATED_EVENT, load);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
-      window.removeEventListener(INVENTORY_UPDATED_EVENT, load);
-    };
+    load().then(() => { if (cancelled) setAssessment(null); });
+    return () => { cancelled = true; };
   }, [cveId]);
 
   return (
@@ -63,10 +54,23 @@ export default function AIExposurePanel({ cveId }: { cveId: string }) {
             <p className="text-[11px] text-white/25">Maps against tracked inventory to estimate internal impact.</p>
           </div>
         </div>
-        {assessment ? <span className="badge badge-xs border-indigo-500/20 bg-indigo-500/8 text-indigo-200">Likely impact: {assessment.likelyImpact}</span> : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {assessment ? <span className="badge badge-xs border-indigo-500/20 bg-indigo-500/8 text-indigo-200">Likely impact: {assessment.likelyImpact}</span> : null}
+          {assessment?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(assessment._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+            className="rounded-lg border border-indigo-500/20 bg-indigo-500/8 px-2.5 py-1.5 text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-500/15 disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Regenerate"}
+          </button>
+        </div>
       </div>
 
-      {loading ? <p className="mt-4 text-sm text-white/25">Estimating internal exposure...</p> : null}
+      {loading && !assessment ? <p className="mt-4 text-sm text-white/25">Estimating internal exposure...</p> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
       {assessment && !loading ? (
@@ -117,4 +121,15 @@ function Section({ title, items }: { title: string; items: string[] }) {
       </ul>
     </section>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

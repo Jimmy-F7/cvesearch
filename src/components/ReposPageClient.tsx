@@ -657,12 +657,9 @@ interface VulnerabilityRowProps {
   onFix: () => void;
 }
 
-const getVulnerabilityDetailUrl = (match: VulnerabilityMatch): { href: string; isExternal: boolean } => {
+const getVulnerabilityDetailUrl = (match: VulnerabilityMatch): string => {
   const primaryCveId = match.cveIds[0];
-  if (primaryCveId) {
-    return { href: `/cve/${primaryCveId}`, isExternal: false };
-  }
-  return { href: `https://osv.dev/vulnerability/${match.vulnerability.id}`, isExternal: true };
+  return `/cve/${encodeURIComponent(primaryCveId ?? match.vulnerability.id)}`;
 };
 
 const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
@@ -686,7 +683,7 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
     UNKNOWN: "bg-white/[0.06] text-white/25 border-white/[0.1]",
   };
 
-  const { href, isExternal } = getVulnerabilityDetailUrl(match);
+  const href = getVulnerabilityDetailUrl(match);
 
   const content = (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -751,25 +748,12 @@ const VulnerabilityRow = ({ match, onFix }: VulnerabilityRowProps) => {
           AI Fix
         </button>
         <span className="flex items-center gap-1 text-xs text-white/25">
-          {isExternal ? "OSV" : "CVE"}
-          {isExternal ? <ExternalLinkIcon /> : <ChevronRightIcon />}
+          {match.cveIds.length > 0 ? "CVE" : "OSV"}
+          <ChevronRightIcon />
         </span>
       </div>
     </div>
   );
-
-  if (isExternal) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`block cursor-pointer rounded-lg border px-4 py-3 transition-colors ${severityStyles[severity] ?? severityStyles.UNKNOWN}`}
-      >
-        {content}
-      </a>
-    );
-  }
 
   return (
     <Link
@@ -811,12 +795,6 @@ const GithubIcon = () => (
 const ChevronRightIcon = () => (
   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-  </svg>
-);
-
-const ExternalLinkIcon = () => (
-  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
   </svg>
 );
 

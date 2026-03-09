@@ -8,92 +8,117 @@ import { listProjectsAPI } from "@/lib/projects-api";
 import { getLatestCVEs } from "@/lib/api";
 import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
 
+interface CachedAIDigest extends AIDigest {
+  _cachedAt?: string;
+}
+
 export default function AIDigestPanel() {
-  const [digest, setDigest] = useState<AIDigest | null>(null);
+  const [digest, setDigest] = useState<CachedAIDigest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function load(regenerate = false) {
+    setLoading(true);
+    setError(null);
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const [latest, projects, watchlist, alertRules] = await Promise.all([
-          getLatestCVEs(1, 80).catch(() => []),
-          listProjectsAPI().catch(() => []),
-          loadWatchlist().catch(() => []),
-          loadAlertRules().catch(() => []),
-        ]);
-
-        const alertPayload = alertRules.map((rule) => {
-          const matching = applySearchResultPreferences(
-            latest.filter((cve) => matchesSearchState(cve, rule.search)),
-            rule.search
-          );
-          return {
-            name: rule.name,
-            unread: matching.length,
-            topMatches: matching.slice(0, 3).map((item) => item.id),
-          };
-        });
-
-        const res = await fetch("/api/ai/digest", {
+    try {
+      if (!regenerate) {
+        const cacheRes = await fetch("/api/ai/digest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            watchlist: watchlist.map((id) => ({ id })),
-            alerts: alertPayload,
-            projects: projects.map((project) => ({
-              name: project.name,
-              items: project.items,
-              updatedAt: project.updatedAt,
-            })),
-          }),
+          body: JSON.stringify({ regenerate: false }),
         });
-
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to generate digest");
-        }
-
-        if (!cancelled) {
-          setDigest(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to generate digest");
-        }
-      } finally {
-        if (!cancelled) {
+        const cacheData = await cacheRes.json().catch(() => null);
+        if (cacheRes.ok && cacheData?._cachedAt) {
+          setDigest(cacheData);
           setLoading(false);
+          return;
         }
       }
-    }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
+      const [latest, projects, watchlist, alertRules] = await Promise.all([
+        getLatestCVEs(1, 80).catch(() => []),
+        listProjectsAPI().catch(() => []),
+        loadWatchlist().catch(() => []),
+        loadAlertRules().catch(() => []),
+      ]);
+
+      const alertPayload = alertRules.map((rule) => {
+        const matching = applySearchResultPreferences(
+          latest.filter((cve) => matchesSearchState(cve, rule.search)),
+          rule.search
+        );
+        return {
+          name: rule.name,
+          unread: matching.length,
+          topMatches: matching.slice(0, 3).map((item) => item.id),
+        };
+      });
+
+      const res = await fetch("/api/ai/digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          regenerate: true,
+          watchlist: watchlist.map((id) => ({ id })),
+          alerts: alertPayload,
+          projects: projects.map((project) => ({
+            name: project.name,
+            items: project.items,
+            updatedAt: project.updatedAt,
+          })),
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to generate digest");
+      }
+
+      setDigest(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate digest");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(() => { if (cancelled) setDigest(null); });
+    return () => { cancelled = true; };
   }, []);
 
   return (
     <div className="rounded-xl border border-emerald-500/15 bg-gradient-to-br from-emerald-500/[0.06] to-transparent p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/15">
-          <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-          </svg>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/15">
+            <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-300">AI Daily Digest</h2>
+            <p className="text-[11px] text-white/25">Summarized view across your watchlist, alerts, and projects.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-300">AI Daily Digest</h2>
-          <p className="text-[11px] text-white/25">Summarized view across your watchlist, alerts, and projects.</p>
+        <div className="flex shrink-0 items-center gap-2">
+          {digest?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(digest._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+            className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/15 disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Regenerate"}
+          </button>
         </div>
       </div>
 
-      {loading && <p className="text-sm text-white/25">Compiling digest...</p>}
+      {loading && !digest && <p className="text-sm text-white/25">Compiling digest...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {digest && !loading && (
@@ -120,4 +145,15 @@ export default function AIDigestPanel() {
       )}
     </div>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

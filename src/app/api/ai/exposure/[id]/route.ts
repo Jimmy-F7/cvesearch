@@ -6,13 +6,25 @@ import { listProjects } from "@/lib/projects-store";
 import { getCVEByIdServer } from "@/lib/server-api";
 import { CVEDetail } from "@/lib/types";
 import { listInventoryAssetsForUser, readTriageRecordForUser } from "@/lib/workspace-store";
+import { getAICacheEntry, setAICacheEntry } from "@/lib/ai-cache-store";
 
 export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
+  const regenerate = body?.regenerate === true;
+  const decodedId = decodeURIComponent(id);
+
+  if (!regenerate) {
+    const cached = getAICacheEntry(session.userId, "exposure_agent", decodedId);
+    if (cached) {
+      const data = JSON.parse(cached.outputJson);
+      return applyWorkspaceSession(NextResponse.json({ ...data, _cachedAt: cached.createdAt }), session);
+    }
+  }
+
   const requestDetail = isCVEDetail(body?.detail) ? body.detail : null;
-  const detail = await getCVEByIdServer(decodeURIComponent(id)).catch(() => requestDetail);
+  const detail = await getCVEByIdServer(decodedId).catch(() => requestDetail);
 
   if (!detail) {
     return applyWorkspaceSession(NextResponse.json({ error: "Failed to load CVE detail for AI exposure" }, { status: 502 }), session);
@@ -44,6 +56,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     })),
   }, { userId: session.userId });
 
+  setAICacheEntry(session.userId, "exposure_agent", decodedId, JSON.stringify(assessment));
   return applyWorkspaceSession(NextResponse.json(assessment), session);
 }, {
   route: "/api/ai/exposure/[id]",

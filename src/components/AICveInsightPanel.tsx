@@ -2,66 +2,75 @@
 
 import { useEffect, useState } from "react";
 import { AICveInsight } from "@/lib/types";
-import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
+
+interface CachedAICveInsight extends AICveInsight {
+  _cachedAt?: string;
+}
 
 export default function AICveInsightPanel({ cveId }: { cveId: string }) {
-  const [insight, setInsight] = useState<AICveInsight | null>(null);
+  const [insight, setInsight] = useState<CachedAICveInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  async function load(regenerate = false) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/ai/cve/${encodeURIComponent(cveId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load AI insight");
+      }
+
+      setInsight(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load AI insight");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await fetch(`/api/ai/cve/${encodeURIComponent(cveId)}`, {
-          method: "POST",
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to load AI insight");
-        }
-
-        if (!cancelled) {
-          setInsight(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load AI insight");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-    window.addEventListener(TRIAGE_UPDATED_EVENT, load);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(TRIAGE_UPDATED_EVENT, load);
-    };
+    load().then(() => { if (cancelled) setInsight(null); });
+    return () => { cancelled = true; };
   }, [cveId]);
 
   return (
     <div className="rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] to-transparent p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15">
-          <svg className="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-          </svg>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15">
+            <svg className="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">AI Insight</h2>
+            <p className="text-[11px] text-white/25">Summary, triage guidance, remediation notes, and related-vulnerability context.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">AI Insight</h2>
-          <p className="text-[11px] text-white/25">Summary, triage guidance, remediation notes, and related-vulnerability context.</p>
+        <div className="flex shrink-0 items-center gap-2">
+          {insight?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(insight._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+            className="rounded-lg border border-cyan-500/20 bg-cyan-500/8 px-2.5 py-1.5 text-xs font-medium text-cyan-300 transition-colors hover:bg-cyan-500/15 disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Regenerate"}
+          </button>
         </div>
       </div>
 
-      {loading && <p className="text-sm text-white/25">Generating insight...</p>}
+      {loading && !insight && <p className="text-sm text-white/25">Generating insight...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {insight && !loading && (
@@ -157,4 +166,15 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
       )}
     </div>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

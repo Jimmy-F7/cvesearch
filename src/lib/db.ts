@@ -154,8 +154,6 @@ function initializeDatabase(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_repo_full_name ON monitored_repo_scans(repo_full_name, scanned_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_monitored_repos_user_id ON monitored_repos(user_id, added_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_monitored_repo_scans_user_id ON monitored_repo_scans(user_id, repo_full_name, scanned_at DESC);
 
     CREATE TABLE IF NOT EXISTS ai_runs (
       id TEXT PRIMARY KEY,
@@ -348,6 +346,15 @@ function initializeDatabase(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_workspace_messages_conversation_id ON user_workspace_messages(conversation_id, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS ai_cache (
+      user_id TEXT NOT NULL,
+      feature TEXT NOT NULL,
+      entity_id TEXT NOT NULL DEFAULT '',
+      output_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, feature, entity_id)
+    );
   `);
 
   ensureColumn(db, "projects", "owner", "TEXT NOT NULL DEFAULT ''");
@@ -558,8 +565,19 @@ function migrateMonitoredRepoScope(db: DatabaseSync): void {
     return;
   }
 
+  const repoUserSelect = hasScopedRepos ? "COALESCE(user_id, '')" : "''";
+  const scanUserSelect = hasScopedScans
+    ? "COALESCE(scans.user_id, repos.user_id, '')"
+    : hasScopedRepos
+      ? "COALESCE(repos.user_id, '')"
+      : "''";
+
   withTransaction((tx) => {
     tx.exec(`
+      DROP INDEX IF EXISTS idx_monitored_repo_scans_repo_full_name;
+      DROP INDEX IF EXISTS idx_monitored_repos_user_id;
+      DROP INDEX IF EXISTS idx_monitored_repo_scans_user_id;
+
       ALTER TABLE monitored_repo_scans RENAME TO monitored_repo_scans_legacy;
       ALTER TABLE monitored_repos RENAME TO monitored_repos_legacy;
 
@@ -612,7 +630,7 @@ function migrateMonitoredRepoScope(db: DatabaseSync): void {
       )
       SELECT
         id,
-        COALESCE(user_id, ''),
+        ${repoUserSelect},
         github_id,
         full_name,
         html_url,
@@ -638,7 +656,7 @@ function migrateMonitoredRepoScope(db: DatabaseSync): void {
       )
       SELECT
         scans.id,
-        COALESCE(repos.user_id, ''),
+        ${scanUserSelect},
         scans.repo_id,
         scans.repo_full_name,
         scans.branch,

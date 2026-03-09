@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AIAlertInvestigation } from "@/lib/types";
 
+interface CachedAIAlertInvestigation extends AIAlertInvestigation {
+  _cachedAt?: string;
+}
+
 export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }) {
-  const [investigation, setInvestigation] = useState<AIAlertInvestigation | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [investigation, setInvestigation] = useState<CachedAIAlertInvestigation | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleLoad() {
+  async function load(regenerate = false) {
     setLoading(true);
     setError(null);
 
@@ -16,6 +20,7 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
       const res = await fetch(`/api/ai/alerts/investigate/${encodeURIComponent(ruleId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -29,6 +34,12 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(() => { if (cancelled) setInvestigation(null); });
+    return () => { cancelled = true; };
+  }, [ruleId]);
 
   return (
     <div className="mb-4 rounded-xl border border-rose-500/15 bg-gradient-to-br from-rose-500/[0.06] to-transparent p-4">
@@ -44,19 +55,25 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
             <p className="text-[11px] text-white/25">Explains match rationale and suggests next analyst action.</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleLoad()}
-          disabled={loading}
-          className="rounded-lg bg-gradient-to-r from-rose-400 to-rose-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(244,63,94,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(244,63,94,0.4)] hover:-translate-y-px disabled:opacity-50"
-        >
-          {loading ? "Investigating..." : investigation ? "Refresh Investigation" : "Investigate Rule"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {investigation?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(investigation._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+            className="rounded-lg bg-gradient-to-r from-rose-400 to-rose-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(244,63,94,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(244,63,94,0.4)] hover:-translate-y-px disabled:opacity-50"
+          >
+            {loading ? "Investigating..." : investigation ? "Regenerate" : "Investigate Rule"}
+          </button>
+        </div>
       </div>
 
+      {loading && !investigation ? <p className="mt-4 text-sm text-white/25">Loading investigation...</p> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {investigation ? (
+      {investigation && !loading ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm text-white/70">{investigation.summary}</p>
 
@@ -103,4 +120,15 @@ function Section({ title, items }: { title: string; items: string[] }) {
       </ul>
     </section>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

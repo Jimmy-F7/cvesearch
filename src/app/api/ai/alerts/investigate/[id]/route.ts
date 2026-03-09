@@ -6,12 +6,24 @@ import { generateAlertInvestigation } from "@/lib/ai-service";
 import { getLatestCVEsServer } from "@/lib/server-api";
 import { getSeverityFromScore } from "@/lib/utils";
 import { getAlertRuleForUser } from "@/lib/workspace-store";
+import { getAICacheEntry, setAICacheEntry } from "@/lib/ai-cache-store";
 
 const ALERT_SAMPLE_SIZE = 80;
 
 export const POST = withRouteProtection(async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = getOrCreateWorkspaceSession(request);
   const { id } = await context.params;
+  const body = await request.json().catch(() => null);
+  const regenerate = body?.regenerate === true;
+
+  if (!regenerate) {
+    const cached = getAICacheEntry(session.userId, "alert_investigation", id);
+    if (cached) {
+      const data = JSON.parse(cached.outputJson);
+      return applyWorkspaceSession(NextResponse.json({ ...data, _cachedAt: cached.createdAt }), session);
+    }
+  }
+
   const rule = await getAlertRuleForUser(session.userId, id);
 
   if (!rule) {
@@ -42,6 +54,7 @@ export const POST = withRouteProtection(async function POST(request: NextRequest
     })),
   }, { userId: session.userId });
 
+  setAICacheEntry(session.userId, "alert_investigation", id, JSON.stringify(investigation));
   return applyWorkspaceSession(NextResponse.json(investigation), session);
 }, {
   route: "/api/ai/alerts/investigate/[id]",

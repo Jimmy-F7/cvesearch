@@ -1,53 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AIRunRecord, AIWatchlistReview } from "@/lib/types";
-import { TRIAGE_UPDATED_EVENT } from "@/lib/triage";
-import { WATCHLIST_UPDATED_EVENT } from "@/lib/watchlist";
+import { AIWatchlistReview } from "@/lib/types";
+
+interface CachedAIWatchlistReview extends AIWatchlistReview {
+  _cachedAt?: string;
+}
 
 export default function AIWatchlistReviewPanel({ watchlistCount }: { watchlistCount: number }) {
-  const [review, setReview] = useState<AIWatchlistReview | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [review, setReview] = useState<CachedAIWatchlistReview | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stale, setStale] = useState(false);
-  const [lastReviewAt, setLastReviewAt] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadLastReview() {
-      try {
-        const res = await fetch("/api/ai/runs?limit=50", { cache: "no-store" });
-        const data = await res.json().catch(() => []);
-        if (!res.ok || cancelled || !Array.isArray(data)) {
-          return;
-        }
-
-        const latest = data.find((item): item is AIRunRecord => Boolean(item) && typeof item === "object" && (item as AIRunRecord).feature === "watchlist_analyst");
-        if (latest?.createdAt) {
-          setLastReviewAt(latest.createdAt);
-        }
-      } catch {
-      }
-    }
-
-    void loadLastReview();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const markStale = () => setStale(true);
-    window.addEventListener(WATCHLIST_UPDATED_EVENT, markStale);
-    window.addEventListener(TRIAGE_UPDATED_EVENT, markStale);
-    return () => {
-      window.removeEventListener(WATCHLIST_UPDATED_EVENT, markStale);
-      window.removeEventListener(TRIAGE_UPDATED_EVENT, markStale);
-    };
-  }, []);
-
-  async function handleGenerate() {
+  async function load(regenerate = false) {
     setLoading(true);
     setError(null);
 
@@ -55,6 +20,7 @@ export default function AIWatchlistReviewPanel({ watchlistCount }: { watchlistCo
       const res = await fetch("/api/ai/watchlist/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -62,14 +28,18 @@ export default function AIWatchlistReviewPanel({ watchlistCount }: { watchlistCo
       }
 
       setReview(data);
-      setLastReviewAt(data?.reviewedAt ?? null);
-      setStale(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate AI watchlist review");
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(() => { if (cancelled) setReview(null); });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="rounded-xl border border-amber-500/15 bg-gradient-to-br from-amber-500/[0.06] to-transparent p-5">
@@ -86,26 +56,31 @@ export default function AIWatchlistReviewPanel({ watchlistCount }: { watchlistCo
             <p className="text-[11px] text-white/25">Reviews tracked items, highlights changes, and clusters related issues.</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleGenerate()}
-          disabled={loading || watchlistCount === 0}
-          className="rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(245,158,11,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(245,158,11,0.4)] hover:-translate-y-px disabled:opacity-50"
-        >
-          {loading ? "Reviewing..." : review ? "Refresh Review" : "Run Review"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {review?._cachedAt ? (
+            <span className="text-[11px] text-white/20">{formatRelativeTime(review._cachedAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading || watchlistCount === 0}
+            className="rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(245,158,11,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(245,158,11,0.4)] hover:-translate-y-px disabled:opacity-50"
+          >
+            {loading ? "Reviewing..." : review ? "Regenerate" : "Run Review"}
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/25">
         <span>{watchlistCount} tracked {watchlistCount === 1 ? "item" : "items"}</span>
-        {lastReviewAt ? <span>Last review: {new Date(lastReviewAt).toLocaleString("en-US")}</span> : <span>No saved review yet</span>}
-        {stale && review ? <span className="text-amber-300">Workspace changed since this review</span> : null}
+        {review?.reviewedAt ? <span>Last review: {new Date(review.reviewedAt).toLocaleString("en-US")}</span> : <span>No saved review yet</span>}
       </div>
 
       {watchlistCount === 0 ? <p className="mt-4 text-sm text-white/25">Add CVEs to the watchlist to generate an analyst review.</p> : null}
+      {loading && !review ? <p className="mt-4 text-sm text-white/25">Loading review...</p> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {review ? (
+      {review && !loading ? (
         <div className="mt-4 space-y-5 animate-fade-in">
           <section>
             <div className="glass rounded-xl px-4 py-3 text-sm font-medium text-white">{review.headline}</div>
@@ -160,4 +135,15 @@ function ReviewList({ title, items, emptyLabel }: { title: string; items: string
       )}
     </section>
   );
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
