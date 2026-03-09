@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { AIDigest } from "@/lib/types";
-import { loadWatchlist } from "@/lib/watchlist";
-import { loadAlertRules } from "@/lib/alerts";
-import { listProjectsAPI } from "@/lib/projects-api";
-import { getLatestCVEs } from "@/lib/api";
-import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
 
 interface CachedAIDigest extends AIDigest {
   _cachedAt?: string;
@@ -22,51 +17,11 @@ export default function AIDigestPanel() {
     setError(null);
 
     try {
-      if (!regenerate) {
-        const cacheRes = await fetch("/api/ai/digest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ regenerate: false }),
-        });
-        const cacheData = await cacheRes.json().catch(() => null);
-        if (cacheRes.ok && cacheData?._cachedAt) {
-          setDigest(cacheData);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const [latest, projects, watchlist, alertRules] = await Promise.all([
-        getLatestCVEs(1, 80).catch(() => []),
-        listProjectsAPI().catch(() => []),
-        loadWatchlist().catch(() => []),
-        loadAlertRules().catch(() => []),
-      ]);
-
-      const alertPayload = alertRules.map((rule) => {
-        const matching = applySearchResultPreferences(
-          latest.filter((cve) => matchesSearchState(cve, rule.search)),
-          rule.search
-        );
-        return {
-          name: rule.name,
-          unread: matching.length,
-          topMatches: matching.slice(0, 3).map((item) => item.id),
-        };
-      });
-
       const res = await fetch("/api/ai/digest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          regenerate: true,
-          watchlist: watchlist.map((id) => ({ id })),
-          alerts: alertPayload,
-          projects: projects.map((project) => ({
-            name: project.name,
-            items: project.items,
-            updatedAt: project.updatedAt,
-          })),
+          regenerate,
         }),
       });
 
@@ -85,8 +40,14 @@ export default function AIDigestPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    load().then(() => { if (cancelled) setDigest(null); });
-    return () => { cancelled = true; };
+    void load().then(() => {
+      if (cancelled) {
+        setDigest(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

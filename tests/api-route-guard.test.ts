@@ -12,8 +12,10 @@ import {
 
 test("withRouteProtection enforces rate limits and records request logs", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvesearch-api-logs-"));
-  const previous = process.env.API_REQUEST_LOG_FILE;
+  const previousLogFile = process.env.API_REQUEST_LOG_FILE;
+  const previousDatabaseFile = process.env.DATABASE_FILE;
   process.env.API_REQUEST_LOG_FILE = path.join(tempDir, "api-requests.json");
+  process.env.DATABASE_FILE = path.join(tempDir, "state.db");
   resetAPIRateLimits();
 
   const handler = withRouteProtection(
@@ -55,10 +57,15 @@ test("withRouteProtection enforces rate limits and records request logs", async 
     assert.equal(logs[1].route, "/api/test");
   } finally {
     resetAPIRateLimits();
-    if (previous === undefined) {
+    if (previousLogFile === undefined) {
       delete process.env.API_REQUEST_LOG_FILE;
     } else {
-      process.env.API_REQUEST_LOG_FILE = previous;
+      process.env.API_REQUEST_LOG_FILE = previousLogFile;
+    }
+    if (previousDatabaseFile === undefined) {
+      delete process.env.DATABASE_FILE;
+    } else {
+      process.env.DATABASE_FILE = previousDatabaseFile;
     }
     await fs.rm(tempDir, { recursive: true, force: true });
   }

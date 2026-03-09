@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AITriageSuggestion } from "@/lib/types";
 import { TriageRecord } from "@/lib/triage";
 
@@ -21,7 +21,7 @@ export default function AITriageAssistantPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(regenerate = false) {
+  const load = useCallback(async (regenerate = false) => {
     setLoading(true);
     setError(null);
 
@@ -52,13 +52,13 @@ export default function AITriageAssistantPanel({
     } finally {
       setLoading(false);
     }
-  }
+  }, [cveId, record.cveId, record.status, record.owner, record.notes, record.updatedAt, record.tags]);
 
   useEffect(() => {
     let cancelled = false;
     load().then(() => { if (cancelled) setSuggestion(null); });
     return () => { cancelled = true; };
-  }, [cveId]);
+  }, [load]);
 
   return (
     <div className="mt-5 rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] to-transparent p-4">

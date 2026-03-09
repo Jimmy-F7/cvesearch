@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AIAlertInvestigation } from "@/lib/types";
 
 interface CachedAIAlertInvestigation extends AIAlertInvestigation {
@@ -12,7 +12,7 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(regenerate = false) {
+  const load = useCallback(async (regenerate = false) => {
     setLoading(true);
     setError(null);
 
@@ -33,13 +33,13 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
     } finally {
       setLoading(false);
     }
-  }
+  }, [ruleId]);
 
   useEffect(() => {
     let cancelled = false;
     load().then(() => { if (cancelled) setInvestigation(null); });
     return () => { cancelled = true; };
-  }, [ruleId]);
+  }, [load]);
 
   return (
     <div className="mb-4 rounded-xl border border-rose-500/15 bg-gradient-to-br from-rose-500/[0.06] to-transparent p-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AIProjectSummary } from "@/lib/types";
 
 interface CachedAIProjectSummary extends AIProjectSummary {
@@ -13,7 +13,7 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"executive" | "analyst" | "engineering">("executive");
 
-  async function load(regenerate = false) {
+  const load = useCallback(async (regenerate = false) => {
     setLoading(true);
     setError(null);
 
@@ -34,13 +34,13 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
     } finally {
       setLoading(false);
     }
-  }
+  }, [projectId]);
 
   useEffect(() => {
     let cancelled = false;
     load().then(() => { if (cancelled) setSummary(null); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [load]);
 
   const active = summary ? summary[view] : null;
 

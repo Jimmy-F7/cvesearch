@@ -1,6 +1,6 @@
 import { generateDigest } from "./ai-service";
 import { getDb } from "./db";
-import { loadWorkspaceContextSnapshot } from "./workspace-context";
+import { buildDigestInputFromWorkspaceSnapshot, loadWorkspaceContextSnapshot } from "./workspace-context";
 import { NotificationCadence, NotificationDeliveryRecord, NotificationPreferenceRecord } from "./workspace-types";
 
 interface NotificationPreferenceRow {
@@ -105,7 +105,7 @@ export async function updateNotificationPreferenceForUser(
   const cadence = input.cadence ?? existing.cadence;
   const nextRunAt = input.enabled === false
     ? null
-    : input.cadence && input.cadence !== existing.cadence
+    : shouldScheduleNextRun(existing, input)
       ? scheduleNextRun(now, cadence)
       : existing.nextRunAt;
 
@@ -204,19 +204,7 @@ export async function runDueNotificationDigestsForUser(
   }
 
   const workspace = await loadWorkspaceContextSnapshot(userId);
-  const digest = await generateDigest({
-    watchlist: workspace.watchlist.map((item) => ({ id: item.cveId })),
-    alerts: workspace.alertEvaluations.map((item) => ({
-      name: item.rule.name,
-      unread: item.unread,
-      topMatches: item.matching.slice(0, 3).map((match) => match.id),
-    })),
-    projects: workspace.projects.map((project) => ({
-      name: project.name,
-      items: project.items,
-      updatedAt: project.updatedAt,
-    })),
-  }, { userId });
+  const digest = await generateDigest(buildDigestInputFromWorkspaceSnapshot(workspace), { userId });
 
   const deliveries: NotificationDeliveryRecord[] = [];
 
@@ -290,6 +278,21 @@ function normalizePreferenceRow(row: NotificationPreferenceRow): NotificationPre
     lastSentAt: row.lastSentAt,
     nextRunAt: row.nextRunAt,
   });
+}
+
+function shouldScheduleNextRun(
+  existing: NotificationPreferenceRecord,
+  input: Partial<Pick<NotificationPreferenceRecord, "cadence" | "enabled">>
+): boolean {
+  if (input.cadence && input.cadence !== existing.cadence) {
+    return true;
+  }
+
+  if (input.enabled === true && (!existing.enabled || !existing.nextRunAt)) {
+    return true;
+  }
+
+  return false;
 }
 
 function normalizePreference(value: NotificationPreferenceRecord): NotificationPreferenceRecord {

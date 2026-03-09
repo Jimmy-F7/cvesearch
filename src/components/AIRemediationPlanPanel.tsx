@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AIRemediationPlan } from "@/lib/types";
 
 interface CachedAIRemediationPlan extends AIRemediationPlan {
@@ -12,7 +12,7 @@ export default function AIRemediationPlanPanel({ cveId }: { cveId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(regenerate = false) {
+  const load = useCallback(async (regenerate = false) => {
     setLoading(true);
     setError(null);
 
@@ -33,13 +33,13 @@ export default function AIRemediationPlanPanel({ cveId }: { cveId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [cveId]);
 
   useEffect(() => {
     let cancelled = false;
     load().then(() => { if (cancelled) setPlan(null); });
     return () => { cancelled = true; };
-  }, [cveId]);
+  }, [load]);
 
   return (
     <div className="rounded-xl border border-emerald-500/15 bg-gradient-to-br from-emerald-500/[0.06] to-transparent p-5">

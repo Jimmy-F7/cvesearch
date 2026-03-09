@@ -61,15 +61,15 @@ export default async function CVEDetailPage({ params }: { params: Promise<{ id: 
   const modified = cve.cveMetadata?.dateUpdated || cve.modified;
   const assigner = cve.cveMetadata?.assignerShortName || cve.assigner;
   const state = cve.cveMetadata?.state || cve.state;
-  const references = (cve.referenceMeta?.map((reference) => ({
+  const references = (cve.referenceMeta ?? []).map((reference) => ({
     url: reference.url,
     tags: reference.tags.length > 0 ? [...reference.tags, reference.type] : [reference.type],
-  })) ?? normalizeReferences(cve));
+  }));
   const affected = cve.containers?.cna?.affected || [];
   const problemTypes = cve.containers?.cna?.problemTypes || [];
   const metrics = cve.containers?.cna?.metrics || [];
   const aliases = cve.aliases?.filter((alias) => alias !== cveId) ?? [];
-  const linkedVulnerabilities = cve.linkedVulnerabilities?.map((entry) => entry.id) ?? getLinkedVulnerabilities(cve, cveId);
+  const linkedVulnerabilities = (cve.linkedVulnerabilities ?? []).map((entry) => entry.id);
   const comments = getComments(cve);
   const capecEntries = cve.capec ?? [];
 
@@ -432,92 +432,6 @@ function getPrimaryCweId(cve: CVEDetail): string | null {
   }
 
   return null;
-}
-
-function normalizeReferences(cve: CVEDetail): Array<{ url: string; tags?: string[] }> {
-  const rawReferences = cve.containers?.cna?.references;
-
-  if (rawReferences?.length) {
-    const normalized: Array<{ url: string; tags?: string[] }> = [];
-
-    for (const reference of rawReferences) {
-      const candidate = extractReferenceUrl(reference.url);
-      if (!candidate) continue;
-
-      normalized.push({
-        url: candidate,
-        tags: reference.tags,
-      });
-    }
-
-    return normalized;
-  }
-
-  const normalized: Array<{ url: string }> = [];
-
-  for (const reference of cve.references ?? []) {
-    const candidate = extractReferenceUrl(reference);
-    if (!candidate) continue;
-
-    normalized.push({ url: candidate });
-  }
-
-  return normalized;
-}
-
-function extractReferenceUrl(reference: unknown): string | null {
-  if (typeof reference === "string") {
-    return reference;
-  }
-
-  if (
-    reference &&
-    typeof reference === "object" &&
-    "url" in reference &&
-    typeof reference.url === "string"
-  ) {
-    return reference.url;
-  }
-
-  return null;
-}
-
-function getLinkedVulnerabilities(cve: CVEDetail, currentId: string): string[] {
-  const record = cve as unknown as Record<string, unknown>;
-  const candidates = [
-    record.related_vulnerabilities,
-    record.linked_vulnerabilities,
-    record.vulnerabilities,
-    record.related,
-  ];
-
-  const values = candidates.flatMap((candidate) => normalizeLinkedValues(candidate));
-
-  return Array.from(new Set(values.filter((value) => value !== currentId)));
-}
-
-function normalizeLinkedValues(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-
-  const values: string[] = [];
-  for (const item of value) {
-    if (typeof item === "string") {
-      values.push(item);
-      continue;
-    }
-
-    if (item && typeof item === "object") {
-      const record = item as Record<string, unknown>;
-      const candidate = [record.id, record.cve, record.vulnerability, record.title].find(
-        (entry): entry is string => typeof entry === "string" && entry.length > 0
-      );
-      if (candidate) {
-        values.push(candidate);
-      }
-    }
-  }
-
-  return values;
 }
 
 function getComments(cve: CVEDetail): Array<{ author: string; timestamp: string; body: string }> {

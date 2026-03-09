@@ -4,13 +4,11 @@ import {
   createNotificationPreferenceForUser,
   listNotificationDeliveriesForUser,
   listNotificationPreferencesForUser,
-  runDueNotificationDigestsForUser,
 } from "@/lib/notifications-store";
 import { API_RATE_LIMITS, withRouteProtection } from "@/lib/api-route-guard";
 
 export const GET = withRouteProtection(async function GET(request: NextRequest) {
   const session = getOrCreateWorkspaceSession(request);
-  await runDueNotificationDigestsForUser(session.userId);
   const [preferences, deliveries] = await Promise.all([
     listNotificationPreferencesForUser(session.userId),
     listNotificationDeliveriesForUser(session.userId),

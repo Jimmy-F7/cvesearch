@@ -1,50 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getLatestCVEs } from "@/lib/api";
 import {
-  AlertRule,
   ALERT_RULES_UPDATED_EVENT,
   deleteAlertRule,
-  loadAlertRules,
+  loadAlertEvaluations,
   markAllAlertRulesChecked,
   markAlertRuleChecked,
 } from "@/lib/alerts";
-import { applySearchResultPreferences, matchesSearchState } from "@/lib/search";
-import { CVESummary } from "@/lib/types";
 import CVEList from "@/components/CVEList";
 import AIAlertInvestigationPanel from "@/components/AIAlertInvestigationPanel";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 
-const ALERT_SAMPLE_SIZE = 80;
-
 export default function AlertsPageClient() {
-  const [rules, setRules] = useState<AlertRule[]>([]);
-  const [sample, setSample] = useState<CVESummary[]>([]);
+  const [evaluations, setEvaluations] = useState<Awaited<ReturnType<typeof loadAlertEvaluations>>["evaluations"]>([]);
+  const [sampledCount, setSampledCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [pendingDeleteRule, setPendingDeleteRule] = useState<AlertRule | null>(null);
+  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null);
 
   useEffect(() => {
-    const syncRules = async () => setRules(await loadAlertRules());
-    void syncRules();
-    window.addEventListener(ALERT_RULES_UPDATED_EVENT, syncRules);
-
     let cancelled = false;
 
-    async function loadSample() {
+    async function syncEvaluations() {
       setLoading(true);
       try {
-        const latest = await getLatestCVEs(1, ALERT_SAMPLE_SIZE);
+        const next = await loadAlertEvaluations();
         if (!cancelled) {
-          setSample(latest);
+          setEvaluations(next.evaluations);
+          setSampledCount(next.sampledCount);
         }
       } catch (error) {
         if (!cancelled) {
           setFeedback({
             type: "error",
-            message: error instanceof Error ? error.message : "Failed to load the latest CVE sample.",
+            message: error instanceof Error ? error.message : "Failed to load alert evaluations.",
           });
         }
       } finally {
@@ -54,32 +45,17 @@ export default function AlertsPageClient() {
       }
     }
 
-    loadSample();
+    void syncEvaluations();
+    window.addEventListener(ALERT_RULES_UPDATED_EVENT, syncEvaluations);
 
     return () => {
       cancelled = true;
-      window.removeEventListener(ALERT_RULES_UPDATED_EVENT, syncRules);
+      window.removeEventListener(ALERT_RULES_UPDATED_EVENT, syncEvaluations);
     };
   }, []);
 
-  const evaluations = useMemo(
-    () =>
-      rules.map((rule) => {
-        const matching = applySearchResultPreferences(
-          sample.filter((cve) => matchesSearchState(cve, rule.search)),
-          rule.search
-        );
-        const unread = matching.filter((cve) => isUnreadMatch(cve, rule.lastCheckedAt)).length;
-        return {
-          rule,
-          matching,
-          unread,
-        };
-      }),
-    [rules, sample]
-  );
-
   const totalUnread = evaluations.reduce((sum, item) => sum + item.unread, 0);
+  const pendingDeleteRule = evaluations.find((item) => item.rule.id === pendingDeleteRuleId)?.rule ?? null;
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
@@ -95,8 +71,10 @@ export default function AlertsPageClient() {
             type="button"
             onClick={() => {
               void markAllAlertRulesChecked()
-                .then((next) => {
-                  setRules(next);
+                .then(async () => {
+                  const next = await loadAlertEvaluations();
+                  setEvaluations(next.evaluations);
+                  setSampledCount(next.sampledCount);
                   setFeedback({ type: "success", message: "Marked all alert rules as checked." });
                 })
                 .catch((error: unknown) => {
@@ -120,12 +98,12 @@ export default function AlertsPageClient() {
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <Metric label="Alert rules" value={rules.length} />
+        <Metric label="Alert rules" value={evaluations.length} />
         <Metric label="Unread matches" value={totalUnread} />
-        <Metric label="Sampled CVEs" value={sample.length} />
+        <Metric label="Sampled CVEs" value={sampledCount} />
       </div>
 
-      {rules.length === 0 ? (
+      {evaluations.length === 0 ? (
         <div className="glass rounded-xl px-6 py-10 text-center">
           <p className="text-lg font-medium text-white">No alert rules yet</p>
           <p className="mt-2 text-sm text-white/25">Save an alert from the homepage to start tracking new matches in this workspace.</p>
@@ -163,8 +141,10 @@ export default function AlertsPageClient() {
                     type="button"
                     onClick={() => {
                       void markAlertRuleChecked(rule.id)
-                        .then((next) => {
-                          setRules(next);
+                        .then(async () => {
+                          const next = await loadAlertEvaluations();
+                          setEvaluations(next.evaluations);
+                          setSampledCount(next.sampledCount);
                           setFeedback({ type: "success", message: `Marked ${rule.name} as checked.` });
                         })
                         .catch((error: unknown) => {
@@ -177,7 +157,7 @@ export default function AlertsPageClient() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPendingDeleteRule(rule)}
+                    onClick={() => setPendingDeleteRuleId(rule.id)}
                     className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-500/15"
                   >
                     Delete
@@ -194,7 +174,7 @@ export default function AlertsPageClient() {
       )}
 
       <ConfirmationDialog
-        open={pendingDeleteRule !== null}
+        open={pendingDeleteRuleId !== null}
         title="Delete alert rule?"
         message={pendingDeleteRule ? `${pendingDeleteRule.name} will stop tracking new matches in the alerts workspace.` : ""}
         confirmLabel="Delete Alert Rule"
@@ -204,17 +184,19 @@ export default function AlertsPageClient() {
           }
 
           void deleteAlertRule(pendingDeleteRule.id)
-            .then((next) => {
-              setRules(next);
+            .then(async () => {
+              const next = await loadAlertEvaluations();
+              setEvaluations(next.evaluations);
+              setSampledCount(next.sampledCount);
               setFeedback({ type: "success", message: `Deleted ${pendingDeleteRule.name}.` });
-              setPendingDeleteRule(null);
+              setPendingDeleteRuleId(null);
             })
             .catch((error: unknown) => {
               setFeedback({ type: "error", message: error instanceof Error ? error.message : "Failed to delete alert rule." });
-              setPendingDeleteRule(null);
+              setPendingDeleteRuleId(null);
             });
         }}
-        onClose={() => setPendingDeleteRule(null)}
+        onClose={() => setPendingDeleteRuleId(null)}
       />
     </div>
   );
@@ -231,20 +213,4 @@ function Metric({ label, value }: { label: string; value: number }) {
 
 function Chip({ label }: { label: string }) {
   return <span className="badge badge-xs border-white/[0.06] bg-white/[0.04] text-white/40">{label}</span>;
-}
-
-function isUnreadMatch(cve: CVESummary, lastCheckedAt: string | null): boolean {
-  if (!lastCheckedAt) return true;
-
-  const modified = cve.modified ?? cve.published;
-  if (!modified) return false;
-
-  const modifiedTs = Date.parse(modified);
-  const checkedTs = Date.parse(lastCheckedAt);
-
-  if (Number.isNaN(modifiedTs) || Number.isNaN(checkedTs)) {
-    return true;
-  }
-
-  return modifiedTs > checkedTs;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AICveInsight } from "@/lib/types";
 
 interface CachedAICveInsight extends AICveInsight {
@@ -12,7 +12,7 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(regenerate = false) {
+  const load = useCallback(async (regenerate = false) => {
     setLoading(true);
     setError(null);
 
@@ -33,13 +33,13 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [cveId]);
 
   useEffect(() => {
     let cancelled = false;
     load().then(() => { if (cancelled) setInsight(null); });
     return () => { cancelled = true; };
-  }, [cveId]);
+  }, [load]);
 
   return (
     <div className="rounded-xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] to-transparent p-5">

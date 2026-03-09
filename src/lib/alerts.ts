@@ -1,5 +1,6 @@
 import { SearchState } from "./search";
 import { AlertRule } from "./workspace-types";
+import type { EvaluatedAlertRule } from "./workspace-context";
 
 export const ALERT_RULES_UPDATED_EVENT = "cvesearch:alert-rules-updated";
 
@@ -8,6 +9,11 @@ let alertRulesLoaded = false;
 let alertRulesPromise: Promise<AlertRule[]> | null = null;
 
 export type { AlertRule };
+
+export interface AlertEvaluationsPayload {
+  evaluations: EvaluatedAlertRule[];
+  sampledCount: number;
+}
 
 export async function loadAlertRules(): Promise<AlertRule[]> {
   if (alertRulesLoaded) {
@@ -77,6 +83,19 @@ export async function markAllAlertRulesChecked(): Promise<AlertRule[]> {
   return next;
 }
 
+export async function loadAlertEvaluations(): Promise<AlertEvaluationsPayload> {
+  const res = await fetch("/api/alerts/evaluations", { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("Failed to load alert evaluations");
+  }
+
+  const data = await res.json().catch(() => null);
+  return {
+    evaluations: Array.isArray(data?.evaluations) ? data.evaluations.filter(isEvaluatedAlertRule) : [],
+    sampledCount: typeof data?.sampledCount === "number" ? data.sampledCount : 0,
+  };
+}
+
 async function refreshAlertRules(): Promise<AlertRule[]> {
   const next = await fetchAlertRules();
   alertRulesCache = next;
@@ -127,5 +146,20 @@ function isAlertRule(value: unknown): value is AlertRule {
     typeof value.name === "string" &&
     typeof value.search === "object" &&
     typeof value.createdAt === "string"
+  );
+}
+
+function isEvaluatedAlertRule(value: unknown): value is EvaluatedAlertRule {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  return (
+    "rule" in value &&
+    "matching" in value &&
+    "unread" in value &&
+    isAlertRule(value.rule) &&
+    Array.isArray(value.matching) &&
+    typeof value.unread === "number"
   );
 }

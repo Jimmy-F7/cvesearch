@@ -28,6 +28,12 @@ export function deleteAICacheEntry(userId: string, feature: AIFeature, entityId:
   `).run(userId, feature, entityId);
 }
 
+export function clearAICacheForUserFeature(userId: string, feature: AIFeature): void {
+  getDb().prepare(`
+    DELETE FROM ai_cache WHERE user_id = ? AND feature = ?
+  `).run(userId, feature);
+}
+
 export function clearAICacheForUser(userId: string): void {
   getDb().prepare("DELETE FROM ai_cache WHERE user_id = ?").run(userId);
 }

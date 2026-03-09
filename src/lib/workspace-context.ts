@@ -1,3 +1,4 @@
+import type { DigestInput } from "./ai-service";
 import { applySearchResultPreferences, matchesSearchState } from "./search";
 import { getLatestCVEsServer } from "./server-api";
 import { TriageRecord } from "./triage-shared";
@@ -27,6 +28,11 @@ export interface WorkspaceContextSnapshot {
   triage: Record<string, TriageRecord>;
   projects: ProjectRecord[];
   latestSample: CVESummary[];
+}
+
+export interface AlertEvaluationsSnapshot {
+  evaluations: EvaluatedAlertRule[];
+  sampledCount: number;
 }
 
 export async function loadWorkspaceContextSnapshot(userId: string): Promise<WorkspaceContextSnapshot> {
@@ -60,6 +66,30 @@ export async function loadWorkspaceContextSnapshot(userId: string): Promise<Work
     triage,
     projects,
     latestSample,
+  };
+}
+
+export async function loadAlertEvaluationsForUser(userId: string): Promise<AlertEvaluationsSnapshot> {
+  const snapshot = await loadWorkspaceContextSnapshot(userId);
+  return {
+    evaluations: snapshot.alertEvaluations,
+    sampledCount: snapshot.latestSample.length,
+  };
+}
+
+export function buildDigestInputFromWorkspaceSnapshot(snapshot: WorkspaceContextSnapshot): DigestInput {
+  return {
+    watchlist: snapshot.watchlist.map((item) => ({ id: item.cveId })),
+    alerts: snapshot.alertEvaluations.map((item) => ({
+      name: item.rule.name,
+      unread: item.unread,
+      topMatches: item.matching.slice(0, 3).map((match) => match.id),
+    })),
+    projects: snapshot.projects.map((project) => ({
+      name: project.name,
+      items: project.items,
+      updatedAt: project.updatedAt,
+    })),
   };
 }
 
