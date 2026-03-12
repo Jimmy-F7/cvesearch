@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AICveInsight } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAICveInsight extends AICveInsight {
   _cachedAt?: string;
@@ -70,10 +71,10 @@ export default function AICveInsightPanel({ cveId }: { cveId: string }) {
         </div>
       </div>
 
-      {loading && !insight && <p className="text-sm text-white/25">Generating insight...</p>}
+      {loading && <LoadingIndicator title="Generating insight" subtitle="Building summary, triage guidance, and remediation notes." />}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {insight && !loading && (
+      {insight && (
         <div className="space-y-5 animate-fade-in">
           <section>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Summary</h3>

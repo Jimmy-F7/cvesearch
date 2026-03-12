@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AIDigest } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIDigest extends AIDigest {
   _cachedAt?: string;
@@ -79,10 +80,10 @@ export default function AIDigestPanel() {
         </div>
       </div>
 
-      {loading && !digest && <p className="text-sm text-white/25">Compiling digest...</p>}
+      {loading && <LoadingIndicator title="Compiling digest" subtitle="Summarizing your watchlist, alerts, and project activity." />}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {digest && !loading && (
+      {digest && (
         <div className="space-y-4 animate-fade-in">
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm font-medium text-white">
             {digest.headline}

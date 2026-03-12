@@ -11,6 +11,7 @@ import {
   saveAlertRule,
 } from "@/lib/alerts";
 import ConfirmationDialog from "./ConfirmationDialog";
+import InlineLoadingSpinner from "./InlineLoadingSpinner";
 
 interface AlertRulesPanelProps {
   search: SearchState;
@@ -20,6 +21,7 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [name, setName] = useState("");
   const [pendingDeleteRule, setPendingDeleteRule] = useState<AlertRule | null>(null);
+  const [busy, setBusy] = useState<null | "save" | "delete">(null);
 
   useEffect(() => {
     const sync = async () => setRules(await loadAlertRules());
@@ -53,15 +55,22 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
           />
           <button
             type="button"
+            disabled={busy !== null}
             onClick={() => {
+              setBusy("save");
               void saveAlertRule(name || defaultName, search).then((next) => {
                 setRules(next);
                 setName("");
-              });
+                setBusy(null);
+              }).catch(() => setBusy(null));
             }}
-            className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(245,158,11,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(245,158,11,0.4)] hover:-translate-y-px"
+            className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_2px_12px_-2px_rgba(245,158,11,0.3)] transition-all hover:shadow-[0_4px_20px_-2px_rgba(245,158,11,0.4)] hover:-translate-y-px disabled:opacity-50"
           >
-            Save Alert
+            {busy === "save" ? (
+              <span className="flex items-center gap-2"><InlineLoadingSpinner className="h-3.5 w-3.5" /> Saving...</span>
+            ) : (
+              "Save Alert"
+            )}
           </button>
         </div>
       </div>
@@ -109,14 +118,17 @@ export default function AlertRulesPanel({ search }: AlertRulesPanelProps) {
         title="Delete alert rule?"
         message={pendingDeleteRule ? `${pendingDeleteRule.name} will no longer be tracked as a saved alert.` : ""}
         confirmLabel="Delete Alert Rule"
+        busy={busy === "delete"}
         onConfirm={() => {
           if (!pendingDeleteRule) {
             return;
           }
+          setBusy("delete");
           void deleteAlertRule(pendingDeleteRule.id).then((next) => {
             setRules(next);
             setPendingDeleteRule(null);
-          });
+            setBusy(null);
+          }).catch(() => setBusy(null));
         }}
         onClose={() => setPendingDeleteRule(null)}
       />

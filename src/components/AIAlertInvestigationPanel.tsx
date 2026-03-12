@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AIAlertInvestigation } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIAlertInvestigation extends AIAlertInvestigation {
   _cachedAt?: string;
@@ -70,10 +71,10 @@ export default function AIAlertInvestigationPanel({ ruleId }: { ruleId: string }
         </div>
       </div>
 
-      {loading && !investigation ? <p className="mt-4 text-sm text-white/25">Loading investigation...</p> : null}
+      {loading ? <LoadingIndicator title="Investigating alert rule" subtitle="Analyzing match rationale and building analyst recommendations." /> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {investigation && !loading ? (
+      {investigation ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm text-white/70">{investigation.summary}</p>
 

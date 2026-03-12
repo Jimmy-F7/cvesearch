@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AIExposureAssessment } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIExposureAssessment extends AIExposureAssessment {
   _cachedAt?: string;
@@ -70,10 +71,10 @@ export default function AIExposurePanel({ cveId }: { cveId: string }) {
         </div>
       </div>
 
-      {loading && !assessment ? <p className="mt-4 text-sm text-white/25">Estimating internal exposure...</p> : null}
+      {loading ? <LoadingIndicator title="Estimating internal exposure" subtitle="Mapping against tracked inventory to estimate impact." /> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {assessment && !loading ? (
+      {assessment ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm text-white/70">{assessment.summary}</p>
 

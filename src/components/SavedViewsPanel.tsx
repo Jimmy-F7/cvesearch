@@ -11,6 +11,7 @@ import {
   SAVED_VIEWS_UPDATED_EVENT,
   SavedView,
 } from "@/lib/saved-views";
+import InlineLoadingSpinner from "./InlineLoadingSpinner";
 
 interface SavedViewsPanelProps {
   search: SearchState;
@@ -19,6 +20,7 @@ interface SavedViewsPanelProps {
 export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState<null | "save" | `delete:${string}`>(null);
 
   useEffect(() => {
     const sync = async () => setSavedViews(await loadSavedViews());
@@ -51,15 +53,22 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
           />
           <button
             type="button"
+            disabled={busy !== null}
             onClick={() => {
+              setBusy("save");
               void saveView(name || defaultName, search).then((next) => {
                 setSavedViews(next);
                 setName("");
-              });
+                setBusy(null);
+              }).catch(() => setBusy(null));
             }}
-            className="btn-primary px-4 py-2 text-sm"
+            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
           >
-            Save Current View
+            {busy === "save" ? (
+              <span className="flex items-center gap-2"><InlineLoadingSpinner className="h-3.5 w-3.5" /> Saving...</span>
+            ) : (
+              "Save Current View"
+            )}
           </button>
         </div>
       </div>
@@ -77,12 +86,18 @@ export default function SavedViewsPanel({ search }: SavedViewsPanelProps) {
                 </div>
                 <button
                   type="button"
+                  disabled={busy !== null}
                   onClick={() => {
-                    void deleteSavedView(view.id).then((next) => setSavedViews(next));
+                    setBusy(`delete:${view.id}`);
+                    void deleteSavedView(view.id).then((next) => { setSavedViews(next); setBusy(null); }).catch(() => setBusy(null));
                   }}
-                  className="text-xs text-white/20 transition-colors hover:text-red-400"
+                  className="text-xs text-white/20 transition-colors hover:text-red-400 disabled:opacity-50"
                 >
-                  Delete
+                  {busy === `delete:${view.id}` ? (
+                    <span className="flex items-center gap-1"><InlineLoadingSpinner className="h-3 w-3" /> Deleting...</span>
+                  ) : (
+                    "Delete"
+                  )}
                 </button>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">

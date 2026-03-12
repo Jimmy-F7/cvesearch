@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AIWatchlistReview } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIWatchlistReview extends AIWatchlistReview {
   _cachedAt?: string;
@@ -77,10 +78,10 @@ export default function AIWatchlistReviewPanel({ watchlistCount }: { watchlistCo
       </div>
 
       {watchlistCount === 0 ? <p className="mt-4 text-sm text-white/25">Add CVEs to the watchlist to generate an analyst review.</p> : null}
-      {loading && !review ? <p className="mt-4 text-sm text-white/25">Loading review...</p> : null}
+      {loading ? <LoadingIndicator title="Reviewing watchlist" subtitle="Highlighting changes, clustering related issues, and building recommendations." /> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {review && !loading ? (
+      {review ? (
         <div className="mt-4 space-y-5 animate-fade-in">
           <section>
             <div className="glass rounded-xl px-4 py-3 text-sm font-medium text-white">{review.headline}</div>

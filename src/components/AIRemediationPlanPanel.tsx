@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AIRemediationPlan } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIRemediationPlan extends AIRemediationPlan {
   _cachedAt?: string;
@@ -75,10 +76,10 @@ export default function AIRemediationPlanPanel({ cveId }: { cveId: string }) {
         </div>
       </div>
 
-      {loading && !plan ? <p className="mt-4 text-sm text-white/25">Drafting remediation plan...</p> : null}
+      {loading ? <LoadingIndicator title="Drafting remediation plan" subtitle="Building rollout strategy, controls, and validation steps." /> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {plan && !loading ? (
+      {plan ? (
         <div className="mt-4 space-y-5 animate-fade-in">
           <section>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/30">Summary</h3>

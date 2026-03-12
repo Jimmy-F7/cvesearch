@@ -13,11 +13,13 @@ import {
 } from "@/lib/triage";
 import AITriageAssistantPanel from "./AITriageAssistantPanel";
 import HumanApprovalCheckpoint from "./HumanApprovalCheckpoint";
+import InlineLoadingSpinner from "./InlineLoadingSpinner";
 
 export default function TriagePanel({ cveId }: { cveId: string }) {
   const [record, setRecord] = useState<TriageRecord>(() => createDefaultTriageRecord(cveId));
   const [tagInput, setTagInput] = useState("");
   const [pendingApproval, setPendingApproval] = useState<ApprovalCheckpoint<TriageRecord> | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const sync = async () => {
@@ -32,10 +34,11 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
   }, [cveId]);
 
   const persist = (next: TriageRecord) => {
+    setSaving(true);
     void writeTriageRecord({
       ...next,
       updatedAt: new Date().toISOString(),
-    }).then((saved) => setRecord(saved));
+    }).then((saved) => { setRecord(saved); setSaving(false); }).catch(() => setSaving(false));
   };
 
   const requestApproval = (updater: (current: TriageRecord) => TriageRecord, label: string) => {
@@ -111,7 +114,11 @@ export default function TriagePanel({ cveId }: { cveId: string }) {
 
       {record.updatedAt && (
         <p className="mt-4 text-xs text-white/25">
-          Last updated {new Date(record.updatedAt).toLocaleString("en-US")}
+          {saving ? (
+            <span className="flex items-center gap-1.5"><InlineLoadingSpinner className="h-3 w-3" /> Saving changes...</span>
+          ) : (
+            <>Last updated {new Date(record.updatedAt).toLocaleString("en-US")}</>
+          )}
         </p>
       )}
 

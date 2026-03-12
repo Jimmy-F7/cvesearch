@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AIProjectSummary } from "@/lib/types";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAIProjectSummary extends AIProjectSummary {
   _cachedAt?: string;
@@ -74,9 +75,9 @@ export default function AIProjectSummaryPanel({ projectId }: { projectId: string
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
-      {loading && !summary ? <p className="mt-4 text-sm text-white/25">Loading summary...</p> : null}
+      {loading ? <LoadingIndicator title="Generating project summary" subtitle="Analyzing project items across executive, analyst, and engineering views." /> : null}
 
-      {summary && !loading ? (
+      {summary ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm text-white/50">{summary.overview}</p>
 

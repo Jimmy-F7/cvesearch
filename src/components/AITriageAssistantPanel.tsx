@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AITriageSuggestion } from "@/lib/types";
 import { TriageRecord } from "@/lib/triage";
+import LoadingIndicator from "./LoadingIndicator";
 
 interface CachedAITriageSuggestion extends AITriageSuggestion {
   _cachedAt?: string;
@@ -95,10 +96,10 @@ export default function AITriageAssistantPanel({
         </div>
       </div>
 
-      {loading && !suggestion ? <p className="mt-4 text-sm text-white/25">Generating triage guidance...</p> : null}
+      {loading ? <LoadingIndicator title="Generating triage guidance" subtitle="Analyzing severity, EPSS, KEV status, and project context." /> : null}
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
-      {suggestion && !loading ? (
+      {suggestion ? (
         <div className="mt-4 space-y-4 animate-fade-in">
           <p className="text-sm leading-relaxed text-white/70">{suggestion.summary}</p>
 
