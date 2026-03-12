@@ -157,24 +157,6 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
 
   try {
     const latest = await getLatestCVEsServer(1, 60);
-    const latestCritical = applySearchResultPreferences(latest, {
-      ...state,
-      minSeverity: "CRITICAL",
-      sort: "published_desc",
-    }).slice(0, 5);
-    const highestRisk = applySearchResultPreferences(latest, {
-      ...state,
-      minSeverity: "HIGH",
-      sort: "risk_desc",
-    }).slice(0, 5);
-    const recentHighImpact = applySearchResultPreferences(
-      latest.filter((cve) => wasPublishedWithinDays(cve, 7)),
-      {
-        ...state,
-        minSeverity: "HIGH",
-        sort: "risk_desc",
-      }
-    ).slice(0, 5);
     const analystQueue = applySearchResultPreferences(
       latest.filter((cve) => Boolean(cve.kev) || (cve.epss ?? 0) >= 0.2 || wasPublishedWithinDays(cve, 14)),
       {
@@ -216,29 +198,6 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
         publishedThisWeekCount: latest.filter((cve) => wasPublishedWithinDays(cve, 7)).length,
         knownExploitedCount: latest.filter((cve) => Boolean(cve.kev)).length,
       },
-      presets: [
-        {
-          title: "Latest Critical",
-          description: "Jump straight into recently published critical issues.",
-          href: buildPresetHref({ minSeverity: "CRITICAL" }),
-          accentClassName: "border-red-500/25 bg-red-500/10 text-red-200",
-        },
-        {
-          title: "Highest Risk",
-          description: "Prioritize KEV, EPSS, exploit-like references, and severity together.",
-          href: buildPresetHref({ minSeverity: "HIGH", sort: "risk_desc" }),
-          accentClassName: "border-orange-500/25 bg-orange-500/10 text-orange-200",
-        },
-        {
-          title: "Published This Week",
-          description: "Focus on fresh records from the last 7 days.",
-          href: buildPresetHref({ since: isoDateDaysAgo(7) }),
-          accentClassName: "border-cyan-500/25 bg-cyan-500/10 text-cyan-200",
-        },
-      ],
-      latestCritical,
-      highestRisk,
-      recentHighImpact,
       workflowViews: [
         {
           id: "analyst",
@@ -284,12 +243,6 @@ export async function getHomeDashboardData(state: SearchState): Promise<HomeDash
   } catch {
     return null;
   }
-}
-
-function isoDateDaysAgo(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - days);
-  return date.toISOString().slice(0, 10);
 }
 
 async function enrichCVEsWithKev<T extends CVESummary>(cves: T[]): Promise<T[]> {

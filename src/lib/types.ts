@@ -186,13 +186,6 @@ export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" | "U
 export type SearchSeverityFilter = "ANY" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type SearchSortOption = "published_desc" | "published_asc" | "cvss_desc" | "cvss_asc" | "risk_desc";
 
-export interface DashboardPreset {
-  title: string;
-  description: string;
-  href: string;
-  accentClassName: string;
-}
-
 export interface DashboardSummary {
   sampledCount: number;
   criticalCount: number;
@@ -218,10 +211,6 @@ export interface DashboardWorkflowView {
 
 export interface HomeDashboardData {
   summary: DashboardSummary;
-  presets: DashboardPreset[];
-  latestCritical: CVESummary[];
-  highestRisk: CVESummary[];
-  recentHighImpact: CVESummary[];
   workflowViews: DashboardWorkflowView[];
 }
 

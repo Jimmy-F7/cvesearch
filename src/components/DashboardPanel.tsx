@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Badge, Button, Card, Flex, Grid, Heading, Tabs, Text } from "@radix-ui/themes";
 import { DashboardWorkflowView, HomeDashboardData } from "@/lib/types";
-import CVECard from "./CVECard";
 
 interface DashboardPanelProps {
   dashboard: HomeDashboardData;
@@ -12,34 +11,12 @@ interface DashboardPanelProps {
 export default function DashboardPanel({ dashboard }: DashboardPanelProps) {
   return (
     <section className="mb-8 space-y-6">
-      <Card size="4" className="border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.14),_transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))]">
-        <Flex justify="between" align={{ initial: "start", xl: "end" }} direction={{ initial: "column", xl: "row" }} gap="5">
-          <div>
-            <Text size="1" weight="bold" className="uppercase tracking-[0.24em] text-cyan-300">Operations Overview</Text>
-            <Heading size="8" className="mt-2 text-white">Richer views for analysts, maintainers, and incident response</Heading>
-            <Text as="p" size="3" color="gray" className="mt-3 max-w-3xl">
-              The dashboard now breaks the recent sample into role-based queues so each team can jump directly into the issues that matter most to their workflow.
-            </Text>
-          </div>
-          <Grid columns={{ initial: "2", sm: "3", xl: "5" }} gap="3" className="w-full xl:max-w-4xl">
-            <SummaryTile label="Sampled" value={dashboard.summary.sampledCount} />
-            <SummaryTile label="Critical" value={dashboard.summary.criticalCount} />
-            <SummaryTile label="High or Above" value={dashboard.summary.highOrAboveCount} />
-            <SummaryTile label="Published This Week" value={dashboard.summary.publishedThisWeekCount} />
-            <SummaryTile label="Known Exploited" value={dashboard.summary.knownExploitedCount} />
-          </Grid>
-        </Flex>
-      </Card>
-
-      <Grid columns={{ initial: "1", lg: "3" }} gap="3">
-        {dashboard.presets.map((preset) => (
-          <Link key={preset.title} href={preset.href} className="block">
-            <Card size="3" className={`h-full border transition-all hover:-translate-y-0.5 hover:border-white/20 ${preset.accentClassName}`}>
-              <Heading size="4" className="text-white">{preset.title}</Heading>
-              <Text as="p" size="2" className="mt-2 opacity-85">{preset.description}</Text>
-            </Card>
-          </Link>
-        ))}
+      <Grid columns={{ initial: "2", sm: "3", xl: "5" }} gap="3">
+        <SummaryTile label="Sampled" value={dashboard.summary.sampledCount} />
+        <SummaryTile label="Critical" value={dashboard.summary.criticalCount} />
+        <SummaryTile label="High or Above" value={dashboard.summary.highOrAboveCount} />
+        <SummaryTile label="Published This Week" value={dashboard.summary.publishedThisWeekCount} />
+        <SummaryTile label="Known Exploited" value={dashboard.summary.knownExploitedCount} />
       </Grid>
 
       <Card size="4" className="border border-white/[0.08] bg-white/[0.02]">
@@ -62,24 +39,6 @@ export default function DashboardPanel({ dashboard }: DashboardPanelProps) {
           ))}
         </Tabs.Root>
       </Card>
-
-      <Grid columns={{ initial: "1", xl: "3" }} gap="6">
-        <DashboardColumn
-          title="Latest Critical"
-          description="Fresh critical issues from the sampled feed."
-          cves={dashboard.latestCritical}
-        />
-        <DashboardColumn
-          title="Highest Risk"
-          description="KEV, EPSS, exploit signals, and severity combined into one view."
-          cves={dashboard.highestRisk}
-        />
-        <DashboardColumn
-          title="Recent High Impact"
-          description="High-severity records published during the last 7 days."
-          cves={dashboard.recentHighImpact}
-        />
-      </Grid>
     </section>
   );
 }
@@ -128,33 +87,7 @@ function WorkflowPanel({ view }: { view: DashboardWorkflowView }) {
   );
 }
 
-function DashboardColumn({
-  title,
-  description,
-  cves,
-}: {
-  title: string;
-  description: string;
-  cves: HomeDashboardData["latestCritical"];
-}) {
-  return (
-    <Card size="3" className="border border-white/[0.08] bg-white/[0.02]">
-      <Heading size="4" className="text-white">{title}</Heading>
-      <Text as="p" size="2" color="gray" className="mt-1">{description}</Text>
-      <div className="mt-4 space-y-3">
-        {cves.length === 0 ? (
-          <Card size="2" className="border border-white/[0.06] bg-white/[0.02]">
-            <Text size="2" color="gray">No matching vulnerabilities in the current sample.</Text>
-          </Card>
-        ) : (
-          cves.map((cve) => <CVECard key={`${title}-${cve.id}`} cve={cve} />)
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function CompactDashboardCard({ cve }: { cve: HomeDashboardData["latestCritical"][number] }) {
+function CompactDashboardCard({ cve }: { cve: HomeDashboardData["workflowViews"][number]["cves"][number] }) {
   return (
     <Card size="2" className="border border-white/10 bg-black/15">
       <Flex justify="between" align="start" gap="3">
