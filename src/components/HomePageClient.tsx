@@ -124,25 +124,18 @@ export default function HomePageClient({
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
       {/* Hero */}
-      <div className="page-header text-center">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/15 bg-cyan-500/5 px-3 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-xs font-medium text-cyan-300/80">Live threat intelligence</span>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/15 bg-cyan-500/5 px-2.5 py-0.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-[11px] font-medium text-cyan-300/80">Live</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Vulnerability Search</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Search and filter CVE records</span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Vulnerability Search
-        </h1>
-        <p className="mx-auto mt-2 max-w-xl text-[15px] text-white/35">
-          Search and filter CVE records without the extra operational widgets getting in the way.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <Link href={dashboardHref} className="btn-ghost inline-flex px-4 py-2 text-sm">
-            Open Dashboard
-          </Link>
-          <span className="text-xs uppercase tracking-[0.12em] text-white/20">
-            Digest, saved views, and alert rules moved there
-          </span>
-        </div>
+        <Link href={dashboardHref} className="btn-ghost inline-flex px-3 py-1.5 text-sm">
+          Open Dashboard
+        </Link>
       </div>
 
       <div className="mb-6 space-y-4">

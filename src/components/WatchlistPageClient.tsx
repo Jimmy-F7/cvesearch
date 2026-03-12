@@ -200,12 +200,12 @@ export default function WatchlistPageClient() {
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
-      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Watchlist</h1>
-          <p className="mt-2 text-[15px] text-white/35">Bookmarked CVEs and advisories with workspace triage status, notes, and ownership.</p>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Watchlist</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Bookmarked CVEs with triage status, notes, and ownership</span>
         </div>
-        <Link href="/" className="btn-ghost inline-flex px-4 py-2 text-sm">
+        <Link href="/" className="btn-ghost inline-flex px-3 py-1.5 text-sm">
           Back to Search
         </Link>
       </div>

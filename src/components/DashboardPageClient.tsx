@@ -31,26 +31,24 @@ export default function DashboardPageClient({
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
-      <div className="page-header text-center">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/15 bg-emerald-500/5 px-3 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs font-medium text-emerald-300/80">Operations and triage</span>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/15 bg-emerald-500/5 px-2.5 py-0.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] font-medium text-emerald-300/80">Ops</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Vulnerability Dashboard</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Feed, AI summaries, and workflows</span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Vulnerability Dashboard
-        </h1>
-        <p className="mx-auto mt-2 max-w-2xl text-[15px] text-white/35">
-          Monitor the feed, review AI summaries, and manage reusable workflows away from the main search experience.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <Link href={searchHref} className="btn-primary inline-flex px-4 py-2 text-sm">
+        <div className="flex items-center gap-2">
+          <Link href={searchHref} className="btn-primary inline-flex px-3 py-1.5 text-sm">
             Open Search
           </Link>
-          <Link href="/alerts" className="btn-ghost inline-flex px-4 py-2 text-sm">
-            Review Alerts
+          <Link href="/alerts" className="btn-ghost inline-flex px-3 py-1.5 text-sm">
+            Alerts
           </Link>
-          <Link href="/watchlist" className="btn-ghost inline-flex px-4 py-2 text-sm">
-            Open Watchlist
+          <Link href="/watchlist" className="btn-ghost inline-flex px-3 py-1.5 text-sm">
+            Watchlist
           </Link>
         </div>
       </div>

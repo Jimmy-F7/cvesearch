@@ -10,24 +10,6 @@ interface AISearchAssistantPanelProps {
   onApply: (next: Partial<SearchState>) => void;
 }
 
-const BUILT_IN_PROMPTS = [
-  {
-    id: "builtin-openssl-critical",
-    name: "Critical OpenSSL This Week",
-    prompt: "show newly published critical CVEs affecting OpenSSL this week",
-  },
-  {
-    id: "builtin-k8s-xss",
-    name: "Kubernetes XSS With PoC",
-    prompt: "show me xss vulns in k8s with proof of concept exploits from this week",
-  },
-  {
-    id: "builtin-exchange-remediation",
-    name: "Exchange Patch First",
-    prompt: "what should we patch first for microsoft exchange since 2026-01-15",
-  },
-] as const;
-
 export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -136,10 +118,6 @@ export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPan
                 Ask for products, CWE families, exploit context, time windows, or remediation intent and the assistant will turn that into structured filters.
               </p>
             </div>
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-right">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/25">Examples</div>
-              <div className="mt-1 text-sm text-white/55">{BUILT_IN_PROMPTS.length} ready-made prompts</div>
-            </div>
           </div>
 
           <div className={`rounded-2xl border bg-black/10 p-3 sm:p-4 transition-colors duration-300 ${loading ? "border-cyan-500/25" : "border-white/[0.08]"}`}>
@@ -155,19 +133,6 @@ export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPan
               placeholder="What should we patch first for Microsoft Exchange since 2026-01-15?"
               className="input-base min-h-[116px] w-full resize-y px-3 py-3 text-sm leading-relaxed disabled:opacity-50"
             />
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {BUILT_IN_PROMPTS.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => setPrompt(template.prompt)}
-                  className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white/75"
-                >
-                  {template.name}
-                </button>
-              ))}
-            </div>
 
             <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0 flex-1">
@@ -241,24 +206,6 @@ export default function AISearchAssistantPanel({ onApply }: AISearchAssistantPan
         </div>
 
         <div className="space-y-4">
-          <AssistantSidebarSection
-            title="Quick Start"
-            description="Run one of the built-in analyst prompts immediately."
-          >
-            <div className="space-y-2">
-              {BUILT_IN_PROMPTS.map((template) => (
-                <TemplateListItem
-                  key={template.id}
-                  name={template.name}
-                  prompt={template.prompt}
-                  primaryLabel="Run"
-                  onPrimary={() => void handleInterpret(template.prompt)}
-                  disabled={loading}
-                />
-              ))}
-            </div>
-          </AssistantSidebarSection>
-
           <AssistantSidebarSection
             title="Saved Templates"
             description="Keep reusable prompts here for fast search setup."

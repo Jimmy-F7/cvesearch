@@ -220,10 +220,10 @@ export default function ProjectsPageClient() {
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
-      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Projects</h1>
-          <p className="mt-2 text-[15px] text-white/35">Server-persisted remediation workspaces with owners, due dates, SLAs, exceptions, and timeline visibility.</p>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Projects</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Remediation workspaces with owners, SLAs, and timelines</span>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input

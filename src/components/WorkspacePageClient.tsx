@@ -180,10 +180,10 @@ export default function WorkspacePageClient() {
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
-      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Workspace</h1>
-          <p className="mt-2 text-[15px] text-white/35">Conversational workspace answers plus scheduled digest delivery for the team.</p>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Workspace</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Conversations and scheduled digest delivery</span>
         </div>
         <div className="flex gap-2">
           <button

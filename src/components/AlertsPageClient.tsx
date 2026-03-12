@@ -59,12 +59,10 @@ export default function AlertsPageClient() {
 
   return (
     <div className="app-shell px-4 py-8 sm:px-6">
-      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Alerts</h1>
-          <p className="mt-2 text-[15px] text-white/35">
-            Workspace alert rules evaluated against the latest upstream sample.
-          </p>
+      <div className="page-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Alerts</h1>
+          <span className="hidden text-sm text-white/25 sm:inline">Rules evaluated against the latest upstream sample</span>
         </div>
         <div className="flex gap-2">
           <button
