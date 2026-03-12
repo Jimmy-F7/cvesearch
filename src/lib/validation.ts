@@ -10,11 +10,9 @@ import {
 } from "./types";
 
 export function parseCVESummaryList(value: unknown): CVESummary[] {
-  if (!Array.isArray(value)) {
-    throw new Error("Unexpected response format: expected a CVE list");
-  }
+  const items = normalizeCVEListPayload(value);
 
-  const parsed = value.flatMap((item) => {
+  const parsed = items.flatMap((item) => {
     try {
       return [parseCVESummary(item)];
     } catch {
@@ -30,6 +28,52 @@ export function parseCVESummaryList(value: unknown): CVESummary[] {
   }
 
   return Array.from(deduped.values());
+}
+
+/**
+ * Normalize different upstream response shapes into a flat array of CVE-like
+ * objects that `parseCVESummary` can handle.
+ *
+ * Supported shapes:
+ *  1. Bare array – returned by `/vulnerability/?...`
+ *  2. Wrapped object – returned by `/vulnerability/search/vendor/product`,
+ *     shaped like `{ results: { source_name: [[key, obj], ...], ... }, ... }`.
+ *     Each source contains an array of `[identifier, cveObject]` tuples.
+ */
+function normalizeCVEListPayload(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+
+    // Handle the { results: { source: [[key, obj], ...] } } shape
+    if (record.results && typeof record.results === "object" && !Array.isArray(record.results)) {
+      const sources = record.results as Record<string, unknown>;
+      const items: unknown[] = [];
+
+      for (const sourceEntries of Object.values(sources)) {
+        if (!Array.isArray(sourceEntries)) continue;
+
+        for (const entry of sourceEntries) {
+          // Each entry is a [identifier, cveObject] tuple
+          if (Array.isArray(entry) && entry.length >= 2 && entry[1] && typeof entry[1] === "object") {
+            items.push(entry[1]);
+          } else if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+            // Also accept plain objects in case the format varies
+            items.push(entry);
+          }
+        }
+      }
+
+      if (items.length > 0) {
+        return items;
+      }
+    }
+  }
+
+  throw new Error("Unexpected response format: expected a CVE list");
 }
 
 export function parseCVEDetail(value: unknown): CVEDetail {
